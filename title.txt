@@ -1,3 +1,3 @@
-% RavenDB In Depth
+% Inside RavenDB
 % Oren Eini
 % Hibernating Rhinos
