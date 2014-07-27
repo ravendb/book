@@ -9,9 +9,11 @@
 
 ## In this book...
 
-Chapter 1 serves as an introduction to RavenDB, non relational document stores and...
+Chapter 1 serves as an introduction to RavenDB, non relational document stores and the background story for RavenDB. Not just the techincal details about what it does, but what led to it even existing, and what was so important that we had to create a whole new database for it.
 
-In chapters 2 and 3 we learn how to install RavenDB and actually use it.
+Chapter 2 focuses on setting up a RavenDB instance and starting to use that.
+
+Chapter 3 modeling
 
 In Chapter 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll cover map/reduce.
 
@@ -31,7 +33,7 @@ Chapter 12 - sharding
 
 Chapter 13 - security
 
-
+Chapter 14 - Using RavenHQ
 
 ## Behind RavenDB
 
