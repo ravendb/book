@@ -19,7 +19,7 @@ In Chapter 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll c
 
 Chapter 6 talks about safety features in RavenDB.
 
-Chapter 7 talks about advanced client (streams, changes, json patching)
+Chapter 7 talks about advanced client (streams, changes, json patching, listeners)
 
 Chapter 8 deals with operations and monitoring
 
@@ -38,3 +38,8 @@ Chapter 14 - Using RavenHQ
 ## Behind RavenDB
 
 Hibernating Rhinos...
+
+
+## Things to talk about in book
+
+- unstructured data in ravendb

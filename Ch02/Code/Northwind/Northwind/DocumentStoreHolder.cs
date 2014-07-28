@@ -16,6 +16,8 @@ namespace Northwind
 				DefaultDatabase = "Northwind",
 			};
 
+			documentStore.Conventions.FindIdentityProperty = prop => prop.Name == prop.DeclaringType.Name + "Id";
+
 			documentStore.Initialize();
 			return documentStore;
 		}
