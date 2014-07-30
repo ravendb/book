@@ -13,7 +13,9 @@ Chapter 1 serves as an introduction to RavenDB, non relational document stores a
 
 Chapter 2 focuses on setting up a RavenDB instance and starting to use that.
 
-Chapter 3 modeling
+Chapter 3 advanced client 
+
+Chapter 3.5 modeling :-)
 
 In Chapter 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll cover map/reduce.
 

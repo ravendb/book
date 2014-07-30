@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Orders;
 using Raven.Client.Document;
 
@@ -18,9 +19,16 @@ namespace Northwind
 
 			using (var session = documentStore.OpenSession())
 			{
-				var p = session.Load<Product>("products/1");
-				Console.WriteLine(p.Name);
+				var order = session.Include<Order>(x => x.Company)
+					.Include(x => x.Employee)
+					.Include(x => x.Lines.Select(l => l.Product))
+					.Load("orders/1");
+					
+
+
 			}
+
+
 		}
 	}
 }
