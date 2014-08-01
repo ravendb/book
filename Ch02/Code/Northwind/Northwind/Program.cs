@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Orders;
+using Raven.Client;
 using Raven.Client.Document;
 
 namespace Northwind
@@ -19,16 +20,10 @@ namespace Northwind
 
 			using (var session = documentStore.OpenSession())
 			{
-				var order = session.Include<Order>(x => x.Company)
-					.Include(x => x.Employee)
-					.Include(x => x.Lines.Select(l => l.Product))
-					.Load("orders/1");
-					
-
-
+				var orders = session.Query<Order>().Include(x=>x.Company)
+					.Where(x => x.Company == "companies/1")
+					.ToList();
 			}
-
-
 		}
 	}
 }
