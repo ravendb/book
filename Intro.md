@@ -13,29 +13,31 @@ Chapter 1 serves as an introduction to RavenDB, non relational document stores a
 
 Chapter 2 focuses on setting up a RavenDB instance and starting to use that.
 
-Chapter 3 advanced client 
+Chapter 3 Understanding RavenDB concepts
 
 Chapter 3.5 modeling :-)
 
 In Chapter 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll cover map/reduce.
 
-Chapter 6 talks about safety features in RavenDB.
+Chapter ? talks about safety features in RavenDB.
 
-Chapter 7 talks about advanced client (streams, changes, json patching, listeners)
+Chapter ? talks about advanced client (streams, changes, json patching, listeners)
 
-Chapter 8 deals with operations and monitoring
+Chapter ? bundles
 
-Chapter 9 helps you debug any issues as well as write tests for them.
+Chapter ? deals with operations and monitoring (backup, restore)
 
-Chpater 10 deal with reporting, SQL Replication
+Chapter ? helps you debug any issues as well as write tests for them.
 
-Chapter 11 - replication
+Chpater ?  deal with reporting, SQL Replication
 
-Chapter 12 - sharding
+Chapter ? - replication
 
-Chapter 13 - security
+Chapter ? - sharding
 
-Chapter 14 - Using RavenHQ
+Chapter ? - security
+
+Chapter ? - Using RavenHQ
 
 ## Behind RavenDB
 
