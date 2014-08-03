@@ -25,7 +25,7 @@ Chapter 7 talks about advanced client (streams, changes, json patching, listener
 
 Chapter 8 deals with operations and monitoring
 
-Chapter 9 helps you debug any issues
+Chapter 9 helps you debug any issues as well as write tests for them.
 
 Chpater 10 deal with reporting, SQL Replication
 
