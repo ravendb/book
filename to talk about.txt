@@ -1,1 +1,16 @@
-Client side listeners
+Verify:
+- Parts
+	Parts 3, Scale out
+- Chapters
+
+
+- Replication
+	- Server prefix
+
+
+- Bundles
+	- Unique constraints
+
+- Trouble shooting
+	- show timings
+	- replication stats
