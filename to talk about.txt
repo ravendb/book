@@ -6,7 +6,7 @@ Verify:
 
 - Replication
 	- Server prefix
-
+	- Use master to ensure optimistic concurrency in round robin
 
 - Bundles
 	- Unique constraints
