@@ -1,5 +1,6 @@
 ﻿using System;
 using Orders;
+using Raven.Abstractions.Data;
 using Raven.Client.Document;
 
 namespace Northwind
@@ -16,16 +17,23 @@ namespace Northwind
 
 			documentStore.Initialize();
 
-			long nextIdentity = documentStore.DatabaseCommands.SeedIdentityFor("products");
-
 			using (var session = documentStore.OpenSession())
 			{
-				var product = new Product {Id = "products/", Name = "What's my id?"};
-				session.Store(product);
-				Console.WriteLine(product.Id);
+				var product = session.Load<Product>("products/1");
 				session.SaveChanges();
-				Console.WriteLine(product.Id);
 			}
+		}
+
+		public ActionResult Product(int id)
+		{
+			Product product = DocumentSession.Load<Product>(id);
+			Etag etag = DocumentSession.Advanced.GetEtagFor(product);
+
+			return Json(new
+			{
+				Document = product,
+				Etag = etag.ToString()
+			})
 		}
 	}
 }

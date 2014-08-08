@@ -4,6 +4,12 @@ Verify:
 - Chapters
 
 
+## Transformers
+
+## Distributed Transactions
+
+## Application databases vs. Organizational database
+
 - Replication
 	- Server prefix
 	- Use master to ensure optimistic concurrency in round robin
