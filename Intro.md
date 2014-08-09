@@ -21,7 +21,7 @@ In Chapter 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll c
 
 Chapter ? talks about safety features in RavenDB.
 
-Chapter ? talks about advanced client (streams, changes, json patching, listeners)
+Chapter ? talks about advanced client (streams, lazy, changes, json patching, listeners, serialization, transformers)
 
 Chapter ? bundles
 

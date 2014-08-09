@@ -10,6 +10,8 @@ Verify:
 
 ## Application databases vs. Organizational database
 
+Fallacties of distributed computing
+
 - Replication
 	- Server prefix
 	- Use master to ensure optimistic concurrency in round robin
