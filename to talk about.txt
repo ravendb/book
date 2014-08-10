@@ -50,3 +50,7 @@ helps you debug any issues as well as write tests for them.
 - security
 
 - Using RavenHQ
+
+# query statistics
+
+* facets, full text search, terms, suggestions
