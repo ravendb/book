@@ -22,3 +22,31 @@ Fallacties of distributed computing
 - Trouble shooting
 	- show timings
 	- replication stats
+
+## Things to talk about in book
+
+- unstructured data in ravendb
+	
+Document based modeling
+
+ 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll cover map/reduce.
+
+talks about safety features in RavenDB.
+
+talks about advanced client (streams, lazy, changes, json patching, listeners, serialization, transformers)
+
+bundles
+
+deals with operations and monitoring (backup, restore)
+
+helps you debug any issues as well as write tests for them.
+
+ deal with reporting, SQL Replication
+
+- replication
+
+- sharding
+
+- security
+
+- Using RavenHQ
