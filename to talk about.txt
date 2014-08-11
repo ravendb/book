@@ -58,3 +58,5 @@ helps you debug any issues as well as write tests for them.
 Excel integration
 
 Deep paging
+
+Set based operations
