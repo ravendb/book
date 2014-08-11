@@ -54,3 +54,7 @@ helps you debug any issues as well as write tests for them.
 # query statistics
 
 * facets, full text search, terms, suggestions
+
+Excel integration
+
+Deep paging
