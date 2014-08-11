@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="windows-1255" ?>
+﻿<?xml version="1.0" ?>
 
 <metadata
   xmlns="http://example.org/myapp/"
@@ -11,6 +11,6 @@
 	<dc:creator opf:file-as="Eini, Oren" opf:role="aut">Oren Eini</dc:creator> 
 	<dc:publisher>Hibernating Rhinos LTD</dc:publisher>
 	<dc:date opf:event="publication">2014-07-20</dc:date>
-	<dc:rights>Copyright �2013 by Oren Eini</dc:rights>
+	<dc:rights>Copyright ©2013 by Oren Eini</dc:rights>
 
 </metadata>

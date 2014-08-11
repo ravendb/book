@@ -30,7 +30,8 @@ namespace Northwind
 
 			var sp = Stopwatch.StartNew();
 
-			using (var bulkInsert = documentStore.BulkInsert())
+			var bulkInsertOptions = new BulkInsertOptions();
+			using (var bulkInsert = documentStore.BulkInsert(options: bulkInsertOptions))
 			{
 				foreach (var i in Enumerable.Range(0, 50 * 1000))
 				{
