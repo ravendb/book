@@ -1,7 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.Remoting;
 using System.Runtime.Remoting.Messaging;
 using Orders;
 using Raven.Abstractions.Data;
+using Raven.Client;
 using Raven.Client.Document;
 
 namespace Northwind
@@ -13,23 +19,38 @@ namespace Northwind
 			var documentStore = new DocumentStore
 			{
 				Url = "http://localhost:8080",
-				DefaultDatabase = "Northwind"
+				DefaultDatabase = "Users"
 			};
 
 			documentStore.Initialize();
 
-			using (documentStore.AggressivelyCache())
+			var session2 = documentStore.OpenSession();
+			session2.Load<User>(1);
+			session2.Dispose();
+
+			var sp = Stopwatch.StartNew();
+
+			using (var bulkInsert = documentStore.BulkInsert())
 			{
-				for (int i = 0; i < 10; i++)
+				foreach (var i in Enumerable.Range(0, 50 * 1000))
 				{
-					using (var session = documentStore.OpenSession())
+					User user = new User
 					{
-						var product = session.Load<Product>("products/1");
-						Console.WriteLine(product.Name);
-					}
-					Console.ReadLine();
+						Name = "Hello " + i
+					};
+					bulkInsert.Store(user);
 				}
 			}
+			
+			sp.Stop();
+
+			Console.WriteLine(sp.ElapsedMilliseconds);
+			Console.WriteLine(sp.Elapsed);
 		}
+	}
+
+	public class User
+	{
+		public string Name;
 	}
 }
