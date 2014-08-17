@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Messaging;
 using Orders;
+using Raven.Abstractions.Commands;
 using Raven.Abstractions.Data;
 using Raven.Client;
 using Raven.Client.Document;
@@ -23,30 +24,19 @@ namespace Northwind
 			};
 
 			documentStore.Initialize();
-
 			var session2 = documentStore.OpenSession();
-			session2.Load<User>(1);
-			session2.Dispose();
-
-			var sp = Stopwatch.StartNew();
-
-			var bulkInsertOptions = new BulkInsertOptions();
-			using (var bulkInsert = documentStore.BulkInsert(options: bulkInsertOptions))
+			using (var session = documentStore.OpenSession())
 			{
-				foreach (var i in Enumerable.Range(0, 50 * 1000))
+				session.Advanced.Defer(new ScriptedPatchCommandData
 				{
-					User user = new User
+					Key = "products/1",
+					Patch = new ScriptedPatchRequest
 					{
-						Name = "Hello " + i
-					};
-					bulkInsert.Store(user);
-				}
+						Script = "this.UnitsInStock--;"
+					}
+				});
+				session.SaveChanges();
 			}
-			
-			sp.Stop();
-
-			Console.WriteLine(sp.ElapsedMilliseconds);
-			Console.WriteLine(sp.Elapsed);
 		}
 	}
 
