@@ -24,19 +24,20 @@ namespace Northwind
 			};
 
 			documentStore.Initialize();
-			var session2 = documentStore.OpenSession();
+			string query;
 			using (var session = documentStore.OpenSession())
 			{
-				session.Advanced.Defer(new ScriptedPatchCommandData
-				{
-					Key = "products/1",
-					Patch = new ScriptedPatchRequest
-					{
-						Script = "this.UnitsInStock--;"
-					}
-				});
-				session.SaveChanges();
+				query = session.Query<Product>()
+					.Where(x => x.Discontinued)
+					.ToString();
 			}
+
+			documentStore.Changes()
+					.ForDocument("products/2")
+					.Subscribe(notification =>
+					{
+						Console.WriteLine(notification.Type+ " on document "+ notification.Id);
+					})
 		}
 	}
 
