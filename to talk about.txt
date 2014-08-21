@@ -59,4 +59,17 @@ Excel integration
 
 Deep paging
 
-Set based operations
+## Set based operations
+
+Unlike a relational database, in RavenDB you are usually operating on a single document (or a very small number of documents) at a time. The recommended practice is that the handling of a business request will load a single document (although it is common to need a bit more than that) and make changes to a single document.
+
+You have already seen that the client API is well optimize for just this scenario. However, there are frequently tasks in which we need to do something to a whole set of documents. That is why RavenDB has specific set based operations. Those operations are:
+
+* `DeleteByIndex` - delete all documents matching a particular query.
+* `UpdateByIndex` - apply a patch (scripted or simple) to the set of documents matching a particular query.
+
+For example, let us say that we wanted to delete all the discontinued products. We can do that using the following code:
+
+
+
+> What about stale results?
