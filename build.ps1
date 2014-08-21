@@ -1,7 +1,7 @@
 Remove-Item  Output -Force -Recurse -ErrorAction SilentlyContinue | out-null 
 MkDir Output  | out-null
 
-$output = "Output\Inside RavenDB 3.0.epub"
+$output = "Output\Inside RavenDB 3.0.pdf"
 
 pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--standalone --highlight-style=espresso --self-contained --chapters `
