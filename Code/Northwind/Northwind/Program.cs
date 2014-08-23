@@ -10,6 +10,8 @@ using Raven.Abstractions.Commands;
 using Raven.Abstractions.Data;
 using Raven.Client;
 using Raven.Client.Document;
+using Raven.Client.Indexes;
+using Raven.Client.Linq;
 
 namespace Northwind
 {
@@ -19,25 +21,44 @@ namespace Northwind
 		{
 			var documentStore = new DocumentStore
 			{
-				Url = "http://localhost:8080",
-				DefaultDatabase = "Users"
+				Url = "http://raven:8080",
+				DefaultDatabase = "nw"
 			};
 
 			documentStore.Initialize();
-			string query;
+
+			new JustOrderIdAndcompanyName().Execute(documentStore);
+
 			using (var session = documentStore.OpenSession())
 			{
-				query = session.Query<Product>()
-					.Where(x => x.Discontinued)
-					.ToString();
-			}
+				var orderId = "orders/827";
 
-			documentStore.Changes()
-					.ForDocument("products/2")
-					.Subscribe(notification =>
-					{
-						Console.WriteLine(notification.Type+ " on document "+ notification.Id);
-					})
+				var order = session.Load<JustOrderIdAndcompanyName, JustOrderIdAndcompanyName.Result>(orderId);
+
+				Console.WriteLine("{0}\t{1}\t{2}", order.Id, order.CompanyName, order.OrderedAt);
+
+				
+
+			}
+		}
+	}
+
+
+	public class JustOrderIdAndcompanyName : AbstractTransformerCreationTask<Order>
+	{
+		public class Result
+		{
+			public string Id { get; set; }
+			public string CompanyName { get; set; }
+			public DateTime OrderedAt { get; set; }
+		}
+
+		public JustOrderIdAndcompanyName()
+		{
+			TransformResults = orders =>
+				from order in orders
+				let company = LoadDocument<Company>(order.Company)
+				select new { order.Id, CompanyName = company.Name, order.OrderedAt };
 		}
 	}
 
