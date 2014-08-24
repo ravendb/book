@@ -31,12 +31,6 @@ Fallacties of distributed computing
 	
 Document based modeling
 
- 4 we'll discuss indexing, and how they work. And in Chapter 5 we'll cover map/reduce.
-
-talks about safety features in RavenDB.
-
-talks about advanced client (streams, lazy, changes, json patching, listeners, serialization, transformers)
-
 bundles
 
 deals with operations and monitoring (backup, restore)
@@ -72,6 +66,14 @@ You have already seen that the client API is well optimize for just this scenari
 
 For example, let us say that we wanted to delete all the discontinued products. We can do that using the following code:
 
-
-
 > What about stale results?
+
+
+
+# Document based modeling
+
+## Point in Time references
+
+## Anorectic documents
+
+## Obese documents

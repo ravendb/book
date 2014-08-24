@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Messaging;
+using System.Text;
 using Orders;
 using Raven.Abstractions.Commands;
 using Raven.Abstractions.Data;
@@ -21,8 +22,8 @@ namespace Northwind
 		{
 			var documentStore = new DocumentStore
 			{
-				Url = "http://raven:8080",
-				DefaultDatabase = "nw"
+				Url = "http://localhost:8080",
+				DefaultDatabase = "Northwind"
 			};
 
 			documentStore.Initialize();
@@ -31,14 +32,14 @@ namespace Northwind
 
 			using (var session = documentStore.OpenSession())
 			{
-				var orderId = "orders/827";
-
-				var order = session.Load<JustOrderIdAndcompanyName, JustOrderIdAndcompanyName.Result>(orderId);
-
-				Console.WriteLine("{0}\t{1}\t{2}", order.Id, order.CompanyName, order.OrderedAt);
-
-				
-
+				List<string> list = session.Query<Product>().OrderBy(x=>x.Name).Select(x=>x.Name).Skip(25).Take(25).ToList();
+				var sb = new StringBuilder("----\t\t\t----\t\t\t----\t\t\t").AppendLine();
+				int i = 0;
+				foreach (var name in list)
+				{
+					sb.Append(name).AppendLine();
+				}
+				var s = sb.ToString();
 			}
 		}
 	}
