@@ -1,10 +1,12 @@
-param([string]$type = "pdf")
+param([string]$type = "pdf", [boolean]$start = $true)
 
-Remove-Item  Output -Force -Recurse -ErrorAction SilentlyContinue | out-null 
+if ($start) {
+	Remove-Item  Output -Force -Recurse -ErrorAction SilentlyContinue | out-null 
+}
 MkDir Output  | out-null
 
 
-$output = "Output\Inside RavenDB 3.0.$type"
+$output = ".\Output\Inside RavenDB 3.0.$type"
 
 pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--standalone --highlight-style=espresso --self-contained --chapters `
@@ -13,4 +15,6 @@ pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	-o $output .\title.txt .\Ch01\Ch01.md .\Part1.md .\Ch02\Ch02.md .\Ch03\Ch03.md `
 	.\Ch04\Ch04.md .\Ch05\Ch05.md .\Part2.md .\Part3.md .\Part4.md
 
-start $output
+if($start) {
+	start $output
+}

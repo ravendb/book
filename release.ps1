@@ -1,0 +1,37 @@
+.\build.ps1 pdf $false
+.\build.ps1 epub $false
+
+$token = Get-Content "$pwd\..\Credentials\github.txt"
+$release = "v0.0.7"
+
+$json = Invoke-WebRequest -Uri "https://api.github.com/repos/ayende/book/releases" `
+	-ContentType "application/json" `
+	-Method "POST" `
+	-Headers @{"Authorization" = "token $token"; "Accept" = "application/vnd.github.v3+json"} `
+	-Body "{  
+	`"tag_name`": `"$release`",   
+	`"target_commitish`": `"master`",   
+	`"name`": `"$release`",   
+	`"body`": `"Preview of the book`",   
+	`"draft`": false,   
+	`"prerelease`":  true
+}"
+
+$resp = ConvertFrom-Json $json
+
+
+$pdf = [System.IO.File]::ReadAllBytes("$pwd\Output\Inside RavenDB 3.0.pdf")
+
+Invoke-WebRequest -Uri "https://uploads.github.com/repos/ayende/book/releases/$resp.id/assets?name=Inside RavenDB 3.0.pdf" `
+	-Headers @{"Authorization" = "token $token"; "Accept" = "application/vnd.github.v3+json"} `
+    -ContentType "application/pdf" `
+    -Method "POST" `
+    -Body $pdf
+
+$epub = [System.IO.File]::ReadAllBytes("$pwd\Output\Inside RavenDB 3.0.epub")
+
+Invoke-WebRequest -Uri "https://uploads.github.com/repos/ayende/book/releases/$resp.id/assets?name=Inside RavenDB 3.0.epub" `
+	-Headers @{"Authorization" = "token $token"; "Accept" = "application/vnd.github.v3+json"} `
+    -ContentType "application/epub+zip" `
+    -Method "POST" `
+    -Body $pdf
