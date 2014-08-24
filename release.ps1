@@ -4,7 +4,8 @@
 $token = Get-Content "$pwd\..\Credentials\github.txt"
 $release = "v0.1"
 
-$json = Invoke-WebRequest -Uri "https://api.github.com/repos/ayende/book/releases" `
+$json = Invoke-WebRequest -ErrorAction Stop `
+	 -Uri "https://api.github.com/repos/ayende/book/releases" `
 	-ContentType "application/json" `
 	-Method "POST" `
 	-Headers @{"Authorization" = "token $token"; "Accept" = "application/vnd.github.v3+json"} `
@@ -16,6 +17,10 @@ $json = Invoke-WebRequest -Uri "https://api.github.com/repos/ayende/book/release
 	`"draft`": false,   
 	`"prerelease`":  true
 }"
+
+if($json -eq $null) {
+	return
+}
 
 $resp = ConvertFrom-Json $json
 
