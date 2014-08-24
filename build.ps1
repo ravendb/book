@@ -3,7 +3,7 @@ param([string]$type = "pdf", [boolean]$start = $true)
 if ($start) {
 	Remove-Item  Output -Force -Recurse -ErrorAction SilentlyContinue | out-null 
 }
-MkDir Output  | out-null
+MkDir Output -ErrorAction SilentlyContinue  | out-null
 
 
 $output = ".\Output\Inside RavenDB 3.0.$type"
