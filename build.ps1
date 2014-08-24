@@ -1,7 +1,9 @@
+param([string]$type = "pdf")
+
 Remove-Item  Output -Force -Recurse -ErrorAction SilentlyContinue | out-null 
 MkDir Output  | out-null
 
-$output = "Output\Inside RavenDB.pdf"
+$output = "Output\Inside RavenDB 3.0.$type"
 
 pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--standalone --highlight-style=espresso --self-contained --chapters `
