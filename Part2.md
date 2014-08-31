@@ -3,6 +3,9 @@
 
 In this part, we'll learn about indexing and querying:
 
+* Deep dive into RavenDB Indexing implementation
+* Ad-hoc queries, automatic indexes and the query optimizer
+
 * Why do we need indexes?
 * Dynamic & static indexes
 * Simple (map only) indexes

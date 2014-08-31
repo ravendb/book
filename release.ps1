@@ -2,7 +2,7 @@
 .\build.ps1 epub $false
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
-$release = "v0.2"
+$release = "v0.3"
 
 $json = Invoke-WebRequest -ErrorAction Stop `
 	 -Uri "https://api.github.com/repos/ayende/book/releases" `
