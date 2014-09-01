@@ -77,3 +77,10 @@ For example, let us say that we wanted to delete all the discontinued products. 
 ## Anorectic documents
 
 ## Obese documents
+
+Raven-Enity-Name
+Raven-Clr-Type
+
+RegisterIdConvention
+
+In memory indexing
