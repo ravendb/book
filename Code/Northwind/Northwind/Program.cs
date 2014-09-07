@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using Orders;
 using Raven.Client;
 using Raven.Client.Document;
@@ -11,52 +12,44 @@ namespace Northwind
 {
 	internal class Program
 	{
+		private static DocumentStore _documentStore;
+
 		private static void Main(string[] args)
 		{
-			var documentStore = new DocumentStore
+			_documentStore = new DocumentStore
 			{
 				Url = "http://ayende-pc:8080",
 				DefaultDatabase = "Northwind"
 			};
 
-			documentStore.Initialize();
+			_documentStore.Initialize();
 
 			//new JustOrderIdAndcompanyName().Execute(documentStore);
 
-			using (IDocumentSession session = documentStore.OpenSession())
-			{
-				RavenQueryStatistics stats;
-				var q = from product in session.Query<Product>()
-							.Statistics(out stats)
-					where product.Discontinued == false
-					select product;
+			Print(query => query.WhereLessThan(o => o.OrderedAt, DateTime.Today));
+			Print(query => query.WhereLessThanOrEqual(o => o.OrderedAt, DateTime.Today));
+			Print(query => query.WhereGreaterThan(o => o.Freight, 5));
+			Print(query => query.WhereGreaterThanOrEqual(o => o.Freight, 5));
+			Print(query => query.WhereBetween(o => o.Freight, 5, 10));
+			Print(query => query.WhereBetweenOrEqual(o => o.Freight, 5, 10));
+			Print(query => query.WhereStartsWith(o => o.ShipVia, "UP"));
+			Print(query => query.WhereIn(o => o.Employee, new[]{"employees/1", "employees/2"}));
 
-				q.ToList();
 
-				Console.WriteLine(stats.IndexName);
+		}
 
-				q = from product in session.Query<Product>()
-							.Statistics(out stats)
-					where product.Category == "categories/1"
-					select product;
+		public static void Print(Expression<Action<IDocumentQuery<Order>>> action)
+		{
+			var expressionToString = ExpressionStringBuilder.ExpressionToString(new DocumentConvention(), false, typeof(object), "orders", action.Body);
+			Console.Write(expressionToString);
 
-				q.ToList();
+			Console.Write(";\r\n\t");
 
-				Console.WriteLine(stats.IndexName);
-
-				q = from product in session.Query<Product>()
-							.Statistics(out stats)
-					where product.Supplier == "suppliers/2" 
-					&& product.Discontinued == false
-					select product;
-
-				q.ToList();
-
-				Console.WriteLine(stats.IndexName);
-			}
+			var documentQuery = _documentStore.OpenSession().Advanced.DocumentQuery<Order>();
+			action.Compile()(documentQuery);
+			Console.WriteLine(documentQuery.ToString());
 		}
 	}
-
 
 	public class JustOrderIdAndcompanyName : AbstractTransformerCreationTask<Order>
 	{

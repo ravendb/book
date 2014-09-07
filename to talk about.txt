@@ -68,8 +68,6 @@ For example, let us say that we wanted to delete all the discontinued products. 
 
 > What about stale results?
 
-
-
 # Document based modeling
 
 ## Point in Time references
@@ -84,3 +82,13 @@ Raven-Clr-Type
 RegisterIdConvention
 
 In memory indexing
+
+Indexing debug endpoints - all the data we can get from there.
+
+Index fanout
+
+DocumentQuery
+
+Stored fields
+
+How indexing actually works
