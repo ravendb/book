@@ -11,7 +11,7 @@ $output = ".\Output\Inside RavenDB 3.0.$type"
 pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--standalone --highlight-style=espresso --self-contained --chapters `
 	--listings --latex-engine=xelatex --number-sections `
-	--epub-cover-image=.\Cover.png `
+	--epub-cover-image=.\Cover.jpg `
 	-o $output .\title.txt .\Ch01\Ch01.md .\Part1.md .\Ch02\Ch02.md .\Ch03\Ch03.md `
 	.\Ch04\Ch04.md .\Ch05\Ch05.md .\Part2.md .\Ch06\Ch06.md .\Ch07\Ch07.md .\Part3.md .\Part4.md
 
