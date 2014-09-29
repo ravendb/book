@@ -24,33 +24,22 @@ namespace Northwind
 
 			_documentStore.Initialize();
 
+
+
 			//new JustOrderIdAndcompanyName().Execute(documentStore);
-
-			Print(query => query.WhereLessThan(o => o.OrderedAt, DateTime.Today));
-			Print(query => query.WhereLessThanOrEqual(o => o.OrderedAt, DateTime.Today));
-			Print(query => query.WhereGreaterThan(o => o.Freight, 5));
-			Print(query => query.WhereGreaterThanOrEqual(o => o.Freight, 5));
-			Print(query => query.WhereBetween(o => o.Freight, 5, 10));
-			Print(query => query.WhereBetweenOrEqual(o => o.Freight, 5, 10));
-			Print(query => query.WhereStartsWith(o => o.ShipVia, "UP"));
-			Print(query => query.WhereIn(o => o.Employee, new[]{"employees/1", "employees/2"}));
-
-
-		}
-
-		public static void Print(Expression<Action<IDocumentQuery<Order>>> action)
-		{
-			var expressionToString = ExpressionStringBuilder.ExpressionToString(new DocumentConvention(), false, typeof(object), "orders", action.Body);
-			Console.Write(expressionToString);
-
-			Console.Write(";\r\n\t");
-
-			var documentQuery = _documentStore.OpenSession().Advanced.DocumentQuery<Order>();
-			action.Compile()(documentQuery);
-			Console.WriteLine(documentQuery.ToString());
 		}
 	}
 
+
+	public class Companies_ByCountry : AbstractIndexCreationTask<Company>
+	{
+		public Companies_ByCountry()
+		{
+			Map = companies =>
+				from company in companies
+				select new { company.Address.Country };
+		}
+	}
 	public class JustOrderIdAndcompanyName : AbstractTransformerCreationTask<Order>
 	{
 		public JustOrderIdAndcompanyName()

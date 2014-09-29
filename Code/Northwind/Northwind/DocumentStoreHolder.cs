@@ -1,6 +1,7 @@
 ﻿using System;
 using Raven.Client;
 using Raven.Client.Document;
+using Raven.Client.Indexes;
 
 namespace Northwind
 {
@@ -19,6 +20,9 @@ namespace Northwind
 			documentStore.Conventions.FindIdentityProperty = prop => prop.Name == prop.DeclaringType.Name + "Id";
 
 			documentStore.Initialize();
+
+			var asm = typeof()
+			IndexCreation.CreateIndexes(asm);
 			return documentStore;
 		}
 
