@@ -92,3 +92,5 @@ DocumentQuery
 Stored fields
 
 How indexing actually works
+
+Builtin profiler
