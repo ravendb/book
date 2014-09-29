@@ -21,8 +21,8 @@ namespace Northwind
 
 			documentStore.Initialize();
 
-			var asm = typeof()
-			IndexCreation.CreateIndexes(asm);
+			//var asm = typeof (Companies_ByCountry).Assembly;
+			//IndexCreation.CreateIndexes(asm, documentStore);
 			return documentStore;
 		}
 

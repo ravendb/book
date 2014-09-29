@@ -18,48 +18,35 @@ namespace Northwind
 		{
 			_documentStore = new DocumentStore
 			{
-				Url = "http://ayende-pc:8080",
-				DefaultDatabase = "Northwind"
+				Url = "http://localhost:8080",
+				DefaultDatabase = "Users_Master",
+				Conventions =
+				{
+					FailoverBehavior = FailoverBehavior.AllowReadsFromSecondariesAndWritesToSecondaries
+				}
 			};
 
 			_documentStore.Initialize();
 
+			while (true)
+			{
 
-
-			//new JustOrderIdAndcompanyName().Execute(documentStore);
+				using (var session = _documentStore.OpenSession())
+				{
+					var user = session.Load<User>(1);
+					user.Age++;
+					Console.WriteLine(user.Name);
+					session.SaveChanges();
+				}
+				Console.ReadLine();
+			}
 		}
 	}
 
-
-	public class Companies_ByCountry : AbstractIndexCreationTask<Company>
-	{
-		public Companies_ByCountry()
-		{
-			Map = companies =>
-				from company in companies
-				select new { company.Address.Country };
-		}
-	}
-	public class JustOrderIdAndcompanyName : AbstractTransformerCreationTask<Order>
-	{
-		public JustOrderIdAndcompanyName()
-		{
-			TransformResults = orders =>
-				from order in orders
-				let company = LoadDocument<Company>(order.Company)
-				select new { order.Id, CompanyName = company.Name, order.OrderedAt };
-		}
-
-		public class Result
-		{
-			public string Id { get; set; }
-			public string CompanyName { get; set; }
-			public DateTime OrderedAt { get; set; }
-		}
-	}
 
 	public class User
 	{
 		public string Name;
+		public int Age;
 	}
 }
