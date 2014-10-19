@@ -94,3 +94,17 @@ Stored fields
 How indexing actually works
 
 Builtin profiler
+
+
+
+## Working with dynamic data
+
+### Modeling
+
+### Indexing
+
+One of the stregnths of RavenDB is that it doesn't have a schema. That means that you aren't limited to just 
+
+## Recurse in indexes
+
+## Spatial
