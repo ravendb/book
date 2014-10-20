@@ -87,15 +87,13 @@ Indexing debug endpoints - all the data we can get from there.
 
 Index fanout
 
-DocumentQuery
+DocumentQuery - untyped queries
 
 Stored fields
 
 How indexing actually works
 
 Builtin profiler
-
-
 
 ## Working with dynamic data
 

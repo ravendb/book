@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using Orders;
+using Raven.Abstractions.Indexing;
 using Raven.Abstractions.Replication;
 using Raven.Client;
 using Raven.Client.Document;
@@ -24,20 +25,62 @@ namespace Northwind
 			};
 
 			_documentStore.Initialize();
+			new People_Search().Execute(_documentStore);
+			//while (true)
+			//{
 
-			while (true)
-			{
-
-				using (var session = _documentStore.OpenSession())
-				{
-					session.Query<Orders_Totals.Result, Orders_Totals>()
-						.Where(x => x.Total > 10000)
-						.OfType<Order>()
-						.ToList();
-				}
-				Console.ReadLine();
-			}
+			//	using (var session = _documentStore.OpenSession())
+			//	{
+			//		session.Query<Orders_Totals.Result, Orders_Totals>()
+			//			.Where(x => x.Total > 10000)
+			//			.OfType<Order>()
+			//			.ToList();
+			//	}
+			//	Console.ReadLine();
+			//}
 		}
+	}
+
+	public class People_Search2 : AbstractMultiMapIndexCreationTask<People_Search2.Result>
+	{
+		public class Result
+		{
+			public string FirstName;
+			public string LastName;
+			public string Source;
+		}
+
+
+	}
+
+	public class People_Search : AbstractMultiMapIndexCreationTask
+	{
+		public People_Search()
+		{
+			AddMap<Company>(companies =>
+				from company in companies
+				select new
+				{
+					company.Contact.Name,
+				});
+
+			AddMap<Employee>(employees =>
+				from employee in employees
+				select new
+				{
+					Name = employee.FirstName + " " + employee.LastName
+				});
+
+			AddMap<Supplier>(suppliers =>
+				from supplier in suppliers
+				select new
+				{
+					supplier.Contact.Name
+				});
+
+			Index("Name", FieldIndexing.Analyzed);
+		}
+
 	}
 
 	public class Employees_Search : AbstractIndexCreationTask<Employee, Employees_Search.Result>
