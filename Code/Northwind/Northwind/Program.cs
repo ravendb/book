@@ -29,13 +29,13 @@ namespace Northwind
 			//while (true)
 			//{
 
-			//	using (var session = _documentStore.OpenSession())
-			//	{
-			//		session.Query<Orders_Totals.Result, Orders_Totals>()
-			//			.Where(x => x.Total > 10000)
-			//			.OfType<Order>()
-			//			.ToList();
-			//	}
+			using (var session = _documentStore.OpenSession())
+			{
+				session.Query<Orders_Totals.Result, Orders_Totals>()
+					.Where(x => x.Total > 10000)
+					.OfType<Order>()
+					.ToList();
+			}
 			//	Console.ReadLine();
 			//}
 		}
@@ -53,35 +53,49 @@ namespace Northwind
 
 	}
 
-	public class People_Search : AbstractMultiMapIndexCreationTask
+public class People_Search : AbstractMultiMapIndexCreationTask<People_Search.Result>
+{
+	public class Result
 	{
-		public People_Search()
-		{
-			AddMap<Company>(companies =>
-				from company in companies
-				select new
-				{
-					company.Contact.Name,
-				});
-
-			AddMap<Employee>(employees =>
-				from employee in employees
-				select new
-				{
-					Name = employee.FirstName + " " + employee.LastName
-				});
-
-			AddMap<Supplier>(suppliers =>
-				from supplier in suppliers
-				select new
-				{
-					supplier.Contact.Name
-				});
-
-			Index("Name", FieldIndexing.Analyzed);
-		}
-
+		public string Type { get; set; }
+		public string Id { get; set; }
+		public string Name { get; set; }
 	}
+
+	public People_Search()
+	{
+		AddMap<Company>(companies =>
+			from company in companies
+			select new
+			{
+				company.Id,
+				company.Contact.Name,
+				Type = "Company"
+			});
+
+		AddMap<Employee>(employees =>
+			from employee in employees
+			select new
+			{
+				employee.Id,
+				Name = employee.FirstName + " " + employee.LastName,
+				Type = "Employee"
+			});
+
+		AddMap<Supplier>(suppliers =>
+			from supplier in suppliers
+			select new
+			{
+				supplier.Id,
+				supplier.Contact.Name,
+				Type = "Supplier"
+			});
+
+		Index("Name", FieldIndexing.Analyzed);
+
+		StoreAllFields(FieldStorage.Yes);
+	}
+}
 
 	public class Employees_Search : AbstractIndexCreationTask<Employee, Employees_Search.Result>
 	{
