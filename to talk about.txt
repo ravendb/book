@@ -106,3 +106,5 @@ One of the stregnths of RavenDB is that it doesn't have a schema. That means tha
 ## Recurse in indexes
 
 ## Spatial
+
+## Set based operations

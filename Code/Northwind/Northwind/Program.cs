@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -25,16 +26,18 @@ namespace Northwind
 			};
 
 			_documentStore.Initialize();
-			new People_Search().Execute(_documentStore);
+			//new People_Search().Execute(_documentStore);
 			//while (true)
 			//{
 
+
 			using (var session = _documentStore.OpenSession())
 			{
-				session.Query<Orders_Totals.Result, Orders_Totals>()
-					.Where(x => x.Total > 10000)
-					.OfType<Order>()
-					.ToList();
+				var results = from order in session.Query<Order>()
+							  where (order.Freight > 25 && order.Freight < 50) || order.ShippedAt == null
+							  select order;
+
+				Console.WriteLine(results);
 			}
 			//	Console.ReadLine();
 			//}
@@ -53,47 +56,21 @@ namespace Northwind
 
 	}
 
-public class People_Search : AbstractMultiMapIndexCreationTask<People_Search.Result>
+public class Products_Search : AbstractIndexCreationTask<Product,Products_Search .Result>
 {
 	public class Result
 	{
-		public string Type { get; set; }
-		public string Id { get; set; }
-		public string Name { get; set; }
+		public string CategoryName { get; set; }
 	}
 
-	public People_Search()
+	public Products_Search()
 	{
-		AddMap<Company>(companies =>
-			from company in companies
+		Map = products =>
+			from product in products
 			select new
 			{
-				company.Id,
-				company.Contact.Name,
-				Type = "Company"
-			});
-
-		AddMap<Employee>(employees =>
-			from employee in employees
-			select new
-			{
-				employee.Id,
-				Name = employee.FirstName + " " + employee.LastName,
-				Type = "Employee"
-			});
-
-		AddMap<Supplier>(suppliers =>
-			from supplier in suppliers
-			select new
-			{
-				supplier.Id,
-				supplier.Contact.Name,
-				Type = "Supplier"
-			});
-
-		Index("Name", FieldIndexing.Analyzed);
-
-		StoreAllFields(FieldStorage.Yes);
+				CategoryName = LoadDocument<Category>(product.Category).Name
+			};
 	}
 }
 
