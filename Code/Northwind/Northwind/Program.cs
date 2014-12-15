@@ -10,6 +10,7 @@ using Raven.Client;
 using Raven.Client.Document;
 using Raven.Client.Indexes;
 using Raven.Client.Linq;
+using Raven.Imports.Newtonsoft.Json;
 
 namespace Northwind
 {
@@ -25,6 +26,7 @@ namespace Northwind
 				DefaultDatabase = "Northwind",
 			};
 
+
 			_documentStore.Initialize();
 			//new People_Search().Execute(_documentStore);
 			//while (true)
@@ -34,10 +36,10 @@ namespace Northwind
 			using (var session = _documentStore.OpenSession())
 			{
 				var results = from order in session.Query<Order>()
-							  where (order.Freight > 25 && order.Freight < 50) || order.ShippedAt == null
+							  where order.Lines.Any(x => x.ProductName == "Milk" && x.Quantity == 3)
 							  select order;
 
-				Console.WriteLine(results);
+				Console.WriteLine(results.ToString());
 			}
 			//	Console.ReadLine();
 			//}
@@ -56,23 +58,23 @@ namespace Northwind
 
 	}
 
-public class Products_Search : AbstractIndexCreationTask<Product,Products_Search .Result>
-{
-	public class Result
+	public class Products_Search : AbstractIndexCreationTask<Product, Products_Search.Result>
 	{
-		public string CategoryName { get; set; }
-	}
+		public class Result
+		{
+			public string CategoryName { get; set; }
+		}
 
-	public Products_Search()
-	{
-		Map = products =>
-			from product in products
-			select new
-			{
-				CategoryName = LoadDocument<Category>(product.Category).Name
-			};
+		public Products_Search()
+		{
+			Map = products =>
+				from product in products
+				select new
+				{
+					CategoryName = LoadDocument<Category>(product.Category).Name
+				};
+		}
 	}
-}
 
 	public class Employees_Search : AbstractIndexCreationTask<Employee, Employees_Search.Result>
 	{
