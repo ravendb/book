@@ -18,3 +18,5 @@ pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 if($start) {
 	start $output
 }
+
+return $output
