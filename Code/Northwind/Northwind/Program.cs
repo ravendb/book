@@ -15,13 +15,13 @@ namespace Northwind
 
         private static void Main(string[] args)
         {
-            //var documentStore = new DocumentStore
-            //{
-            //	Url = "http://localhost:8080",
-            //	DefaultDatabase = "repl3",
-            //};
+            var documentStore = new DocumentStore
+            {
+                Url = "http://live-test.ravendb.net",
+                DefaultDatabase = "Northwind",
+            };
 
-            //documentStore.Initialize();
+            documentStore.Initialize();
 
 
             //while (true)
@@ -32,28 +32,21 @@ namespace Northwind
             //	}
             //}
 
-            var path =
-                @"D:\ravendb\Raven.Tests.Issues\bin\Release\RavenDB-1369.Backup\Inc 2014-12-22 13-54-01\IndexDefinitions\f02c0134-7ac1-4e9f-b20b-40122bde5948";
-
-            var dir = Path.GetDirectoryName(path);
-
-            //if (Directory.Exists(dir) == false)
-            Directory.CreateDirectory(dir);
-
-            File.WriteAllText(path, path);
+            new Products_FrenchNames().Execute(documentStore);
         }
     }
 
 
-    public class Product_Search : AbstractIndexCreationTask<Product>
+    public class Products_FrenchNames : AbstractIndexCreationTask<Product>
     {
-        public Product_Search()
+        public Products_FrenchNames()
         {
             Map = products =>
                 from product in products
-                select new { product.Name };
+                select new { product.Name, French_Name = product.Name };
 
-            Index(x => x.Name, FieldIndexing.Analyzed);
+            Index("French_Name", FieldIndexing.Analyzed);
+            Analyze("French_Name", "Raven.Database.Indexing.Collation.Cultures.FrCollationAnalyzer, Raven.Database");
         }
     }
 }
