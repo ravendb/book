@@ -1,7 +1,7 @@
 .\build.ps1 pdf $true
 .\build.ps1 epub $false
 
-c:\tools\kindlegen\kindlegen.exe $file
+c:\tools\kindlegen\kindlegen.exe ".\Output\Inside RavenDB 3.0.epub"
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
 $release = "v0.3.5"
