@@ -5,6 +5,8 @@ if ($start) {
 }
 MkDir Output -ErrorAction SilentlyContinue  | out-null
 
+del .\Ch10\*.png
+java -jar .\Tools\ditaa0_9.jar -r .\Ch10\*.ditto
 
 $output = ".\Output\Inside RavenDB 3.0.$type"
 
