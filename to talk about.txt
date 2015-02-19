@@ -111,3 +111,6 @@ One of the stregnths of RavenDB is that it doesn't have a schema. That means tha
 dynamic aggregation
 
 Async
+
+
+Scripted Index Results
