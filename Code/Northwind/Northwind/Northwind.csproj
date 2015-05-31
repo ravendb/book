@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DocumentStoreHolder.cs" />
+    <Compile Include="EmployeeAndCategoriesCount.cs" />
     <Compile Include="EmployeeOfTheMonth.cs" />
     <Compile Include="ProductPurchasesByCompany.cs" />
     <Compile Include="Model.cs" />

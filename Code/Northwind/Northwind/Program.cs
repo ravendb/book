@@ -17,37 +17,52 @@ namespace Northwind
 {
 	public class Program
 	{
-
-		private static void Main(string[] args)
+		static void Main(string[] args)
 		{
-			var documentStore = new DocumentStore
+			
+		}
+		private void Main2(string[] args)
+		{
+			var largeData = new byte[0];
+
+			var stats = new PerformatStats
 			{
-				Url = "http://localhost:8080",
-				DefaultDatabase = "Northwind",
-				ApiKey = "test/DIYUhhpXif"
+				Size = largeData.Length
 			};
+			stats.OnCompletion += () => this.RecordCompletion(stats);
 
-			documentStore.Initialize();
-			new EmployeeOfTheMonth().Execute(documentStore);
-			new ProductPurchasesByCompany().Execute(documentStore);
-			//new Products_Search().Execute(documentStore);
-
-			using (var session = documentStore.OpenSession())
+			Write(o =>
 			{
-				var empOfMon = session.Query<EmployeeOfTheMonth.Result, EmployeeOfTheMonth>()
-					.Include(x => x.Employee)
-					.OrderByDescending(x => x.TotalSales)
-					.Where(x => x.Month == "1998-03")
-					.First();
+				var sp = new Stopwatch();
+				foreach (var item in largeData)
+				{
+					sp.Restart();
+					// do something with this
+					stats.RecordOperationDuration(sp);
+				}
+			});
 
-				var emp = session.Load<Employee>(empOfMon.Employee);
+		}
 
-				Console.WriteLine(emp.FirstName +" " + emp.LastName);
+		private void RecordCompletion(PerformatStats stats)
+		{
+			throw new NotImplementedException();
+		}
 
-				Console.WriteLine(empOfMon.Employee);
+		private class PerformatStats
+		{
+			public int Size { get; set; }
+			public event Action OnCompletion;
+
+			public void RecordOperationDuration(Stopwatch sp)
+			{
+				
 			}
+		}
 
-			//new Product_Search().Execute(documentStore);
+		public static void Write(Action<object> action)
+		{
+			
 		}
 
 		private IDocumentSession session;
