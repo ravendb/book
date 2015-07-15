@@ -17,10 +17,10 @@
     |categories/8  1    |                         |categories/8  2    |    
     |categories/1  2    |                         |                   |    
     +--------+----+-----+                         +---------+---------+    
-             |    | categoires/8                            | 
+             |    | categories/8                            | 
              |    +-----------+                             |
              |                |                             |
-             | categoires/1   |                categoires/8 | 
+             | categories/1   |                categories/8 | 
              +----+           |              +--------------+
    Final Results  |           |              |         Final Results        
   +---------------+---+       |              |    +--------------------+
