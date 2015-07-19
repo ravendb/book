@@ -4,7 +4,7 @@
 c:\tools\kindlegen\kindlegen.exe ".\Output\Inside RavenDB 3.0.epub"
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
-$release = "v0.3.5"
+$release = "v0.3.6"
 
 $json = Invoke-WebRequest -ErrorAction Stop `
 	 -Uri "https://api.github.com/repos/ayende/book/releases" `
