@@ -107,6 +107,9 @@ One of the stregnths of RavenDB is that it doesn't have a schema. That means tha
 
 ## Set based operations
 
+## Facets
+
+## Dynamic aggregation
 
 dynamic aggregation
 
