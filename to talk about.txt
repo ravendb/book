@@ -109,11 +109,11 @@ One of the stregnths of RavenDB is that it doesn't have a schema. That means tha
 
 ## Facets
 
-## Dynamic aggregation
 
 dynamic aggregation
 
 Async
 
+Listeners
 
 Scripted Index Results
