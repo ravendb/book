@@ -6,11 +6,11 @@
   xsi:schemaLocation="http://example.org/myapp/ http://example.org/myapp/schema.xsd"
   xmlns:dc="http://purl.org/dc/elements/1.1/">
 
-  	<dc:title>RavenDB In Action</dc:title> 
+  	<dc:title>Inside RavenDB 4.0</dc:title> 
 	<dc:language>en-US</dc:language> 
 	<dc:creator opf:file-as="Eini, Oren" opf:role="aut">Oren Eini</dc:creator> 
 	<dc:publisher>Hibernating Rhinos LTD</dc:publisher>
-	<dc:date opf:event="publication">2014-07-20</dc:date>
-	<dc:rights>Copyright ©2013 by Oren Eini</dc:rights>
+	<dc:date opf:event="publication">2017-05-12</dc:date>
+	<dc:rights>Copyright ©2017 by Oren Eini</dc:rights>
 
 </metadata>
