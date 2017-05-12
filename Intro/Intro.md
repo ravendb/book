@@ -213,6 +213,10 @@ how to make sense out of all of this information.
 performing up to spec. We'll discuss how one would track down such an issue and find the root cause responsible for
 such a behavior, a few common reasons why such things happen and how to avoid or resolve them.
 
+*[Chapter 26](#stroage-layout) - Storage Considerations -* discusses how RavenDB is storing the data on disk, how 
+it allocates storage and arrange the data internally. We'll talk about how it impacts operational decisions and 
+persistence decisions.
+
 ### Part V - Implementation Details
 
 Focus: RavenDB Core Team, RavenDB Support Engineers, Developers who wants to read the code
@@ -224,19 +228,19 @@ build an awesome system on top of RavenDB.
 On the other hand, if you want to go through the code and understand why RavenDB is doing something in a particular
 way, this part will likely answer all those questions. 
 
-*[Chapter 25](#blittable) - The Blittable Format -* gets into the details of how RavenDB represents JSON 
+*[Chapter 27](#blittable) - The Blittable Format -* gets into the details of how RavenDB represents JSON 
 documents internally, how we go to this particular format and how to work with it. 
 
-*[Chapter 26](#voron) - The Voron Storage Engine -* breaks down the low-level storage engine we use to put
+*[Chapter 28](#voron) - The Voron Storage Engine -* breaks down the low-level storage engine we use to put
 bits on the disk. We'll walk through how it works, the various features it offers and most importantly, why it 
 had ended up in this way. A lot of the discussion is going to be driven by performance consideration, extremely 
 low-level and full of operating system and hardware minutiae. 
 
-*[Chapter 27](#tx-merger) - The Transaction Merger -* builds on top of Voron and comprise one of the major 
+*[Chapter 29](#tx-merger) - The Transaction Merger -* builds on top of Voron and comprise one of the major 
 ways in which RavenDB is able to provide high performance. We'll discuss how it came about, how it is actually 
 used and what it means in terms of actual code using it. 
 
-*[Chapter 28](#rachis) - The Rachis Consensus -* talks about how RavenDB is using the Raft consuensus protocol
+*[Chapter 30](#rachis) - The Rachis Consensus -* talks about how RavenDB is using the Raft consuensus protocol
 to connect together different nodes in the cluster, how they are interacting with each other and the internal
 details of how it all comes together (and fall apart and recover again).
 
@@ -244,7 +248,7 @@ details of how it all comes together (and fall apart and recover again).
 about how the RavenDB uses the result of the distributed consensus to actually manage all the nodes in the cluster
 and how we can arrive independently on each node to the same decision reliably. 
 
-*[Chapter 30](#landlord) - Lording over Databases -* peeks inside a single node and explores how a database 
+*[Chapter 32](#landlord) - Lording over Databases -* peeks inside a single node and explores how a database 
 is managed inside that node. More importantly, how we are dealing with multiple databases on the same node and 
 what kind of impact each database can have on its neighbors. 
 
@@ -252,7 +256,7 @@ what kind of impact each database can have on its neighbors.
 distributed database. We'll go over change vectors to ensure conflict detection (and aid in its resolution) 
 how the data is actually being replicated between the different nodes in a database group. 
 
-*[Chapter 32](#architecture) - Internal Architecture -* gives you the overall view of the internal architecture 
+*[Chapter 33](#architecture) - Internal Architecture -* gives you the overall view of the internal architecture 
 of RavenDB. How it is built from the inside, and the reasoning why the pieces came together in the way they did.
 We'll cover both high-level architecture concepts and micro architecture of the common building blocks in the 
 project.
@@ -261,9 +265,9 @@ project.
 
 This part summarizes the entire book and provide some insight about what our future vision for RavenDB is.
 
-*[Chapter 33](#vnext) - What comes next -* discusses what are our (rough) plans for the next major version and 
+*[Chapter 34](#vnext) - What comes next -* discusses what are our (rough) plans for the next major version and 
 our basic roadmap for RavenDB.
 
-*[Chapter 34](#summary) - Are we there yet? Yes! -* summarize the book and let you go and start actually 
+*[Chapter 35](#summary) - Are we there yet? Yes! -* summarize the book and let you go and start actually 
 _using_ all of this awesome information.
 
