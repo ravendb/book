@@ -102,7 +102,7 @@ RavenDB and the basics that you need to know to do CRUD properly. Entities, docu
 and queries. 
 
 *[Chapter 4](#client-api) - The Client API -* explores more advanced client scenarios, such as lazy requests, 
-patching, bulk inserts, and streaming queries and using persistent subscriptions. We'll talk a bit about data 
+patching, bulk inserts, and streaming queries and using persistent subscriptions. We'll talk a about data 
 modeling and working with embedded and related documents.
 
 ### Part II - Ravens everywhere
