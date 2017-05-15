@@ -102,7 +102,7 @@ RavenDB and the basics that you need to know to do CRUD properly. Entities, docu
 and queries. 
 
 *[Chapter 4](#client-api) - The Client API -* explores more advanced client scenarios, such as lazy requests, 
-patching, bulk inserts, and streaming queries and using persistent subscriptions. We'll talk a about data 
+patching, concurrency, bulk inserts, and streaming queries and using persistent subscriptions. We'll talk a about data 
 modeling and working with embedded and related documents.
 
 ### Part II - Ravens everywhere
@@ -174,8 +174,8 @@ is going on and how does everything fit together. This is how the sausage is mad
 *[Chapter 18](#advanced-indexes) -* Advanced Indexing Techniques - dig into some specific usages of indexes that 
 are a bit... outside the norm. 
 Using spatial queries to find geographical information, generating dynamic suggestions on the fly, returning 
-highlighted results for full text search queries. All the things that you would use once in a blue moon, but when 
-you need them you _really_ need them.
+highlighted results for full text search queries, transforming query results on the server and more. 
+All the things that you would use once in a blue moon, but when you need them you _really_ need them.
 
 ### Part IV - Operations
 
