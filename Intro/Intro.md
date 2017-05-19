@@ -94,12 +94,11 @@ and concepts in favor of getting things done. This is what you'll want new hires
 with an application using RavenDB, we'll keep the theory and the background information for the next part.
 
 *[Chapter 2](#zero-to-ravendb) - Zero to RavenDB -* focuses on setting you up with a RavenDB instance, introduce 
-the studio and some key concepts and walk you through the Hello World equivalent of using RavenDB by building a 
-very simple To Do app.
+the studio and some key concepts in utilizing it. The client API and its basic usage is also cover, as well as document
+identifier generation and test RavenDB based application.
 
-*[Chapter 3](#crud) - CRUD operations -* discusses RavenDB the basics of connecting from your application to 
-RavenDB and the basics that you need to know to do CRUD properly. Entities, documents, attachments, collections 
-and queries. 
+*[Chapter 3](#modeling) - Modeling documents -* Goes in depth into how to structure your entities and documents, the impact
+of various RavenDB features on the structure of your documents and how you should handle common modeling scenarios.
 
 *[Chapter 4](#client-api) - The Client API -* explores more advanced client scenarios, such as lazy requests, 
 patching, concurrency, listeners, bulk inserts, and streaming queries and using persistent subscriptions. We'll talk a about 
