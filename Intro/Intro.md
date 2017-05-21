@@ -24,13 +24,13 @@ own transactions.
 
 That seems silly to talk about, I'm aware, but there are databases out there who don't have this. Given how much 
 work this particular feature has brought us, I can emphasis with the feeling, because making a database that is 
-both high performance and fully transactional is anything by trivial. That said, I think that this is one of 
+both high performance and fully transactional is anything but trivial. That said, I think that this is one of 
 the most basic requirements from a database, so RavenDB has it out of the box. 
 
 There are certain things that the database should provide, transactions are one, but also manageability and a 
 certain level of ease of use. A common thread we'll explore in this book is how RavenDB was designed to reduce the 
 load on the operations team by dynamically adjusting to load, environment and the kind of work it is running. 
-Working with a database shouldn't be easy and obvious, and to a large extent, RavenDB allows that.
+Working with a database be easy and obvious, and to a large extent, RavenDB allows that.
 
 I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
 the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
@@ -55,7 +55,7 @@ Since a blog post and a book have very different structure, audience and purpose
 same easy-reading feeling of your favorite blogger. If I've accomplished what I set out to do, this will be 
 neither dry documentation, nor a reference book. If you need either, you can read the 
 [online RavenDB documentation](http://ravendb.net/docs). This is not to say that the book is purely my musings;
-the content is also borne from the training course we've been teaching for the past five years and the 
+the content is also born from the training course we've been teaching for the past eight years and the 
 formalization of our internal on-boarding training.
 
 By the end of this book, you're going to have a far better understanding of how and why RavenDB is put together. 
@@ -94,7 +94,7 @@ and concepts in favor of getting things done. This is what you'll want new hires
 with an application using RavenDB, we'll keep the theory and the background information for the next part.
 
 *[Chapter 2](#zero-to-ravendb) - Zero to RavenDB -* focuses on setting you up with a RavenDB instance, introduce 
-the studio and some key concepts in utilizing it. The client API and its basic usage is also cover, as well as document
+the Studio and some key concepts in utilizing it. The client API and its basic usage is also cover, as well as document
 identifier generation and test RavenDB based application.
 
 *[Chapter 3](#modeling) - Modeling documents -* Goes in depth into how to structure your entities and documents, the impact
@@ -120,7 +120,7 @@ features in RavenDB.
 how it works and how the both servers & clients are working together to give you a seamless distributed 
 experience. We'll also discuss error handling and recovery in a clustered environment.
 
-*[Chapter 7](#integrations) -* Integrating with the Outside World - explores using RavenDB along side additional 
+*[Chapter 7](#integrations) -* Integrating with the Outside World - explores using RavenDB alongside additional 
 systems, for integrating with legacy systems, working with dedicated reporting databases, ETL process, long 
 running background tasks and in general how to make RavenDB fit better inside your environment.
 
@@ -180,7 +180,7 @@ All the things that you would use once in a blue moon, but when you need them yo
 
 Focus: Operations
 
-This part deals with running and supporting a RavenDB cluster or clusters in production. From how you spina new 
+This part deals with running and supporting a RavenDB cluster or clusters in production. From how you spin a new 
 cluster to decommissioning a downed node to tracking down performance problems. We'll learn all that you need (and
 then a bit more) to understand what is going on with RavenDB and how to customize its behavior to fit your own 
 environment. 
@@ -197,7 +197,7 @@ exposed to the wild world.
 
 *[Chapter 21](#high-availablity) - High Availability -*  brings failure to the table, repeatedly. We'll discuss 
 how RavenDB handles failures in production, how to understand, predict and support RavenDB in keeping all of your 
-databases accessible and high performance in the face of various errors and disasters. 
+databases accessible and highly performant in the face of various errors and disasters. 
 
 *[Chapter 22](#disaster-recovery) - Recovering from Disasters -* covers what happens after disaster strikes. 
 When machines melt down and go poof, or someone issues the wrong command and the data just went into the 
@@ -239,7 +239,7 @@ low-level and full of operating system and hardware minutiae.
 ways in which RavenDB is able to provide high performance. We'll discuss how it came about, how it is actually 
 used and what it means in terms of actual code using it. 
 
-*[Chapter 30](#rachis) - The Rachis Consensus -* talks about how RavenDB is using the Raft consuensus protocol
+*[Chapter 30](#rachis) - The Rachis Consensus -* talks about how RavenDB is using the Raft consensus protocol
 to connect together different nodes in the cluster, how they are interacting with each other and the internal
 details of how it all comes together (and fall apart and recover again).
 
