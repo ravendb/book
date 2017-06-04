@@ -270,3 +270,9 @@ our basic roadmap for RavenDB.
 *[Chapter 35](#summary) - Are we there yet? Yes! -* summarize the book and let you go and start actually 
 _using_ all of this awesome information.
 
+
+
+## Additional features
+
+* Versioning
+* Expiration
