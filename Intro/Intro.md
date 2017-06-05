@@ -100,9 +100,8 @@ based application. The studio and some key concepts are introduced.
 *[Chapter 3](#modeling) - Modeling documents -* Goes in depth into how to structure your entities and documents, the impact
 of various RavenDB features on the structure of your documents and how you should handle common modeling scenarios.
 
-*[Chapter 4](#client-api) - The Client API -* explores more advanced client scenarios, such as lazy requests, 
-patching, concurrency, listeners, bulk inserts, streaming queries and using persistent subscriptions. We'll talk a about 
-data modeling and working with embedded and related documents.
+*[Chapter 4](#client-api) - Deep dive into the RavenDB Client API -* explores more advanced client scenarios, such as lazy 
+requests, patching, concurrency, listeners, bulk inserts, streaming queries and using persistent subscriptions. 
 
 ### Part II - Ravens everywhere
 
