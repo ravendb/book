@@ -268,3 +268,9 @@ the basic roadmap for RavenDB.
 
 *[Chapter 35](#summary) - Are we there yet? Yes! -* summarize the book and let you go and actually 
 start _using_ all of this awesome information.
+
+
+
+
+TODO: 
+- Waiting for replication or indexing 
