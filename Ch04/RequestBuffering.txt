@@ -1,0 +1,21 @@
+title Request Buffering
+
+App -> Client API: ActiveCallsFor(id);
+
+Client API -> Server: All active support calls for "customers/8243-C"
+
+note over  Server
+* Compute query
+* Prepare results
+* Send to client
+end note
+
+
+Server -> Client API: Full response
+note over  Client API
+* Read all results from the network
+* Create object instances and add to results
+end note
+
+Client API -> App: List<SupportCalls> Results
+

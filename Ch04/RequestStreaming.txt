@@ -1,0 +1,38 @@
+title Request Streaming
+
+App -> Client API: ActiveCallsFor(id);
+
+Client API -> Server: All active support calls for "customers/8243-C"
+
+note over  Server
+ Compute query
+end note
+
+Server -> Client API: Send result
+
+
+note over  Client API
+ Read a result from the network
+end note
+
+Client API -> App: Return SupportCall
+
+
+Server -> Client API: Send result
+
+
+note over  Client API
+ Read a result from the network
+end note
+
+Client API -> App: Return SupportCall
+
+note over  Server
+Repeat as many times as you
+   have results
+end note
+
+
+Server -> Client API: Done
+
+Client API -> App: Done
