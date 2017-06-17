@@ -269,7 +269,19 @@ the basic roadmap for RavenDB.
 *[Chapter 35](#summary) - Are we there yet? Yes! -* summarize the book and let you go and actually 
 start _using_ all of this awesome information.
 
+### Summary
 
+So there is a lot of things in this book, and I hope that you'll find it both interesting and instrucive. However,
+one thing that it isn't meant to do is to replace the documentation. The purpose of this book is to give you the
+full background and greater understanding of how RavenDB it put together and what it is doing. It isn't going over
+the nitty gritty details of every API call and what parameters should be passed to it.
+
+In many cases, I have selected to discuss a feature, give one or two examples of its use and where it is best to 
+utilize it and left the reader with the task of reading up about the full details of the particular feature in the 
+docs. 
+
+This book is already long enough, and the intent is to familiarize yourself with RavenDB itself, not to allow you to
+skip reading the full details in the documentation.
 
 
 TODO: 
