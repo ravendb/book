@@ -2,7 +2,7 @@
 .\build.ps1 docx $false
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
-$release = "v4.0.3-preview"
+$release = "v4.0.4-preview"
 
 
 $json = Invoke-WebRequest -ErrorAction Stop `

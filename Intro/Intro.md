@@ -1,6 +1,8 @@
 
 # Introduction
 
+[Introduction]: #intro
+
 RavenDB is a high performance, distributed, NoSQL document database. Phew, that is a mouthful. But it will probably
 hit all the right buzzwords of the month. What does this actually _mean_?
 
