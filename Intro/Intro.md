@@ -12,12 +12,13 @@ RavenDB can run on a single node (suitable for development or for small applicat
 (high availability, load balancing, geo distribution of data and work, etc.). A single cluster can host multiple
 databases, each of them can span some or all of the nodes in the cluster. 
 
-With RavenDB 4.0 the team has put a major emphasis on extreme high performance, I am going to assume that I'm not
+With RavenDB 4.0 the team has put a major emphasis on extremely high performance, I am going to assume that I'm not
 going to have to explain why that is a good thing :-). Throughout the book, I'm going to explain how that decision
 has impacted both the architecture and implementation of RavenDB.
 
 In addition to the tagline, RavenDB is also an ACID database, unlike many other NoSQL databases. ACID stands for 
-(Atomic, Consistent, Isolated and Durable) and is a fancy way to say that RavenDB has real transactions. The kind 
+Atomic, Consistent, Isolated and Durable and is a fancy way to say that RavenDB has _real_ transactions. Per document,
+across multiple documents in the same collection, acorss multiple documents in multiple collections. It's all there. The kind 
 of transactions that developers can rely on. If you send work to RavenDB, you can be assured that it will either be
 done completely and persist to disk, or it will fail completely, no half way measures and no needing to roll your
 own transactions.
@@ -71,9 +72,9 @@ team will learn how to monitor, support and nurture RavenDB in production.
 Regardless of who you are, you'll come away from this book with a greater understanding of all the moving pieces 
 and the ability to mold RavenDB to your needs.
 
-This book assumes that you have working knowledge of .NET and C#, though RavenDB can be used with .NET, Java, 
-Go, Node.js, Python, Ruby and PHP. Most things discussed in the book are applicable, even if you aren't writing
-code in C#. 
+This book mostly used C# as the language for code samples, though RavenDB can be used with .NET, Java, 
+Go, Node.js, Python, Ruby and PHP, among others. Most things discussed in the book are applicable, even if you 
+aren't writing code in C#. 
 
 All RavenDB official clients follow the same model, adjusted to match the platform expectations and API 
 standards, so regardless of what platform you are using to connect to RavenDB, this book should still be useful.
@@ -83,7 +84,7 @@ standards, so regardless of what platform you are using to connect to RavenDB, t
 One of the major challenges in writing this book came in considering how to structure it. There are so many 
 concepts that relate to one another and trying to understand them in isolation can be difficult. For example, 
 we can't talk about modeling documents before we understand the kind of features that are available for us to 
-work with. Considering this, I'm going to introduce concepts in stages.
+work with. Considering this, I'm going to introduce concepts in stages. 
 
 ### Part I - The basics of RavenDB
 
@@ -93,15 +94,22 @@ This is the part you will want new hires to read before starting to work with an
 contains a practical discussion on how to build an application using RavenDB. We'll skip theory, concepts and
 background information in favor of getting things done, those will be discussed in the next part.
 
-*[Chapter 2](#zero-to-ravendb) - Zero to RavenDB -* focuses on setting you up with a RavenDB instance.
-The client API and its basic usage is also cover, as well as document identifier generation and test RavenDB 
-based application. The studio and some key concepts are introduced.
+We'll cover setting up RavenDB on your machine, opening up the RavenDB Studio in the browser and connecting to
+the database from your code. After getting beyong the hello world strage, we'll introduce some of the basic
+concepts that you need to know in order to work with RavenDB, building a simple CRUD sample, learn how to perform 
+basic queries and in general work with the client API.
 
-*[Chapter 3](#modeling) - Modeling documents -* Goes in depth into how to structure your entities and documents, the impact
-of various RavenDB features on the structure of your documents and how you should handle common modeling scenarios.
+After covering the basics, we'll move into modeling documents in RavenDB, how to build your application in a way
+that mesh well with how document based modeling, what sort of features you need to be aware of when designing the
+domain model and how to deal with common modeling scenarios, concurrency control and dealing with binary data.
 
-*[Chapter 4](#client-api) - Deep dive into the RavenDB Client API -* explores more advanced client scenarios, such as lazy 
-requests, patching, concurrency, listeners, bulk inserts, streaming queries and using persistent subscriptions. 
+Following on this theoretical discussion we'll dive into the client API and explore the kind of advancced options
+that RavenDB offers us. From lazy requests to reduce network traffic to the optimal way to read and write a lot
+of data very quickly, to peforming partial document update and how caching is an integral part of the client API.
+
+We'll conclude the first part of the book with an overview of batch processing in RavenDB and how we can use a 
+highly avaliable reliable subscriptions to manage all sort of background tasks in your application in quite an
+elegant fashion.
 
 ### Part II - Ravens everywhere
 
@@ -111,21 +119,7 @@ This part focuses on the theory of building robust and high performance systems 
 to working with a cluster of RavenDB nodes on commodity hardware, discuss data and work distribution across 
 the cluster and how to best structure your systems to take advantage of what RavenDB brings to the table.
 
-*[Chapter 5](#clustering-setup) -* Clustering Setup - walks through the steps of setting up a cluster of RavenDB 
-nodes and working with a clustered database. High availability and load balancing features in RavenDB will also
-be discussed.
-
-*[Chapter 6](#clustering-deep-dive) -* Clustering Deep Dive - takes you through the RavenDB clustering behavior, 
-how it works and how the both servers & clients are working together to give you a seamless distributed 
-experience. We'll also discuss error handling and recovery in a clustered environment.
-
-*[Chapter 7](#integrations) -* Integrating with the Outside World - explores using RavenDB alongside additional 
-systems, for integrating with legacy systems, working with dedicated reporting databases, ETL process, long 
-running background tasks and in general how to make RavenDB fit better inside your environment.
-
-*[Chapter 8](#clustering-scenarios) -* Clusters Topologies - guides you through setting up several different 
-clustering topologies and their pros and cons. This is intended to serve as a set of blueprints for architects to 
-start from when they begin building a system.
+//TODO: Complete this when writing it is completed
 
 ### Part III - Indexing
 
@@ -135,45 +129,8 @@ This part discusses how data is indexed by RavenDB, allowing quick retrieval of 
 document or aggregated data spanning years. We'll cover all the different indexing methods in RavenDB and how
 each of them can be used to implement the features you want in your systems.
 
-*[Chapter 9](#map-indexes) - Simple Indexes -* introduces indexes and their usage in RavenDB. Even though we 
-have performed queries and worked with the data, we haven't actually dealt with indexes directly so far. Now is 
-the time to lift the curtain and see how RavenDB is searching for information and what it means for your 
-applications.
+//TODO: Complete this when writing it is completed
 
-*[Chapter 11](#full-text-search) -* Full Text Search - takes a step beyond just querying the raw data and shows 
-how you can search your entities using powerful full text queries. We'll talk about the full text search 
-options RavenDB provides, using analyzers to customize this for different usages and languages.
-
-*[Chapter 13](#multi-map-N-load-doc) -* Complex indexes - goes beyond simple indexes and shows how to 
-query over multiple collections at the same time. We will also see how we can piece together data
-from related documents at indexing time and have RavenDB keep the index consistent for us.
-
-*[Chapter 13](#map-reduce) -* Map/Reduce - gets into data aggregation and how using Map/Reduce indexes allows 
-you to get instant results over very large data sets with very little cost, this making reporting style 
-queries cheap and accessible at any scale. Beyond simple aggregation, Map/Reduce in RavenDB also allows you to 
-reshape the data coming from multiple source into a single whole, regardless of complexity. 
-
-*[Chapter 14](#facets) -* Facet and Dynamic Aggregation - steps beyond static aggregation provided by Map/Reduce,
-giving you the ability to run dynamic aggregation queries on your data, or just facet your search results making 
-it easier for the user to find what they are looking for.
-
-*[Chapter 15](#recursive-map-reduce) -* Artificial Documents and Recursive Map/Reduce - guides you through using 
-indexes to _generate_ documents, instead of the other way around, and then use that for both normal operations and 
-supporing recursive Map/Reduce, subscriptions over aggregated data and even more complex reporting scenarios.
-
-*[Chapter 16](#query-optimizier) -* The Query Optimizer - takes you into the RavenDB query optimizer, index 
-management and how RavenDB is  treating indexes from the inside out. We'll see the kind of machinery that is 
-running behind the scenes to get everything going so that when you a query is made, the results are there at once.
-
-*[Chapter 17](#ravendb-lucene-usage) -* RavenDB Lucene Usage - goes into (quite gory) details about how RavenDB 
-is making use of Lucene to implement its indexes. This is intended mostly for people who need to know what exactly 
-is going on and how does everything fit together. This is how the sausage is made.
-
-*[Chapter 18](#advanced-indexes) -* Advanced Indexing Techniques - dig into some specific usages of indexes that 
-are a bit... outside the norm. 
-Using spatial queries to find geographical information, generating dynamic suggestions on the fly, returning 
-highlighted results for full text search queries, transforming query results on the server and more. 
-All the things that you would use once in a blue moon, but when you need them you _really_ need them.
 
 ### Part IV - Operations
 
@@ -184,36 +141,7 @@ cluster to decommissioning a downed node to tracking down performance problems. 
 then a bit more) to understand what is going on with RavenDB and how to customize its behavior to fit your own 
 environment. 
 
-*[Chapter 19](#prod-deploy) - Deploying to Production -* guides you through several production deployment 
-options, including all the gory details about how to spin up a cluster and keep it healthy and happy. We'll 
-discuss deploying to anything from a container swarm to bare metal, the networking requirements and configuration 
-you need, security implications and anything else that the operation teams will need to comfortably support a 
-RavenDB cluster in that hard land called production.
-
-*[Chapter 20](#security) - Security -* focuses solely on security. How you can control who can access which 
-database, running an encrypted database for highly sensitive information and securing a RavenDB instance that is 
-exposed to the wild world.
-
-*[Chapter 21](#high-availablity) - High Availability -*  brings failure to the table, repeatedly. We'll discuss 
-how RavenDB handles failures in production, how to understand, predict and support RavenDB in keeping all of your 
-databases accessible and _fast_ in production, even in the face of various errors and disasters. 
-
-*[Chapter 22](#disaster-recovery) - Recovering from Disasters -* covers what happens after disaster strikes. 
-When machines melt down and go poof, or someone issues the wrong command and the data just goes into the 
-incinerator. Yep, this is where we talk about backups and restore and all the various reasons why operations 
-consider them sacred. 
-
-*[Chapter 23](#monitoring) - Monitoring -* covers how to monitor and support a RavenDB cluster in 
-production. We'll see how RavenDB externalizes its own internal state and behavior for the admins to look at and 
-how to make sense out of all of this information. 
-
-*[Chapter 24](#performance-tracking) - Tracking Performance -* gets into why a particular query or a node isn't
-performing up to spec. We'll discuss how one would track down such an issue and find the root cause responsible for
-such a behavior, a few common reasons why such things happen and how to avoid or resolve them.
-
-*[Chapter 26](#stroage-layout) - Storage Considerations -* discusses how RavenDB is storing the data on disk, how 
-it allocates storage and arrange the data internally. We'll talk about how it impacts operational decisions and 
-persistence decisions.
+//TODO: Complete this when writing it is completed
 
 ### Part V - Implementation Details
 
@@ -226,48 +154,51 @@ build an awesome system on top of RavenDB.
 On the other hand, if you want to go through the code and understand why RavenDB is doing something in a particular
 way, this part will likely answer all those questions. 
 
-*[Chapter 27](#blittable) - The Blittable Format -* gets into the details of how RavenDB represents JSON 
-documents internally, how we handle this particular format and how to work with it. 
+//TODO: Complete this when writing it is completed
 
-*[Chapter 28](#voron) - The Voron Storage Engine -* breaks down the low-level storage engine we use to put
-bits on the disk. We'll walk through how it works, the various features it offers and most importantly, why it 
-had ended up in this way. A lot of the discussion is going to be driven by performance consideration, extremely 
-low-level and full of operating system and hardware minutiae. 
+## Who am I?
 
-*[Chapter 29](#tx-merger) - The Transaction Merger -* built on top of Voron, the transaction merger comprises
-one of the major ways in which RavenDB is able to provide high performance. We'll discuss how it came about, how 
-it is actually used and what it means in terms of the actual code using it. 
+My name in Oren Eini and ver a decade ago I got frustrated with working with relational databases. At the time I was
+working mostly as a consultant for companies looking to improve the performance of data driven applications. I kept
+coming to a customer after customer and seeing them having hard time and really struggling. Not because they were
+unqualified for the task but becuase they kept using the wrong tool for the job. 
 
-*[Chapter 30](#rachis) - The Rachis Consensus -* talks about how RavenDB is using the Raft consensus protocol
-to connect together different nodes in the cluster, how they interact with one another and the internal
-details of how it all comes together (falls apart and recovers again).
+At some point I got so frustrated that I sat down and wrote a blog post about what I considered would be the ideal
+datastore for an OTLP^[Online transaction processing, a fancy way to say a business application] database should 
+look like. That blog post turned into a series of blog posts, and then into some weekend hacking. Fast forward a 
+few months later, and I had the skeleton of what will eventually become RavenDB and a burning desire to have it
+get out of my head.
 
-*[Chapter 31](#cluster-state-machine) - Cluster State Machine -* brings the discussion one step higher by talking
-about how RavenDB uses the result of the distributed consensus to actually manage all the nodes in the cluster
-and how we can reliably arrive to the same decision on each node independently. 
+At some point, it felt not like I was building something from scratch, but that I was merely letting out something
+that was already fully formed. As I mentioned, that was over a decade ago, and RavenDB has been running production
+systems ever since. 
 
-*[Chapter 32](#landlord) - Lording over Databases -* peeks inside a single node and explores how a database 
-is managed inside that node. More importantly, how we are dealing with multiple databases on the same node and 
-what kind of impact each database can have on its neighbors. 
+In that decade we have learned a lot about what it takes to really make a database that _just works_ and doesn't 
+force you to jump through so many hoops. In particular, I came from a Microsoft centric world, and that had a big
+impact on the design of RavenDB. Most NoSQL solutions (especially at the time) had a very different mental model
+for how they should operate. They put a lot of attention on speed, or scale out or esoteric data models. 
 
-*[Chapter 31](#replication) - Replication -* dives into the details of how RavenDB manages multi master 
-distributed database. We'll go over change vectors which ensure conflict detection (and aid in its resolution) 
-and how the data is actually being replicated between the different nodes in a database group. 
+On the other hand, I wanted to have a database that would make _sense_ for building web applications and business 
+systems. You know, the bread and butter of our industry. I wanted a database that would be ACID, because a database
+without transaction just doesn't make sense to me. I wanted to get rid of the limitations of the rigid schema of 
+relational database but keep working on Domain Driven systems. I wanted something that is fast but at the same
+time can be just thrown on a production server and work without having to pay for an on call babysitter.
 
-*[Chapter 33](#architecture) - Internal Architecture -* gives you the overall view of the internal architecture 
-of RavenDB. How it is built from the inside, and the reasoning why the pieces came together in the way they did.
-We'll cover both high-level architecture concepts and micro architecture of the common building blocks in the 
-project.
+A lot of the design of RavenDB was heavily influenced by the [Release It!](https://pragprog.com/book/mnee/release-it)
+book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and in retrospect, I think
+we did a good job there.
 
-### Part VI - Parting
+That doesn't meant that we always hit the bullseye. Almost a decade in production, deployed to hundreds of
+thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels will teach you
+a _lot_ about what works in theory, what the real world can tolerate and what is needed. 
 
-This part summarizes the entire book and provide some insight about what our future vision for RavenDB is.
+We took the time for the RavenDB 4.0 release to go back and look at what worked and what didn't and make certain to 
+actually _use_ all of that experience and knowhow that we accured to build a much better end result. 
 
-*[Chapter 34](#vnext) - What comes next -* discusses our (very rough) plans for the next major version and 
-the basic roadmap for RavenDB.
+I'm insanely proud in what came out of the door as a result of it. RavenDB 4.0 a really cool database, capable of 
+doing amazing things, and I'm really glad that I have the chance to write this book and explore with you all the 
+things that you can do with it.
 
-*[Chapter 35](#summary) - Are we there yet? Yes! -* summarize the book and let you go and actually 
-start _using_ all of this awesome information.
 
 ### Summary
 
@@ -283,6 +214,3 @@ docs.
 This book is already long enough, and the intent is to familiarize yourself with RavenDB itself, not to allow you to
 skip reading the full details in the documentation.
 
-
-TODO: 
-- Waiting for replication or indexing 
