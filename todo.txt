@@ -6,6 +6,8 @@ TODO:
 - Waiting for replication or indexing 
 
 
+Talk about unique constraints
+
 
 ### Part I - The basics of RavenDB
 
