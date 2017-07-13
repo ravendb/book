@@ -26,14 +26,14 @@ done completely and persist to disk, or it will fail completely, no half way mea
 own transactions.
 
 That seems silly to talk about, I'm aware, but there are databases out there who don't have this. Given how much 
-work this particular feature has brought us, I can emphasis with the wish to just drop ACID behavioor, because making
+work this particular feature has brought us, I can emphasis with the wish to just drop ACID behaviour, because making
 a database that is both high performance and fully transactional is anything but trivial. That said, I think that this 
 is one of the most basic requirements from a database, and RavenDB has it out of the box. 
 
 There are certain things that the database should provide, transactions are one, but also manageability and a 
 certain level of ease of use. A common thread we'll explore in this book is how RavenDB was designed to reduce the 
 load on the operations team by dynamically adjusting to load, environment and the kind of work it is running. 
-Working with a database be easy and obvious, and to a large extent, RavenDB allows that.
+Working with a database should be easy and obvious, and to a large extent, RavenDB allows that.
 
 While informative, documentation tends to be dry and it hardly makes for good reading (or for an 
 interesting time writing it). RavenDB has quite a bit of documentation that tells you how to use it, what to do and
