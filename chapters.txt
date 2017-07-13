@@ -7,7 +7,7 @@
 [Prouction Deployments](#production-deployments)
 
 
-[Bits on the Disk](#stroage-layout).
+[Bits on the Disk](#storage-layout).
 
 [Part III](#indexing)
 
