@@ -11,7 +11,7 @@ structured information in the form of self-contained data (as opposed to a Word 
 usually in JSON or XML format. RavenDB is, essentially, a database for storing and working with JSON data.
 
 RavenDB can run on a single node (suitable for development or for small applications) or on a cluster of nodes
-(high availability, load balancing, geo distribution of data and work, etc.). A single cluster can host multiple
+(high availability, load balancing, geo distribution of data and work, etc.). A single node can host multiple
 databases, each of them can span some or all of the nodes in the cluster. 
 
 With RavenDB 4.0 the team has put a major emphasis on extremely high performance, I am going to assume that I'm not
@@ -89,7 +89,7 @@ coming to a customer after customer and seeing them having hard time and really 
 unqualified for the task but becuase they kept using the wrong tool for the job. 
 
 At some point I got so frustrated that I sat down and wrote a blog post about what I considered would be the ideal
-datastore for an OTLP^[Online transaction processing, a fancy way to say a business application] applications should 
+datastore for an OLTP^[Online transaction processing, a fancy way to say a business application] applications should 
 look like. That blog post turned into a series of blog posts, and then into some weekend hacking. Fast forward a 
 few months later, and I had the skeleton of what will eventually become RavenDB and a burning desire to have it
 get out of my head.
@@ -212,7 +212,7 @@ the nitty gritty details of every API call and what parameters should be passed 
 
 In many cases, I have selected to discuss a feature, give one or two examples of its use and where it is best to 
 utilize it and left the reader with the task of reading up about the full details of the particular feature in the 
-documentation. 
+documentation.
 
 This book is already long enough, and the intent is to familiarize yourself with RavenDB itself, not to allow you to
 skip reading the full details in the documentation.
