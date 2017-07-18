@@ -10,6 +10,8 @@
 
 [Disaster Recovery and Plan B (for Backups)](#disaster-recovery)
 
+[Statistics, Monitoring and Insight](#monitoring)
+
 [Bits on the Disk](#storage-layout).
 
 [Part III](#indexing)
