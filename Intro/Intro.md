@@ -83,13 +83,13 @@ standards, so regardless of what platform you are using to connect to RavenDB, t
 
 ### Who am I?
 
-My name in Oren Eini and ver a decade ago I got frustrated with working with relational databases. At the time I was
+My name in Oren Eini and over a decade ago I got frustrated with working with relational databases. At the time I was
 working mostly as a consultant for companies looking to improve the performance of data driven applications. I kept
 coming to a customer after customer and seeing them having hard time and really struggling. Not because they were
 unqualified for the task but becuase they kept using the wrong tool for the job. 
 
 At some point I got so frustrated that I sat down and wrote a blog post about what I considered would be the ideal
-datastore for an OTLP^[Online transaction processing, a fancy way to say a business application] database should 
+datastore for an OTLP^[Online transaction processing, a fancy way to say a business application] applications should 
 look like. That blog post turned into a series of blog posts, and then into some weekend hacking. Fast forward a 
 few months later, and I had the skeleton of what will eventually become RavenDB and a burning desire to have it
 get out of my head.
@@ -118,7 +118,7 @@ thousands of machines (of sometimes dubious origin) and used by teams of wildly 
 a _lot_ about what works in theory, what the real world can tolerate and what is needed. 
 
 We took the time for the RavenDB 4.0 release to go back and look at what worked and what didn't and make certain to 
-actually _use_ all of that experience and knowhow that we accured to build a much better end result. 
+actually _use_ all of that experience and knowhow that we accrued to build a much better end result. 
 
 I'm insanely proud in what came out of the door as a result of it. RavenDB 4.0 a really cool database, capable of 
 doing amazing things, and I'm really glad that I have the chance to write this book and explore with you all the 
@@ -141,15 +141,15 @@ contains a practical discussion on how to build an application using RavenDB. We
 background information in favor of getting things done, those will be discussed in the next part.
 
 We'll cover setting up RavenDB on your machine, opening up the RavenDB Studio in the browser and connecting to
-the database from your code. After getting beyong the hello world strage, we'll introduce some of the basic
+the database from your code. After getting beyond the hello world strage, we'll introduce some of the basic
 concepts that you need to know in order to work with RavenDB, building a simple CRUD sample, learn how to perform 
 basic queries and in general work with the client API.
 
 After covering the basics, we'll move into modeling documents in RavenDB, how to build your application in a way
-that mesh well with how document based modeling, what sort of features you need to be aware of when designing the
+that mesh well with document based modeling, what sort of features you need to be aware of when designing the
 domain model and how to deal with common modeling scenarios, concurrency control and dealing with binary data.
 
-Following on this theoretical discussion we'll dive into the client API and explore the kind of advancced options
+Following on this high level discussion we'll dive into the client API and explore the kind of advanced options
 that RavenDB offers us. From lazy requests to reduce network traffic to the optimal way to read and write a lot
 of data very quickly, to peforming partial document update and how caching is an integral part of the client API.
 
@@ -183,7 +183,7 @@ each of them can be used to implement the features you want in your systems.
 Focus: Operations
 
 This part deals with running and supporting a RavenDB cluster or clusters in production. From how you spin a new 
-cluster to decommissioning a downed node to tracking down performance problems. We'll learn all that you need (and
+cluster to decommissioning a downed node and to tracking down performance problems. We'll learn all that you need (and
 then a bit more) to understand what is going on with RavenDB and how to customize its behavior to fit your own 
 environment. 
 
@@ -207,12 +207,12 @@ way, this part will likely answer all those questions.
 
 So there is a lot of things in this book, and I hope that you'll find it both interesting and instrucive. However,
 one thing that it isn't meant to do is to replace the documentation. The purpose of this book is to give you the
-full background and greater understanding of how RavenDB it put together and what it is doing. It isn't going over
+full background and greater understanding of how RavenDB is put together and what it is doing. It isn't going over
 the nitty gritty details of every API call and what parameters should be passed to it.
 
 In many cases, I have selected to discuss a feature, give one or two examples of its use and where it is best to 
 utilize it and left the reader with the task of reading up about the full details of the particular feature in the 
-docs. 
+documentation. 
 
 This book is already long enough, and the intent is to familiarize yourself with RavenDB itself, not to allow you to
 skip reading the full details in the documentation.
