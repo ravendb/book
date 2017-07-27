@@ -4,10 +4,15 @@
 4 - [Advanced client API](#advanced-client-api)
 5 - [Subscriptions]: #batch-processing
 6 - [Your first RavenDB Cluster](#clustering-intro)
+
 [Prouction Deployments](#production-deployments)
 
 
-[Bits on the Disk](#stroage-layout).
+[Disaster Recovery and Plan B (for Backups)](#disaster-recovery)
+
+[Statistics, Monitoring and Insight](#monitoring)
+
+[Bits on the Disk](#storage-layout).
 
 [Part III](#indexing)
 
