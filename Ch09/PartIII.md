@@ -10,7 +10,17 @@ This is because as important as querying is, getting your data model right and u
 is even more paramount for a successful system. These are often somewhat amorphous topics that are quite hard to relate to. But 
 queries are much easier to talk about, primiarly because it is so very easy to look at the query and then look at its results.
 
-This is going to be a very fun ride that you are going to go on. RavenDB has a powerful query language and some unique features
+This book is meant to give you an _in depth_ view of how RavenDB is working, so we'll start by actually looking into the query
+engine and how RavenDB is processing queries. We'll dig into the query optimizer, index generation and how queries are handled,
+optimized, executed and sent to the client. I'm going to put all those details before actually diving into what you can do with 
+queries in RavenDB because these details are important for you to be able to make the most of your queries. 
+
+I suggest at least skimming the next chapter, which talks about the RavenDB query engine, before heading into the one after, which
+actually teaches you how to actually query. This is especially true if you are trying to analyze the behavior of RavenDB or trying
+to find a good way to handle a specific scenario.
+
+Personally, consider that kind of discussion facinating, but I realize that I might be in the minority here and I expect that most
+of the readers will have a lot more fun when we get to actual queries. RavenDB has a powerful query language and some unique features
 around querying, indexing and managing your data that make it easier to find exactly what you want and shape it just the right
 way. Map/reduce indexes allow you to perform aggregation queries with very little cost, regardless of the data size. 
 
@@ -19,8 +29,6 @@ if they are searching for something that isn't _quite_ right.
 RavenDB also allows you to perform full text queries cheaply, execute geo spatial searches and gain fine grained control over the indexed
 data.
 
-This part is broken into several chapters. The first thing we'll discuss is how RavenDB is actually handling queries, how indexes work
-internally and what it means for your production systems.
 Then, we are going to tackle simple queries and the RavenDB Query Language, to get yourself
 familiarized with the way queries work with RavenDB. Next, we are going to look into some of the more advanced features, such as full
 text search and various querying options.
