@@ -14,13 +14,14 @@ This is going to be a very fun ride that you are going to go on. RavenDB has a p
 around querying, indexing and managing your data that make it easier to find exactly what you want and shape it just the right
 way. Map/reduce indexes allow you to perform aggregation queries with very little cost, regardless of the data size. 
 
-Advanced
-features such as facets allow to slice & dice the data as you show it to the user and suggestions allow you to correct the user
+Advanced features such as facets allow to slice & dice the data as you show it to the user and suggestions allow you to correct the user
 if they are searching for something that isn't _quite_ right.
 RavenDB also allows you to perform full text queries cheaply, execute geo spatial searches and gain fine grained control over the indexed
 data.
 
-This part is broken into several chapters. First, we are going to tackle simple queries and the RavenDB Query Language, to get yourself
+This part is broken into several chapters. The first thing we'll discuss is how RavenDB is actually handling queries, how indexes work
+internally and what it means for your production systems.
+Then, we are going to tackle simple queries and the RavenDB Query Language, to get yourself
 familiarized with the way queries work with RavenDB. Next, we are going to look into some of the more advanced features, such as full
 text search and various querying options.
 
