@@ -5,9 +5,9 @@
 
 We have looked into how RavenDB with an eye to finding out what it can do, but we have only just scratched the surface.
 This is enough to be able to write simple CRUD applications, but there is a lot more that we haven't covered yet. The 
-chief topics we have yet to cover is the notion of running in a cluster and indexing data.
+chief topics we have yet to cover is the notion of running in a cluster and querying data.
 
-I had struggled with the decision on the order these two topics should show up in the book. Indexing are _important_, but 
+I had struggled with the decision on the order these two topics should show up in the book. Queries are _important_, but 
 RavenDB is actually quite capable of handling a lot of the decisions around them on its own, and while they can have a 
 major impact on coding decisions, the distributed aspect of RavenDB should be a core part of the design of your 
 architecture. For that reason, I decided to cover it first. If you only intend to run RavenDB as a single node, you can 
