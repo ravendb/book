@@ -1,5 +1,10 @@
 Things to cover
 
+Chapter 6:
+//TODO: image of a database graph
+
+//TODO: Figure of 5 nodes cluster and 2 db nodes up, 1 rehab, 1 promotable.
+
 
 
 TODO: 
