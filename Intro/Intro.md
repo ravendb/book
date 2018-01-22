@@ -20,7 +20,7 @@ has impacted both the architecture and implementation of RavenDB.
 
 In addition to the tagline, RavenDB is also an ACID database, unlike many other NoSQL databases. ACID stands for 
 Atomic, Consistent, Isolated and Durable and is a fancy way to say that RavenDB has _real_ transactions. Per document,
-across multiple documents in the same collection, acorss multiple documents in multiple collections. It's all there. The kind 
+across multiple documents in the same collection, across multiple documents in multiple collections. It's all there. The kind 
 of transactions that developers can rely on. If you send work to RavenDB, you can be assured that it will either be
 done completely and persist to disk, or it will fail completely, no half way measures and no needing to roll your
 own transactions.
@@ -86,7 +86,7 @@ standards, so regardless of what platform you are using to connect to RavenDB, t
 My name in Oren Eini and over a decade ago I got frustrated with working with relational databases. At the time I was
 working mostly as a consultant for companies looking to improve the performance of data driven applications. I kept
 coming to a customer after customer and seeing them having hard time and really struggling. Not because they were
-unqualified for the task but becuase they kept using the wrong tool for the job. 
+unqualified for the task but because they kept using the wrong tool for the job. 
 
 At some point I got so frustrated that I sat down and wrote a blog post about what I considered would be the ideal
 datastore for an OLTP^[Online transaction processing, a fancy way to say a business application] applications should 
