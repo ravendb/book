@@ -4,6 +4,7 @@
 $token = Get-Content "$pwd\..\Credentials\github.txt"
 $release = "v4.0.11-preview"
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $json = Invoke-WebRequest -ErrorAction Stop `
      -Uri "https://api.github.com/repos/ravendb/book/releases" `
