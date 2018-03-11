@@ -14,7 +14,7 @@ pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--epub-cover-image=.\Cover.jpg `
 	-o $output .\title.txt .\Intro\Intro.md .\Ch02\Ch02.md .\Ch03\Ch03.md .\Ch04\Ch04.md `
 	.\Ch05\Ch05.md .\Ch06\PartII.md  .\Ch06\Ch06.md .\Ch07\Ch07.md .\Ch08\Ch08.md `
-	.\Ch09\PartIII.md  .\Ch09\Ch09.md .\Ch10\Ch10.md .\Ch11\Ch11.md
+	.\Ch09\PartIII.md  .\Ch09\Ch09.md .\Ch10\Ch10.md .\Ch11\Ch11.md .\Ch12\Ch12.md
 
 if($start) {
 	start $output
