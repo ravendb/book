@@ -22,12 +22,6 @@ Part of the design goals for RavenDB has been an explicit focus on production. W
 alerts and behaviors that were called out in the book so far, but in this part we are going to be taking a deep dive into
 yet unexplored parts of RavenDB. 
 
-We'll start with everyone's favorite topic, security. We'll cover that first, even before we talk about deployments, because
-security is a hard requirement (if you are properly deployed, but not secured, you aren't properly deployed). RavenDB offers
-both encryption in transit and at rest, have several layers of protections for your data and was designed to make it easy for
-mere mortals to get the system up securely^[We also designed it so it would be _hard_ to deploy RavenDB in an unsecured 
-fashion.]. 
-
 We'll cover deployments at length. In house and on the cloud, on your own machines and as a DB-as-a-service. We'll explore
 topologies that range from a single production server to clusters spanning the globe, including how to split manage your
 databases for optimal resource usage and maximum survivability. In particular, we'll focus on what RavenDB is expecting 

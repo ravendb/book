@@ -38,5 +38,17 @@ We invested a lot of time not just in our security infrastructure but also in ma
 by default. Intead of having to go through a 60 page document detailing all the steps you need to go through to secure your
 database, RavenDB is secured by default. 
 
-We'll cover exactly how RavenDB handles security, how to properly deploy your clusters into hostile network in a safe manner
-and how you can ensure that your data is protected. 
+We'll cover how RavenDB ensures the safety of your data as it travel the network, using strong encryption to ensure that no
+outside party can read what is being sent, even through the traffic is sent through channels that you don't own. Another
+important piece of security is knowing who you are talking to, if you are securely sending secrets to a Bad Guy, the most
+sophisticated encryption in the world will not help, after all.
+RavenDB uses `X509` certificates to mutually authenticate both clients and servers, ensuring that your data goes only to 
+those it was authorized to. 
+
+Beyond encryption of data in transit, we'll also look at how RavenDB can protect your data at rest, encrypting all data on 
+disk and ensuring that even if you hard disk is stolen, the thief will end up with seemingly random bits on the disk, without
+a way to actually get to your data.
+
+Proper security is _important_, which is why we cover this topic in detail before we get to actual deployment scenarios. I 
+believe that you should have a good grounding first in running a secure system, before you take it into the wild, chaotic,
+environment that is production.
