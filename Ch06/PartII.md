@@ -1,5 +1,5 @@
 
-# Part II - Distributed RavenDB
+# Distributed RavenDB
 
 [Distributed RavenDB]: #distributed-ravendb
 

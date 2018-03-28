@@ -1,15 +1,15 @@
 
-# Part V - Running in production
+# Running in production
 
 We have spent a lot of time talking about what RavenDB can do in this book. What is the best way to put data into it and get it
 out, how indexes work, how it runs as a distributed cluster and how you can work with the database from your applications. What
 we haven't talked about, except a few tidbits here and there, is how you are actually going to run it in production.
 
 The production environment differs from running in a development mode in several key factors. The amount of data you have is 
-typically _much_ larger, the important of the data is higher, you may need to protect your documents from prying eyes and most
+typically _much_ larger, the importance of the data is higher, you may need to protect your documents from prying eyes and most
 importantly, you need it there, at all times. Production systems should be available, speedy and functional.
 
-Production systems also typically run under heavy constraints. From limited network access to airgapped systems to (true story)
+Production systems also run under heavy constraints. From limited network access to airgapped systems to (true story)
 an old PC that is thrown in an unventilated cupboard and expected to serve business critical functionality.
 The common thread is that what you can do in production is limited. You can't just attach a debugger, or run invasive procedures
 or even assume that there is a person that is monitoring the system and can react when it beeps. 

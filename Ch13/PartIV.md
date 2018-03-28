@@ -1,5 +1,5 @@
 
-# Part IV - Security, encryption and authentication
+# Security, encryption and authentication
 
 Databases are very tempting target, for an intruder. They typically contain all sort of juicy bits (your data, and more 
 importantly, your _customers_ data), attacking them is very much like attacking the heart of any organization. In fact,
