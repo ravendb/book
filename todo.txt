@@ -1,3 +1,126 @@
+
+### Capacity planning
+
+### Ensuring high availability
+
+### Cluster topologies and usages
+
+### Dedicing where databases go
+
+## Monitoring and troubelshooting
+
+## Backups, restores and disaster recovery
+
+### Admin JS console
+
+### Performance tracking
+
+## Closing thoughts
+
+TODO:
+
+```
+openssl s_client and in general, pointing out that it can be used to debug SSL issues
+
+Required permissions
+	- Files
+	- Note running as a service vs. running as admin
+	- set cap option in order to get the low ports
+
+How to disconnect from a data source
+	- Remove the cert that it uses
+
+Delayed external replication - how to switch over to the delay copy
+
+
+Cluster topologies
+	Members vs watchers
+
+	Ready made recommendations for various scenarios
+
+Database group topology
+	Reorder database group nodes and what this means
+	Expanding database group 
+	Scaling db group higher
+	- Delay external replication
+	- Automatic failover
+
+
+Recommended configuration for production
+	hardware, mostly
+	split I/O devices
+	explain how to split a db across hard disks
+	drive paths, relative paths, etc
+
+Indexing options - lock mode, priorities
+
+Firewall configuration, in particular, the TCP port which can be hidden
+	- open api.ravendb.net
+
+Operating System details & configuration that is important
+	- Linux, max number of open file handles
+	- Windows, max amount of lockable memory
+	- Set_cap, etc.
+
+
+Trouble shooting
+	- I/O metrics
+	- Debug package
+	- Threads endpoint
+	- Memory endpoint
+	- Monitoring in the studio
+	- Debug endpoints
+	- Logs and how to read them
+
+Monitoring tools
+	- Admin logs
+	- Admin JS console
+	- Traffic Watch
+
+Recipes
+	- Add capacity
+		- Node
+		- DB instance to db group
+	- Move a db between nodes
+	- Migrate a server between machines
+	- Move server between machines
+
+Disaster recovery
+	- Voron.DisasterRecovery
+	- How to bring a cluster up from a single node
+	- rvn and the ravendb cli
+	- recovering the keys to a cluster
+
+Capacity planning
+	- SLA
+	- Measurable metrics
+
+Maintenance
+	- Compact
+	- Disk space usage
+	- Preventive maintienance (don't keep logs on same disk)
+
+I/O behavior of RavenDB
+	- Voron
+	- Writes
+	- Reads
+	- Expected metrics
+
+Backup / restore
+
+	- Various backup options
+	- How to restore a db in a single node
+	- How to restore a db in a cluster (import, offline restore and then attach, etc)
+
+	TEST YOUR RESTORE process
+
+	A restore process can take hours / days on large databases.
+
+	Cost of moving 200GB hard backup, then restoring it.
+
+Deploying with RavenHQ
+```
+
 Things to cover
 
 Chapter 6:
