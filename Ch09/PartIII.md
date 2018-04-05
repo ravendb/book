@@ -1,5 +1,5 @@
 
-# Part III - Querying and Indexing in RavenDB
+# Querying and Indexing in RavenDB
 
 [Querying and Indexing]: #indexing
 

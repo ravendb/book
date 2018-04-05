@@ -1,15 +1,15 @@
 
-# Part V - Running in production
+# Running in production
 
 We have spent a lot of time talking about what RavenDB can do in this book. What is the best way to put data into it and get it
 out, how indexes work, how it runs as a distributed cluster and how you can work with the database from your applications. What
 we haven't talked about, except a few tidbits here and there, is how you are actually going to run it in production.
 
 The production environment differs from running in a development mode in several key factors. The amount of data you have is 
-typically _much_ larger, the important of the data is higher, you may need to protect your documents from prying eyes and most
+typically _much_ larger, the importance of the data is higher, you may need to protect your documents from prying eyes and most
 importantly, you need it there, at all times. Production systems should be available, speedy and functional.
 
-Production systems also typically run under heavy constraints. From limited network access to airgapped systems to (true story)
+Production systems also run under heavy constraints. From limited network access to airgapped systems to (true story)
 an old PC that is thrown in an unventilated cupboard and expected to serve business critical functionality.
 The common thread is that what you can do in production is limited. You can't just attach a debugger, or run invasive procedures
 or even assume that there is a person that is monitoring the system and can react when it beeps. 
@@ -33,10 +33,19 @@ and need to gather more information about what is going on _there_. There is a w
 specifically to make such investigation easier and ongoing monitoring will give you a good feel for the "heartbeat" of the 
 system, meaning you'll be able to notice changes from expected patterns and head off problems early.
 
-Finally, we deal with troubleshooting issues in production. This includes additional tooling available at the operating system
+Routine and preventive maintenance is also an important topic that we'll go over. From proper backup and restore procedures to
+disaster recovery stategies, it pays to be prepared in advanced in case trouble lands in your lap. 
+We'll see how to deal with troubleshooting issues in production. This includes additional tooling available at the operating system
 level and dedicated tools and features meant to help you manage and operate RavenDB. We'll discuss ways to manipluate the 
 internal state of RavenDB, impact decision making and behavior at runtime and how to always keep your application running. 
 
 This part is the operations team who is going to support your RavenDB cluster in production, but it is also very useful 
 for developers and architects to understand at least the rudimentaries of how RavenDB is being run in your production 
 environment and the options you have to inspect and manage it.
+It was composed over a decade of supporting RavenDB deployments in production in a variety of envrionments. You'll note that
+the general approach we tried to take is that if there is an error that RavenDB can do something about, it already does. 
+
+That doesn't mean that your operations team have nothing to do, mind. There is quite a lot that needs to be done, but most of it
+should be done before the system is anywhere near a production deployment. We'll cover in detail the notion of capacity planning, 
+setting Service Level Agreements for RavenDB and your system (and measuring compliance with them) and the kind of machine and 
+systems that you should expect to use to meet these goals.
