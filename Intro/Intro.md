@@ -113,7 +113,7 @@ A lot of the design of RavenDB was heavily influenced by the [Release It!](https
 book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and in retrospect, I think
 we did a good job there.
 
-That doesn't meant that we always hit the bullseye. Almost a decade in production, deployed to hundreds of
+That doesn't mean that we always hit the bullseye. Almost a decade in production, deployed to hundreds of
 thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels will teach you
 a _lot_ about what works in theory, what the real world can tolerate and what is needed. 
 
@@ -141,7 +141,7 @@ contains a practical discussion on how to build an application using RavenDB. We
 background information in favor of getting things done, those will be discussed in the next part.
 
 We'll cover setting up RavenDB on your machine, opening up the RavenDB Studio in the browser and connecting to
-the database from your code. After getting beyond the hello world strage, we'll introduce some of the basic
+the database from your code. After getting beyond the hello world stage, we'll introduce some of the basic
 concepts that you need to know in order to work with RavenDB, building a simple CRUD sample, learn how to perform 
 basic queries and in general work with the client API.
 
@@ -191,7 +191,7 @@ environment.
 
 #### Part V - Implementation Details
 
-Focus: RavenDB Core Team, RavenDB Support Engineers, Developers who wants to read the code
+Focus: RavenDB Core Team, RavenDB Support Engineers, Developers who want to read the code
 
 This part is the orientation guide that we throw at new hires when we sit them in front of the code. It is full of
 implementation details and background information that you probably don't need if all you want to know is how to 
@@ -205,7 +205,7 @@ way, this part will likely answer all those questions.
 
 ### Summary
 
-So there is a lot of things in this book, and I hope that you'll find it both interesting and instrucive. However,
+So there is a lot of things in this book, and I hope that you'll find it both interesting and instructive. However,
 one thing that it isn't meant to do is to replace the documentation. The purpose of this book is to give you the
 full background and greater understanding of how RavenDB is put together and what it is doing. It isn't going over
 the nitty gritty details of every API call and what parameters should be passed to it.
