@@ -1,13 +1,5 @@
 
 
-### Ensuring high availability
-
-## Monitoring and troubelshooting
-
-## Backups, restores and disaster recovery
-
-### Admin JS console
-
 ### Performance tracking
 
 ## Closing thoughts
@@ -26,39 +18,7 @@ Required permissions
 	- Files
 	- Note running as a service vs. running as admin
 
-How to disconnect from a data source
-	- Remove the cert that it uses
-
 Delayed external replication - how to switch over to the delay copy
-
-Indexing options - lock mode, priorities
-
-Recipes
-	- Add capacity
-		- Node
-		- DB instance to db group
-	- Move a db between nodes
-	- Migrate a server between machines
-	- Move server between machines
-
-
-Maintenance
-	- Compact
-	- Disk space usage
-	- Preventive maintienance (don't keep logs on same disk)
-
-
-Backup / restore
-
-	- Various backup options
-	- How to restore a db in a single node
-	- How to restore a db in a cluster (import, offline restore and then attach, etc)
-
-	TEST YOUR RESTORE process
-
-	A restore process can take hours / days on large databases.
-
-	Cost of moving 200GB hard backup, then restoring it.
 
 Deploying with RavenHQ
 ```
