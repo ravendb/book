@@ -8,10 +8,11 @@ hit all the right buzzwords of the month. What does this actually _mean_?
 
 Let me try to explain those in reversed order. A document database is a database that stores "documents",  meaning
 structured information in the form of self-contained data (as opposed to a Word or Excel document). A document is 
-usually in JSON or XML format. RavenDB is, essentially, a database for storing and working with JSON data.
+usually in JSON or XML format. RavenDB is, essentially, a database for storing and working with JSON data. You can
+also store binary data and a few other types, but you'll primarily use RavenDB for JSON documents.
 
 RavenDB can run on a single node (suitable for development or for small applications) or on a cluster of nodes
-(high availability, load balancing, geo distribution of data and work, etc.). A single cluster can host multiple
+(to gain high availability, load balancing, geo distribution of data and work, etc.). A single cluster can host multiple
 databases, each of them can span some or all of the nodes in the cluster. 
 
 With RavenDB 4.0 the team has put a major emphasis on extremely high performance, I am going to assume that I'm not
@@ -26,7 +27,7 @@ done completely and persist to disk, or it will fail completely, no half way mea
 own transactions.
 
 That seems silly to talk about, I'm aware, but there are databases out there who don't have this. Given how much 
-work this particular feature has brought us, I can emphasis with the wish to just drop ACID behaviour, because making
+work this particular feature has been, I can empathise with the wish to just drop ACID behaviour, because making
 a database that is both high performance and fully transactional is anything but trivial. That said, I think that this 
 is one of the most basic requirements from a database, and RavenDB has it out of the box. 
 
@@ -43,8 +44,8 @@ people also seem to like reading them.
 
 I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
 the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
-do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog) for over a decade
-now.
+do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog)^[You can find it at
+http://ayende.com/blog] for close to fifteen years.
 
 ## About this book
 
@@ -58,7 +59,7 @@ Although a blog post and a book have very different structure, audience and purp
 same easy-reading feeling of your favorite blogger. If I've accomplished what I have set out to do, this will be 
 neither dry documentation, nor a reference book. If you need either, you can read the 
 [online RavenDB documentation](http://ravendb.net/docs). This is not to say that the book is purely my musings;
-the content is also born from the training course we've been teaching for the past eight years and the 
+the content is also born from the training course we've been teaching for the past decade and the 
 formalization of our internal on-boarding training.
 
 By the end of this book, you're going to have a far better understanding of how and why RavenDB is put together. 
@@ -101,17 +102,19 @@ systems ever since.
 In that decade we have learned a lot about what it takes to really make a database that _just works_ and doesn't 
 force you to jump through so many hoops. In particular, I came from a Microsoft centric world, and that had a big
 impact on the design of RavenDB. Most NoSQL solutions (especially at the time) had a very different mental model
-for how they should operate. They put a lot of attention on speed, or scale out or esoteric data models. 
+for how they should operate. They put a lot of attention on speed, or scale out or esoteric data models. Often at
+a severe expense of ease of use, operational simplicity and what I consider to be fundemental features (such as
+transactions).
 
 On the other hand, I wanted to have a database that would make _sense_ for building web applications and business 
 systems. You know, the bread and butter of our industry. I wanted a database that would be ACID, because a database
-without transaction just doesn't make sense to me. I wanted to get rid of the limitations of the rigid schema of 
+without transactions just doesn't make sense to me. I wanted to get rid of the limitations of the rigid schema of 
 relational database but keep working on Domain Driven systems. I wanted something that is fast but at the same
-time can be just thrown on a production server and work without having to pay for an on call babysitter.
+time can be just thrown on a production server and work without having to pay for an on-call babysitter.
 
 A lot of the design of RavenDB was heavily influenced by the [Release It!](https://pragprog.com/book/mnee/release-it)
-book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and in retrospect, I think
-we did a good job there.
+book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with a decade in production
+to look back at, I think we did a good job there.
 
 That doesn't mean that we always hit the bullseye. Almost a decade in production, deployed to hundreds of
 thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels will teach you
@@ -138,7 +141,7 @@ Focus: Developers
 
 This is the part you will want new hires to read before starting to work with an application using RavenDB, it 
 contains a practical discussion on how to build an application using RavenDB. We'll skip theory, concepts and
-background information in favor of getting things done, those will be discussed in the next part.
+background information in favor of getting things done, those will be discussed later in the book.
 
 We'll cover setting up RavenDB on your machine, opening up the RavenDB Studio in the browser and connecting to
 the database from your code. After getting beyond the hello world stage, we'll introduce some of the basic
@@ -147,7 +150,8 @@ basic queries and in general work with the client API.
 
 After covering the basics, we'll move into modeling documents in RavenDB, how to build your application in a way
 that mesh well with document based modeling, what sort of features you need to be aware of when designing the
-domain model and how to deal with common modeling scenarios, concurrency control and dealing with binary data.
+domain model and how to deal with common modeling scenarios, concurrency control and dealing with data that 
+don't always match the document model (binary data, as an example).
 
 Following on this high level discussion we'll dive into the client API and explore the kind of advanced options
 that RavenDB offers us. From lazy requests to reduce network traffic to the optimal way to read and write a lot
@@ -157,7 +161,7 @@ We'll conclude the first part of the book with an overview of batch processing i
 highly avaliable reliable subscriptions to manage all sort of background tasks in your application in quite an
 elegant fashion.
 
-#### Part II - Ravens everywhere
+#### Part II - Distributed RavenDB
 
 Focus: Architects
 
@@ -165,7 +169,12 @@ This part focuses on the theory of building robust and high performance systems 
 to working with a cluster of RavenDB nodes on commodity hardware, discuss data and work distribution across 
 the cluster and how to best structure your systems to take advantage of what RavenDB brings to the table.
 
+We'll begin by dissect RavenDB's dual distributed nature. RavenDB is using both a consensus protocol and a gossip
+protocol to build two layers of communication between the various nodes in the cluster. We'll learn why this is 
+done and how this add tremendously to RavenDB's robustness in the precense of failures.
+
 //TODO: Complete this when writing it is completed
+
 
 #### Part III - Indexing
 
