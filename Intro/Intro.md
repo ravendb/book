@@ -126,166 +126,153 @@ things you can do with it.
 
 ### In this book...
 
-One of the major challenges in writing this book came in considering how to structure it. There are so many 
-concepts that relate to one another and trying to understand them in isolation can be difficult. For example, 
+One of the major challenges in writing this book was figuring out how to structure it. There are so many 
+concepts that interweave with another and trying to understand them in isolation can be difficult. For example, 
 we can't talk about modeling documents before we understand the kind of features that are available for us to 
 work with. Considering this, I'm going to introduce concepts in stages. 
 
-#### Part I - The basics of RavenDB
+#### Part I — The basics of RavenDB
 
 Focus: Developers
 
-This is the part you will want new hires to read before starting to work with an application using RavenDB, it 
-contains a practical discussion on how to build an application using RavenDB. We'll skip theory, concepts and
-background information in favor of getting things done, those will be discussed later in the book.
+This is the part you will want new hires to read before starting to work with an applications **(((I think "with RavenDB" is implied here)))**, as it 
+contains a practical discussion on how to build an application using RavenDB. We'll skip over theory, concepts and
+background information in favor of getting things done; the more theoretical concepts will be discussed later in the book.
 
 We'll cover setting up RavenDB on your machine, opening up the RavenDB Studio in the browser and connecting to
-the database from your code. After getting beyond the hello world stage, we'll introduce some of the basic
-concepts that you need to know in order to work with RavenDB, building a simple CRUD sample, learn how to perform 
-basic queries and in general work with the client API.
+the database from your code. After we get beyond the "hello world" stage, we'll introduce some of the basic
+concepts that you need to know in order to work with RavenDB: building a simple CRUD sample, learning how to perform 
+basic queries and in general working with the client API.
 
-After covering the basics, we'll move into modeling documents in RavenDB, how to build your application in a way
-that mesh well with document based modeling, what sort of features you need to be aware of when designing the
-domain model and how to deal with common modeling scenarios, concurrency control and dealing with data that 
-don't always match the document model (binary data, as an example).
+After covering the basics, we'll move into modeling documents in RavenDB; how to build your application so that it meshes well with document-based modeling; what sort of features you need to be aware of when designing the
+domain model and how to deal with common modeling scenarios; concurrency control and dealing with data that 
+don't always match the document model (binary data, for example).
 
-Following on this high level discussion we'll dive into the client API and explore the kind of advanced options
-that RavenDB offers us. From lazy requests to reduce network traffic to the optimal way to read and write a lot
-of data very quickly, to peforming partial document update and how caching is an integral part of the client API.
+Following on this high level discussion, we'll dive into the client API and explore the advanced options RavenDB offers: from lazy requests to reduce network traffic, to the optimal way to read and write a lot
+of data very quickly, to peforming partial document updates, to how caching is an integral part of the client API.
 
-We'll conclude the first part of the book with an overview of batch processing in RavenDB and how we can use a 
-highly avaliable reliable subscriptions to manage all sort of background tasks in your application in quite an
+We'll conclude the first part of the book with an overview of batch processing in RavenDB and how you can use
+highly avaliable, reliable subscriptions to manage all sorts of background tasks in your application in quite an
 elegant fashion.
 
-#### Part II - Distributed RavenDB
+#### Part II — Distributed RavenDB
 
 Focus: Architects
 
 This part focuses on the theory of building robust and high performance systems using RavenDB. We'll go directly
 to working with a cluster of RavenDB nodes on commodity hardware, discuss data and work distribution across 
-the cluster and how to best structure your systems to take advantage of what RavenDB brings to the table.
+the cluster and learn how to best structure systems to take advantage of what RavenDB brings to the table.
 
-We'll begin by dissect RavenDB's dual distributed nature. RavenDB is using both a consensus protocol and a gossip
-protocol to build two layers of communication between the various nodes in the cluster. We'll learn why this is 
-done and how this add tremendously to RavenDB's robustness in the precense of failures.
+We'll begin by dissecting RavenDB's dual-distributed nature. RavenDB is using both a consensus protocol and a gossip
+protocol to build two layers of communication between the various nodes in the cluster. We'll learn why this protocol was established and how it adds tremendously to RavenDB's robustness in the precense of failures.
 
-After going over the theory, we'll get practical, setting up RavenDB clusters, exploring different topologies and
+After going over the theory, we'll get practical: setting up RavenDB clusters, exploring different topologies and studying
 how clients interact with a cluster of RavenDB nodes. We'll cover distirubted work, load balancing and ensuring
 high availability and zero downtime for your applications.
 
-One of the primary reasons you'll want to go to a distributed system is to handle bigger load. We'll cover how you
-can grow your cluster, and even run RavenDB in a geo distributed deployment with nodes all around the world. RavenDB
-clusters aren't just a collection of machines. They are self managing entities, sharing load and distributing
-tasks among the various nodes. We'll get into how the cluster is self monitoring and self healing, how RavenDB take
+One key reason you'll want to use a distributed system is to handle bigger load. We'll cover how you
+can grow your cluster and even run RavenDB in a geo-distributed deployment with nodes all around the world. RavenDB
+clusters aren't just collections of machines. They are self-managing entities, sharing load and distributing
+tasks among the various nodes. We'll talk about how clusters are self-monitoring and self-healing and how RavenDB takes
 active steps to ensure the safety of your data at all times.
 
-Modern systems are rarely composed of a stand alone application. We'll finish this part of the book by exploring how
+Modern systems are rarely composed of a stand-alone application. So to finish up this section, we'll explore how
 RavenDB integrates with other systems and databases. 
-Part of the distributed nature of RavendB is making this easier. We'll go over how to create data flow
-that automatically syncronize data to different destinations, be they RavenDB instances or even relational databases.
+Part of the reason RavenDB was designed to have a distributed nature was to this easier **(((Does the previous sentence's rewording make sense?)))**. We'll go over how to create data flow
+that automatically syncronizes data to different destinations, be they RavenDB instances or even relational databases.
 
 
-#### Part III - Querying and Indexing
+#### Part III — Querying and indexing
 
-Focus: Developers, Architects
+Focus: Developers and architects
 
-This part discusses how data is indexed by RavenDB, allowing quick retrieval of information, whether it is a single 
+This part discusses RavenDB indexes data to allow for quick retrieval of information, whether a single 
 document or aggregated data spanning years. We'll cover all the different indexing methods in RavenDB and how
 each of them can be used to implement the features you want in your systems.
 
-RavenDB has very rich querying and indexing support. We'll start by looking at queries. Exploring the RavenDB Query 
-Language (RQL) and the kind of queries that you can perform. How RavenDB processes and optimize your queries and 
-work to answer them ever faster.
+RavenDB has very rich querying and indexing support. We'll start by exploring the RavenDB Query 
+Language (RQL) and the kind of queries that you can perform. We'll look at how RavenDB processes and optimizes your queries to answer them as fast as possible. **(((Does that reword make sense?)))**
 
-Then we'll get to the real fun stuff. RavenDB's queries can answer a lot more than just `where Status = 'Active'`. 
+Then we'll get to the really fun stuff. RavenDB's queries can answer a lot more than just `where Status = 'Active'`. 
 We'll look at full text queries, querying multiple collections at once and faceted search. We'll look at how RavenDB
-can find similiar documents and suggest to the user different queries to try as they find a particular nugger of 
+can find similiar documents and suggest to the user different queries to try as they **(((Is the "they" here the user or RavenDB?)))** find a particular nugget of 
 information.
 
-Spatial queries, searching based on geographical data, will be covered in depth. We'll also cover how you can find
-documents not based on their own data, but on related documents' data. Similar to the `JOIN` from relational database
-but both simpler and faster, this feature can greatly simplify and speed up your queries. One of the strengths of 
-RavenDB is its schemaless nature, and that doesn't stop at just storign the data. RavenDB alos have very powerful
-capabilities for querying over dynamic data and user generated content.
+Spatial queries (searching based on geographical data) will be covered in depth. We'll also cover how you can find
+documents not based on their own data, but on related documents' data. Similar to but simpler and faster than `JOIN` from relational databases, this feature **(((is there a name for the feature?)))** can greatly simplify and speed up your queries. One of the strengths of 
+RavenDB is schema-less by nature **(((Does that make sense?)))**, and that doesn't stop at data storage. RavenDB also has very powerful
+capabilities for querying over dynamic data and user-generated content.
 
-MapReduce in RavenDB is a very important feature. It allows RavenDB to perform ligntning fast aggregation queries over
-practically any dataset, regardless of size. We'll explore exactly how this feature work, the kind of behaviors it enables
-and what you can do with effectively free aggregation queries. 
+MapReduce in RavenDB is a very important feature. It allows RavenDB to perform lightning-fast aggregation queries over
+practically any dataset, regardless of size. We'll explore exactly how this feature works, the kind of behaviors it enables
+and what you can do with what are effectively free aggregation queries. 
 
-Finally for this part of the book, we'll go over the care and feeding of indexes in RavenDB. How you can create them
-yourself, deploy, monitor and manage them. How the RavenDB query optimizer interacts with your indexes and how to move
+Finally, we'll go over the care and feeding of indexes in RavenDB: how you can create, deploy, monitor and manage them yourself. We'll talk about how the RavenDB query optimizer interacts with your indexes and how to move
 them between environments. 
 
-#### Part IV - Security
+#### Part IV — Security
 
-Focus: Operations, Architects
+Focus: Operations and architects
 
-RavenDB is used to store business critical data, medical information and financial transactions. In this part, we'll 
-go over all the steps that have been taken to ensure that you data is safe, the communication channels are secures 
-and only authorized access to the database is allowed.
+RavenDB is used to store business-critical data such as medical information and financial transactions. In this part, we'll 
+go over all the steps that have been taken to ensure that you data is safe, the communication channels are secure 
+and only authorized users are able to access your database.
 
-We'll cover how to setup RavenDB securely. RavenDB security model is binary in nature. Either you run in an unsecured
-mode (only useful for development) or you run it in a secure mode. There are no half measures or multiple steps to 
+We'll cover how to set up RavenDB securely. RavenDB's security model is binary in nature. Either you run RavenDB in an unsecured
+mode (only useful for development) or you run it in a secured mode. There are no half measures or multiple steps to 
 take. 
 
-Setting up RavenDB securely is easy^[Although it was certainly not easy to _make_ it easy to setup RavenDB securely.]
-and once done, it take care of all aspects of securing your data.
-Data in transit is encrypted, clients and servers mutually authenticate themselves. We'll discuss how RavenDB handles 
-authentication and authorization. How you can control who gets to the database and what they can access. 
+Setting up RavenDB securely is easy——although making it easy was certainly not easy——and once set up, RavenDB takes care of all aspects of securing your data.
+Data in transit is encrypted, and clients and servers mutually authenticate themselves. We'll discuss how RavenDB handles 
+authentication and authorization, as well as how you can control who gets to the database and what they can access. 
 
-We'll also cover securing your data at rest. RavenDB support full database encryption, ensuring that not even a single
-byte of your data is ever saved to disk in plain text. Instead, RavenDB will encrypt all data and indexes using 256 bits
+We'll also cover securing your data at rest. RavenDB supports full database encryption, ensuring that not even a single
+byte of your data is ever saved to disk in plain text. Instead, RavenDB will encrypt all data and indexes using 256-bit
 encryption. Your data will be decrypted on the fly as needed and only kept in memory for the duration of an active 
 transaction.
 
-We'll also cover other aspects of running an ecnrypted database. How you should manage the encryption keys and how to backup
+We'll also cover other aspects of running an encrypted database: how you should manage encryption keys and how to back up
 and restore encrypted databases.
 
-#### Part V - Running in production
+#### Part V — Running in production
 
 Focus: Operations
 
-This part deals with running and supporting a RavenDB cluster or clusters in production. From how you spin a new 
-cluster to decommissioning a downed node and to tracking down performance problems. We'll learn all that you need (and
-then a bit more) to understand what is going on with RavenDB and how to customize its behavior to fit your own 
+This part deals with running and supporting a RavenDB cluster or clusters in production, from spinning a new
+cluster, to decommissioning a downed node, to tracking down performance problems. We'll learn all you need (plus a bit more) in order to understand how RavenDB works and how to customize its behavior to fit your own 
 environment. 
 
-We'll go over the details you need to successfully deploy to production. How to plan ahead for the kind of resources
-you need to handle expected load (and how to handle _unexpected_ load). The kind of deployment topologies you can
+We'll go over the details you'll need to successfully deploy to production, like how to plan ahead for the resources
+you'll need to handle expected load (and how to handle _unexpected_ load) and the kind of deployment topologies you can
 choose from and their implications. We'll also go over the network, firewall and operating system configurations that
 can make or break a production environment.
 
-Just getting to production isn't good enough, we are also going to cover how you can _stay_ in production, and stay
-there healthy. We'll discuss monitoring and troubleshooting. What sort of details you need to keep an eye on and how
-RavenDB surfaces potential issues early. 
-We'll discover how you can dig into RavenDB and see exactly what is going on inside the engine. The kind of self 
-optimizations that RavenDB routinely applies and how you can take advantage of them.
+Just getting to production isn't good enough; we are also going to cover how you can _stay_ in production and stay
+there healthily. We'll discuss monitoring and troubleshooting, what sort of details you need to keep an eye on and how
+RavenDB surfaces potential issues early on. 
+We'll discover how you can dig into RavenDB and see exactly what is going on inside the engine. We'll go over the kinds of self-optimizations RavenDB routinely applies and how you can take advantage of them.
 
-We'll cover common issues and how to troubleshoot them, diagnosing problems, finding the root cause and resolving them
-while keeping the cluster up and functioning. How to plan for disaster recovery and actually apply the plan if and when
+We'll cover common issues and how to troubleshoot them, diagnosing and resolving problems
+while keeping the cluster up and functioning. We'll learn how to plan for disaster recovery and actually apply the plan if (and when)
 disaster strikes.
 
-We'll spend a whole chapter discussing backup and restores. RavenDB supports several options for backing up your data.
-From the offsite hot spare to full binary snapshot of your data to highly compressei backups meant for long term storage.
+We'll spend a whole chapter discussing backups and restores. RavenDB supports several options for backing up your data: offsite hot spares, full binary snapshots of your data and highly compressed backups meant for long term storage.
 We'll discuss backup strategies and options, including backing up directly to the cloud. More importantly, we'll cover
-how you can define and execute a restore strategy. An often sadly overlooked but critical part of your overall backup
+how you can define and execute a restore strategy, a critical——though often (sadly) overlooked——part of your overall backup
 strategy. 
 
-Finally, we are going to close this book with a set of operational recipes. These are ready made answers to specific
+Finally, we are going to close this book with a set of operational recipes. These are ready-made answers to specific
 scenarios that you might run into in production. These are meant to serve both as a series of steps for you to follow
-if you run into this particular scenarion and as a way to give you better insight on the whole process of working with
+if you run into a particular scenario and as a way to give you better insight into the process of working with
 RavenDB in production.
 
 ### Summary
 
-So there is a lot of things in this book, and I hope that you'll find it both interesting and instructive. However,
-one thing that it isn't meant to do is to replace the documentation. The purpose of this book is to give you the
-full background and greater understanding of how RavenDB is put together and what it is doing. It isn't going over
-the nitty gritty details of every API call and what parameters should be passed to it.
+So there's a lot going on in this book, and I hope you'll find it both interesting and instructive. But remember, the
+one thing it _isn't_ meant to do is replace the documentation. The purpose of this book is to give you a
+full background on and greater understanding of how RavenDB works. I'm not covering the nitty-gritty details of every API call and what parameters should be passed to it.
 
-In many cases, I have selected to discuss a feature, give one or two examples of its use and where it is best to 
-utilize it and left the reader with the task of reading up about the full details of the particular feature in the 
-documentation.
+In many cases, I have selected to discuss a feature, give one or two examples of its use and where it's best utilized and leave the reader with the task of reading up on the full details in the documentation.
 
-This book is meant to be more than API listing. It is meant to tell a story, how you can make the best use of 
-RavenDB in your applications and environment. So, without further ado, turn the page and let's get started...
+This book is meant to be more than API listing. It is meant to tell a story, the story of how how you can make the best use of 
+RavenDB in your applications and environment. So, without further ado, turn the page and let's get started.
