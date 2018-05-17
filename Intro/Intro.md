@@ -3,129 +3,125 @@
 
 [Introduction]: #intro
 
-RavenDB is a high performance, distributed, NoSQL document database. Phew, that is a mouthful. But it will probably
-hit all the right buzzwords of the month. What does this actually _mean_?
+RavenDB is a high performance, distributed, NoSQL document database. Phew, that is a mouthful. But it probably
+hits all the right buzzwords **(((I'd suggest taking out "of the month" because it'll date the book to a very specific time.)))**. What does this actually _mean_?
 
-Let me try to explain those in reversed order. A document database is a database that stores "documents",  meaning
-structured information in the form of self-contained data (as opposed to a Word or Excel document). A document is 
+Let me try to explain those terms in reverse order. A document database is a database that stores "documents",  meaning
+structured information in the form of self-contained data (as opposed to Word or Excel documents). A document is 
 usually in JSON or XML format. RavenDB is, essentially, a database for storing and working with JSON data. You can
 also store binary data and a few other types, but you'll primarily use RavenDB for JSON documents.
 
 RavenDB can run on a single node (suitable for development or for small applications) or on a cluster of nodes
-(to gain high availability, load balancing, geo distribution of data and work, etc.). A single cluster can host multiple
-databases, each of them can span some or all of the nodes in the cluster. 
+(which gives you high availability, load balancing, geo distribution of data and work, etc.). A single cluster can host multiple
+databases, each of which can span some or all of the nodes in the cluster. 
 
-With RavenDB 4.0 the team has put a major emphasis on extremely high performance, I am going to assume that I'm not
-going to have to explain why that is a good thing :-). Throughout the book, I'm going to explain how that decision
+With RavenDB 4.0, the team has put a major emphasis on extremely high performance. I am going to assume I don't need to tell you why that's a good thing :-). Throughout this book, I'm going to explain how that decision
 has impacted both the architecture and implementation of RavenDB.
 
 In addition to the tagline, RavenDB is also an ACID database, unlike many other NoSQL databases. ACID stands for 
-Atomic, Consistent, Isolated and Durable and is a fancy way to say that RavenDB has _real_ transactions. Per document,
-across multiple documents in the same collection, across multiple documents in multiple collections. It's all there. The kind 
-of transactions that developers can rely on. If you send work to RavenDB, you can be assured that it will either be
-done completely and persist to disk, or it will fail completely, no half way measures and no needing to roll your
+atomic, consistent, isolated and durable and is a fancy way to say that RavenDB has _real_ transactions. Per document,
+across multiple documents in the same collection, across multiple documents in multiple collections; it's all there, the kinds 
+of transactions developers can rely on. If you send work to RavenDB, you can be assured that either it will be
+done completely and persist to disk or it will fail completely: no half-way measures and no needing to roll your
 own transactions.
 
-That seems silly to talk about, I'm aware, but there are databases out there who don't have this. Given how much 
-work this particular feature has been, I can empathise with the wish to just drop ACID behaviour, because making
-a database that is both high performance and fully transactional is anything but trivial. That said, I think that this 
-is one of the most basic requirements from a database, and RavenDB has it out of the box. 
+This seems silly to mention, I'm aware, but there are databases out there that don't have this. Given how much 
+work we've put into this particular feature, I can empathize with the wish to just drop ACID behaviour, because making
+a database that is both high performance and fully transactional is anything but trivial. That said, I think this 
+should be one of the most basic requirements of a database, and RavenDB has it out of the box. 
 
-There are certain things that the database should provide, transactions are one, but also manageability and a 
-certain level of ease of use. A common thread we'll explore in this book is how RavenDB was designed to reduce the 
+There are certain things that a database should provide; transactions are one, but you also need manageability and a 
+certain degree of ease of use. A common thread we'll explore in this book is how RavenDB was designed to reduce the 
 load on the operations team by dynamically adjusting to load, environment and the kind of work it is running. 
-Working with a database should be easy and obvious, and to a large extent, RavenDB allows that.
+Working with a database should be easy and obvious, and to a large extent, RavenDB facilitates that.
 
-While informative, documentation tends to be dry and it hardly makes for good reading (or for an 
-interesting time writing it). RavenDB has quite a bit of documentation that tells you how to use it, what to do and
-why. This book isn't about providing documentation; we've got plenty of that. A blog post tells a story -- even if 
-most of mine are technical stories. I like writing those, and I've been pleasantly surprised that a large number of
+This book isn't meant to provide documentation; RavenDB has quite a bit of documentation that tells you exactly how to use it. While informative, documentation tends to be dry and it hardly makes for good reading (or for an 
+interesting time writing it). A blog post, on the other hand, tells a story -- even if 
+most of mine are technical stories. I like writing them, and I've been pleasantly surprised that a large number of
 people also seem to like reading them.
 
 I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
 the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
-do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog)^[You can find it at
-http://ayende.com/blog] for close to fifteen years.
+do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog) for close to fifteen years.^[You can find it at
+http://ayende.com/blog]
 
 ## About this book
 
-This book is effectively a book-length blog post. The main idea here is that I want to give you a way to
-_grok_^[Grok means to understand so thoroughly that the observer becomes a part of the observed—to merge, blend, 
-intermarry, lose identity in group experience.  Robert A. Heinlein, Stranger in a Strange Land] RavenDB. This 
-means not only gaining knowledge of what it does, but also all the reasoning behind the bytes. In effect, I want
+What you're reading now is effectively a book-length blog post. The main idea here is that I want to give you a way to
+_grok_ RavenDB.^[Grok means "to understand so thoroughly that the observer becomes a part of the observed—to merge, blend, 
+intermarry, lose identity in group experience." From Robert A. Heinlein, _Stranger in a Strange Land_.] This 
+means not only gaining knowledge of what RavenDB does, but also all the reasoning behind the bytes. In effect, I want
 you to understand all the _whys_ of RavenDB.
 
-Although a blog post and a book have very different structure, audience and purpose, I'll still aim to give you the
-same easy-reading feeling of your favorite blogger. If I've accomplished what I have set out to do, this will be 
-neither dry documentation, nor a reference book. If you need either, you can read the 
+Although blog posts and books have very different structures, audiences and purposes, I'll still aim to give you the
+same easy-reading feeling of your favorite blogger. If I've accomplished what I've set out to do, this will be 
+neither dry documentation nor a reference book. If you need either, you can read the 
 [online RavenDB documentation](http://ravendb.net/docs). This is not to say that the book is purely my musings;
 the content is also born from the training course we've been teaching for the past decade and the 
-formalization of our internal on-boarding training.
+formalization of our internal onboarding training.
 
-By the end of this book, you're going to have a far better understanding of how and why RavenDB is put together. 
-More importantly, you'll have the knowledge and skills to make efficient use of RavenDB in your systems.
+By the end of this book, you're going to have a far better understanding of how and why RavenDB is put together the way it is. 
+More importantly, you'll have the knowledge and skills needed to make efficient use of RavenDB in your systems.
 
 ### Who is this for?
 
-I've tried to make this book useful for a broad category of users. Developers reading this book will come away
-with an understanding of how to best use RavenDB features to create awesome applications. Architects will reap the 
-knowledge required to design and guide large scale systems with RavenDB clusters at their core. The operations 
-team will learn how to monitor, support and nurture RavenDB in production.
+I've tried to make this book useful for a broad category of users. Developers will come away
+with an understanding of how to best use RavenDB features to create awesome applications. Architects will gain the 
+knowledge required to design and guide large-scale systems with RavenDB clusters at their cores. Operations teams will learn how to monitor, support and nurture RavenDB in production.
 
 Regardless of who you are, you'll come away from this book with a greater understanding of all the moving pieces 
-and the ability to mold RavenDB to your needs.
+and how you can mold RavenDB to meet your needs.
 
 This book mostly used C# as the language for code samples, though RavenDB can be used with .NET, Java, 
-Go, Node.js, Python, Ruby and PHP, among others. Most things discussed in the book are applicable, even if you 
+Go, Node.js, Python, Ruby and PHP, among others. Most things discussed in the book are applicable even if you 
 aren't writing code in C#. 
 
-All RavenDB official clients follow the same model, adjusted to match the platform expectations and API 
-standards, so regardless of what platform you are using to connect to RavenDB, this book should still be useful.
+All RavenDB official clients follow the same model adjusted to match different platform expectations and API 
+standards. So regardless of the platform you use to connect to RavenDB, this book should still be useful.
 
 ### Who am I?
 
-My name in Oren Eini and over a decade ago I got frustrated with working with relational databases. At the time I was
-working mostly as a consultant for companies looking to improve the performance of data driven applications. I kept
-coming to a customer after customer and seeing them having hard time and really struggling. Not because they were
-unqualified for the task but because they kept using the wrong tool for the job. 
+My name in Oren Eini and over a decade ago, I got frustrated working with relational databases. At the time, I was
+working mostly as a consultant for companies looking to improve the performance of data-driven applications. I kept
+seeing customer after customer really struggle with this, not because they were
+unqualified for the task, but because they kept using the wrong tools for the job. 
 
-At some point I got so frustrated that I sat down and wrote a blog post about what I considered would be the ideal
-datastore for an OLTP^[Online transaction processing, a fancy way to say a business application] applications should 
-look like. That blog post turned into a series of blog posts, and then into some weekend hacking. Fast forward a 
-few months later, and I had the skeleton of what will eventually become RavenDB and a burning desire to have it
-get out of my head.
+At some point I got so frustrated that I sat down and wrote a blog post about what I thought an ideal
+datastore for OLTP applications (online transaction processing applications, a fancy way to say business applications) should 
+look like. That blog post turned into a series of blog posts and then into some weekend hacking. Fast-forward a 
+few months, and I had the skeleton of what would eventually become RavenDB and a burning desire to make it a reality.
 
-At some point, it felt not like I was building something from scratch, but that I was merely letting out something
+At some point, building RavenDB felt not like I was creating something from scratch, but like I was merely letting out something
 that was already fully formed. As I mentioned, that was over a decade ago, and RavenDB has been running production
 systems ever since. 
 
-In that decade we have learned a lot about what it takes to really make a database that _just works_ and doesn't 
-force you to jump through so many hoops. In particular, I came from a Microsoft centric world, and that had a big
+In that decade, we have learned a lot about what it takes to really make a database that _just works_ and doesn't 
+force you to jump through so many hoops. In particular, I came from a Microsoft-centric world, and that world had a big
 impact on the design of RavenDB. Most NoSQL solutions (especially at the time) had a very different mental model
-for how they should operate. They put a lot of attention on speed, or scale out or esoteric data models. Often at
-a severe expense of ease of use, operational simplicity and what I consider to be fundemental features (such as
-transactions).
+for how they should operate. They put a lot of attention on speed, scale out or esoteric data models, often at
+the severe expense of ease of use, operational simplicity and what I consider to be fundemental features such as
+transactions.
 
-On the other hand, I wanted to have a database that would make _sense_ for building web applications and business 
-systems. You know, the bread and butter of our industry. I wanted a database that would be ACID, because a database
-without transactions just doesn't make sense to me. I wanted to get rid of the limitations of the rigid schema of 
-relational database but keep working on Domain Driven systems. I wanted something that is fast but at the same
-time can be just thrown on a production server and work without having to pay for an on-call babysitter.
+I wanted to have a database that would _make sense_ for building web applications and business 
+systems; you know, the bread and butter of our industry. I wanted a database that would be ACID, because a database
+without transactions just didn't make sense to me. I wanted to get rid of the limitations of the rigid schema of 
+relational databases but keep working on domain-driven systems. I wanted something fast but at the same
+time could just be thrown on a production server and would work without having to pay for an on-call babysitter.
 
 A lot of the design of RavenDB was heavily influenced by the [Release It!](https://pragprog.com/book/mnee/release-it)
 book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with a decade in production
 to look back at, I think we did a good job there.
 
-That doesn't mean that we always hit the bullseye. Almost a decade in production, deployed to hundreds of
-thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels will teach you
-a _lot_ about what works in theory, what the real world can tolerate and what is needed. 
+That doesn't mean that we always hit the bullseye. Almost a decade in production——deployed to hundreds of
+thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels——will teach you
+a _lot_ about what works in theory, what the real world can tolerate and what is really needed. 
 
-We took the time for the RavenDB 4.0 release to go back and look at what worked and what didn't and make certain to 
-actually _use_ all of that experience and knowhow that we accrued to build a much better end result. 
+For the RavenDB 4.0 release, we took the time to look back at what worked and what didn't and made certain to 
+actually _use_ all of that experience and knowhow to build a much better end result. 
 
-I'm insanely proud in what came out of the door as a result of it. RavenDB 4.0 a really cool database, capable of 
-doing amazing things, and I'm really glad that I have the chance to write this book and explore with you all the 
-things that you can do with it.
+I'm insanely proud of what came out of the door as a result of it. RavenDB 4.0 is a really cool database capable of 
+doing amazing things, and I'm really glad I have the chance to write this book and explore with you all the 
+things you can do with it.
 
 
 ### In this book...
