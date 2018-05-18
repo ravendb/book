@@ -1,51 +1,46 @@
 
 # Running in production
 
-We have spent a lot of time talking about what RavenDB can do in this book. What is the best way to put data into it and get it
-out, how indexes work, how it runs as a distributed cluster and how you can work with the database from your applications. What
-we haven't talked about, except a few tidbits here and there, is how you are actually going to run it in production.
+We have spent a lot of time talking about what RavenDB can do in this book. We've talked about the best way to put data into it and get data
+out, how indexes work, how RavenDB runs as a distributed cluster and how to work with the database from your applications. What
+we haven't talked about, except for a few tidbits here and there, is how you are actually going to run RavenDB in production.
 
-The production environment differs from running in a development mode in several key factors. The amount of data you have is 
-typically _much_ larger, the importance of the data is higher, you may need to protect your documents from prying eyes and most
-importantly, you need it there, at all times. Production systems should be available, speedy and functional.
+The production environment differs from running in development mode in several key areas. You typically have _much_ more data that's more important, may need protection from prying eyes and (most importantly) definitely needs to be there at all times. Production systems should be available, speedy and functional.
 
-Production systems also run under heavy constraints. From limited network access to airgapped systems to (true story)
-an old PC that is thrown in an unventilated cupboard and expected to serve business critical functionality.
-The common thread is that what you can do in production is limited. You can't just attach a debugger, or run invasive procedures
-or even assume that there is a person that is monitoring the system and can react when it beeps. 
+Production systems also run under heavy constraints, from limited network access to air-gapped systems to (true story)
+an old PC that is thrown in an unventilated cupboard and expected to serve business-critical functionality.
+The common thread is that what you can do in production is limited. You can't just attach a debugger, run invasive procedures
+or even assume that there is a person monitoring the system who can react when it beeps. 
 
-With cloud deployments thrown in, you might not even be aware what kind of machines you are running on and issue can arise 
-because of a noisy neighbour on the same hardware that impacts your operations. Regardless of the environment and the hurdles 
-that you need to jump, your operations team need to deliver reliability, performance, security and agility. 
+With cloud deployments thrown in, you might not even know what kind of machines you're running on and issues can arise 
+because of a noisy neighbour on the same hardware that impacts your operations. Regardless of the environment and the hurdles you need to clear, your operations team needs to deliver reliability, performance, security and agility. 
 
-Part of the design goals for RavenDB has been an explicit focus on production. We already saw some of that with the kind of 
-alerts and behaviors that were called out in the book so far, but in this part we are going to be taking a deep dive into
+RavenDB was designed with an explicit focus on production. We already saw some of this earlier in the book when talking about different kinds of alerts and behaviors; in this part, we are going to be taking a deep dive into some
 yet unexplored parts of RavenDB. 
 
-We'll cover deployments at length. In house and on the cloud, on your own machines and as a DB-as-a-service. We'll explore
-topologies that range from a single production server to clusters spanning the globe, including how to split manage your
+We'll cover deployments at length: in house and on the cloud, on your own machines and as a database as a service (DBaaS). We'll explore
+topologies that range from single-production servers to clusters spanning the globe and talk about how to split manage your **((((Is the verb here "to split manage"? Or shout it be "to manage your split databases"?)))**
 databases for optimal resource usage and maximum survivability. In particular, we'll focus on what RavenDB is expecting 
-from the underlying platform, what kind of optimizations you can apply at the deployment level and the kind of resources
+from the underlying platform, what kind of optimizations you can apply at the deployment level and the kinds of resources
 you should give to your RavenDB instances.
 
-We'll discuss monitoring. Both as part of ongoing metrics gathering and analysis and when you are exploring a particular issue
-and need to gather more information about what is going on _there_. There is a wealth of information that RavenDB externalize
+We'll discuss monitoring, both as part of ongoing metrics gathering and analysis and as it applies to when you need to gather information about what is going with a specific issue. There is a wealth of information that RavenDB externalizes
 specifically to make such investigation easier and ongoing monitoring will give you a good feel for the "heartbeat" of the 
 system, meaning you'll be able to notice changes from expected patterns and head off problems early.
 
 Routine and preventive maintenance is also an important topic that we'll go over. From proper backup and restore procedures to
-disaster recovery stategies, it pays to be prepared in advanced in case trouble lands in your lap. 
-We'll see how to deal with troubleshooting issues in production. This includes additional tooling available at the operating system
+disaster recovery stategies, it pays to be prepared in case trouble lands in your lap. 
+We'll see how to troubleshoot issues in production, covering additional tools available at the operating system
 level and dedicated tools and features meant to help you manage and operate RavenDB. We'll discuss ways to manipluate the 
-internal state of RavenDB, impact decision making and behavior at runtime and how to always keep your application running. 
+internal state of RavenDB, impact decision making and behavior at runtime and always keep your application running. 
 
-This part is the operations team who is going to support your RavenDB cluster in production, but it is also very useful 
-for developers and architects to understand at least the rudimentaries of how RavenDB is being run in your production 
+This part is meant for the operations team that will support your RavenDB cluster in production, but it's also very useful 
+for developers and architects who want to understand at least the rudimentaries of how RavenDB is being run in the production 
 environment and the options you have to inspect and manage it.
-It was composed over a decade of supporting RavenDB deployments in production in a variety of envrionments. You'll note that
-the general approach we tried to take is that if there is an error that RavenDB can do something about, it already does. 
+The content of this section **(((Is the "it" here the content? Or something to do with RavenDB itself?)))** of the book was composed after over a decade's work supporting RavenDB deployments in production in a variety of envrionments. You'll note that
+the general approach we took is that if there's an error RavenDB can do something about, it will. 
 
-That doesn't mean that your operations team have nothing to do, mind. There is quite a lot that needs to be done, but most of it
+That doesn't mean your operations team has nothing to do, mind. There is quite a lot of work to do, but most of it
 should be done before the system is anywhere near a production deployment. We'll cover in detail the notion of capacity planning, 
-setting Service Level Agreements for RavenDB and your system (and measuring compliance with them) and the kind of machine and 
-systems that you should expect to use to meet these goals.
+setting service-level agreements (SLAs) for RavenDB and your system (and measuring compliance with them) and the kinds of machines and 
+systems you should expect to use to meet these goals.
