@@ -18,7 +18,7 @@ queries in RavenDB.
 I suggest at least skimming the next chapter (which talks about the RavenDB query engine) before heading into the one after (which
 actually teaches you how to actually query). This is especially important for those trying to analyze the behavior of RavenDB or find a good way to handle a specific scenario.
 
-Personally, I consider this kind of discussion facinating, but I realize that I might be in the minority here. I expect that most readers will have a lot more fun when we get to actually creating queries **(((would "creating" be the right word?)))**. RavenDB has a powerful query language and some unique features
+Personally, I consider this kind of discussion facinating, but I realize that I might be in the minority here. I expect that most readers will have a lot more fun when we get to actually runninig queries. RavenDB has a powerful query language and some unique features
 around querying, indexing and managing your data that make it easier to find exactly what you want and shape it just the right
 way. MapReduce indexes allow you to perform aggregation queries with very little cost, regardless of the data size. 
 
@@ -42,8 +42,8 @@ levels you can plug yourself into, depending on exactly what you need.
 Here we'll also discuss how you can use patching and queries together to update your documents en masse, migrate between versions and 
 perform operational tasks such as correcting data or adding new behavior to the system. 
 
-We'll tie it all together with a discussion of how you can use these features **(((Is that the right phrasing? It's best to be more specific than just "all of that")))** your application to get the most out of your data. Simply knowing that specific features are possible isn't enough; you have to consider what will happen when you start using several of these features
+We'll tie it all together with a discussion of how you can use these features in your application to get the most out of your data. Simply knowing that specific features are possible isn't enough; you have to consider what will happen when you start using several of these features
 at all the same time, taking you several levels higher in one shot.
 
-This part of the book targets developers using RavenDB and operations teams supporting RavenDB-based systems, for use inside your 
-applications and while you are trawling the data to figure out what's going on in there **(((The "for use" seems a bit awkward, here. Is it that these querying features are for use inside your applications?)))**.
+This part of the book targets developers using RavenDB and operations teams supporting RavenDB-based systems, 
+whether from inside your applications or while you are trawling the data to figure out what's going on in there.
