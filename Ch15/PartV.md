@@ -19,7 +19,7 @@ RavenDB was designed with an explicit focus on production. We already saw some o
 yet unexplored parts of RavenDB. 
 
 We'll cover deployments at length: in house and on the cloud, on your own machines and as a database as a service (DBaaS). We'll explore
-topologies that range from single-production servers to clusters spanning the globe and talk about how to split manage your **((((Is the verb here "to split manage"? Or shout it be "to manage your split databases"?)))**
+topologies that range from single-production servers to clusters spanning the globe and talk about how to manage your 
 databases for optimal resource usage and maximum survivability. In particular, we'll focus on what RavenDB is expecting 
 from the underlying platform, what kind of optimizations you can apply at the deployment level and the kinds of resources
 you should give to your RavenDB instances.
@@ -37,7 +37,7 @@ internal state of RavenDB, impact decision making and behavior at runtime and al
 This part is meant for the operations team that will support your RavenDB cluster in production, but it's also very useful 
 for developers and architects who want to understand at least the rudimentaries of how RavenDB is being run in the production 
 environment and the options you have to inspect and manage it.
-The content of this section **(((Is the "it" here the content? Or something to do with RavenDB itself?)))** of the book was composed after over a decade's work supporting RavenDB deployments in production in a variety of envrionments. You'll note that
+The content of this part of the book was composed after over a decade's work supporting RavenDB deployments in production in a variety of envrionments. You'll note that
 the general approach we took is that if there's an error RavenDB can do something about, it will. 
 
 That doesn't mean your operations team has nothing to do, mind. There is quite a lot of work to do, but most of it

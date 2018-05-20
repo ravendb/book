@@ -26,8 +26,9 @@ included databases containing medical and pateint records, recordings of convers
 pretty much everything you _don't_ want to fall into unauthorized hands. 
 
 A large part of the reason for these attacks, I believe, is that security has gotten so hard, obtuse and complex that people often put it off until 
-"later". Of course, eventually they go to production, and the issue of actually closing down the hatches and ensuring that
-not every Joe and Harry can go into the database and ransack it. **(((What do they do with the issue of actually closing down the hatches? Ignore it?)))**
+"later". Of course, eventually they go to production. But at this point, is is easy to forget that all the doors are opened and there is a welcome mat for every Joe and Harry can go into the database and ransack it. Securing the database
+is a task that is easy to defer for later, when we "really" need it. For some cases, it is defer right after the point
+where their entire database is at the hands of Mr. Unsavory and the rest of his gang.
 
 Security is a hard requirement; if you are properly deployed, but not secured, you _aren't_ properly deployed. RavenDB 
 offers both encryption in transit and at rest, has several layers of protections for your data and was designed to make 
