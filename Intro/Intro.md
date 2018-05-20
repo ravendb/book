@@ -4,7 +4,7 @@
 [Introduction]: #intro
 
 RavenDB is a high performance, distributed, NoSQL document database. Phew, that is a mouthful. But it probably
-hits all the right buzzwords **(((I'd suggest taking out "of the month" because it'll date the book to a very specific time.)))**. What does this actually _mean_?
+hits all the right buzzwords. What does this actually _mean_?
 
 Let me try to explain those terms in reverse order. A document database is a database that stores "documents",  meaning
 structured information in the form of self-contained data (as opposed to Word or Excel documents). A document is 
@@ -22,8 +22,8 @@ In addition to the tagline, RavenDB is also an ACID database, unlike many other 
 atomic, consistent, isolated and durable and is a fancy way to say that RavenDB has _real_ transactions. Per document,
 across multiple documents in the same collection, across multiple documents in multiple collections; it's all there, the kinds 
 of transactions developers can rely on. If you send work to RavenDB, you can be assured that either it will be
-done completely and persist to disk or it will fail completely: no half-way measures and no needing to roll your
-own transactions.
+done completely and persist to disk or it will fail completely (and let you know about the failure): 
+no half-way measures and no needing to roll your own "transactions".
 
 This seems silly to mention, I'm aware, but there are databases out there that don't have this. Given how much 
 work we've put into this particular feature, I can empathize with the wish to just drop ACID behaviour, because making
@@ -135,14 +135,14 @@ work with. Considering this, I'm going to introduce concepts in stages.
 
 Focus: Developers
 
-This is the part you will want new hires to read before starting to work with an applications **(((I think "with RavenDB" is implied here)))**, as it 
+This is the part you will want new hires to read before starting to work with RavenDB, as it 
 contains a practical discussion on how to build an application using RavenDB. We'll skip over theory, concepts and
 background information in favor of getting things done; the more theoretical concepts will be discussed later in the book.
 
 We'll cover setting up RavenDB on your machine, opening up the RavenDB Studio in the browser and connecting to
 the database from your code. After we get beyond the "hello world" stage, we'll introduce some of the basic
-concepts that you need to know in order to work with RavenDB: building a simple CRUD sample, learning how to perform 
-basic queries and in general working with the client API.
+concepts that you need to know in order to work with RavenDB: building a simple CRUD application,
+learning how to perform basic queries and in general working with the client API.
 
 After covering the basics, we'll move into modeling documents in RavenDB; how to build your application so that it meshes well with document-based modeling; what sort of features you need to be aware of when designing the
 domain model and how to deal with common modeling scenarios; concurrency control and dealing with data that 
@@ -164,7 +164,8 @@ to working with a cluster of RavenDB nodes on commodity hardware, discuss data a
 the cluster and learn how to best structure systems to take advantage of what RavenDB brings to the table.
 
 We'll begin by dissecting RavenDB's dual-distributed nature. RavenDB is using both a consensus protocol and a gossip
-protocol to build two layers of communication between the various nodes in the cluster. We'll learn why this protocol was established and how it adds tremendously to RavenDB's robustness in the precense of failures.
+protocol to build two layers of communication between the various nodes in the cluster. We'll learn why we 
+use this dual-mode and how it adds tremendously to RavenDB's robustness in the precense of failures.
 
 After going over the theory, we'll get practical: setting up RavenDB clusters, exploring different topologies and studying
 how clients interact with a cluster of RavenDB nodes. We'll cover distirubted work, load balancing and ensuring
@@ -178,7 +179,7 @@ active steps to ensure the safety of your data at all times.
 
 Modern systems are rarely composed of a stand-alone application. So to finish up this section, we'll explore how
 RavenDB integrates with other systems and databases. 
-Part of the reason RavenDB was designed to have a distributed nature was to this easier **(((Does the previous sentence's rewording make sense?)))**. We'll go over how to create data flow
+RavenDB was explicitly designed to make such integration easier. We'll go over how to create data flow
 that automatically syncronizes data to different destinations, be they RavenDB instances or even relational databases.
 
 
@@ -191,16 +192,18 @@ document or aggregated data spanning years. We'll cover all the different indexi
 each of them can be used to implement the features you want in your systems.
 
 RavenDB has very rich querying and indexing support. We'll start by exploring the RavenDB Query 
-Language (RQL) and the kind of queries that you can perform. We'll look at how RavenDB processes and optimizes your queries to answer them as fast as possible. **(((Does that reword make sense?)))**
+Language (RQL) and the kind of queries that you can perform. We'll look at how RavenDB processes and optimizes your 
+queries to answer them as fast as possible. 
 
 Then we'll get to the really fun stuff. RavenDB's queries can answer a lot more than just `where Status = 'Active'`. 
 We'll look at full text queries, querying multiple collections at once and faceted search. We'll look at how RavenDB
-can find similiar documents and suggest to the user different queries to try as they **(((Is the "they" here the user or RavenDB?)))** find a particular nugget of 
-information.
+can find similiar documents and suggest to the user different queries to try as the user tries to find a particular 
+nugget of  information.
 
 Spatial queries (searching based on geographical data) will be covered in depth. We'll also cover how you can find
-documents not based on their own data, but on related documents' data. Similar to but simpler and faster than `JOIN` from relational databases, this feature **(((is there a name for the feature?)))** can greatly simplify and speed up your queries. One of the strengths of 
-RavenDB is schema-less by nature **(((Does that make sense?)))**, and that doesn't stop at data storage. RavenDB also has very powerful
+documents not based on their own data, but on related documents' data. Similar to but simpler and faster than `JOIN` from relational databases, the ability to efficently find documents using related documents can greatly simplify and speed up 
+your queries. One of the strengths of 
+RavenDB is that it is schema-less by nature, and that doesn't stop at data storage. RavenDB also has very powerful
 capabilities for querying over dynamic data and user-generated content.
 
 MapReduce in RavenDB is a very important feature. It allows RavenDB to perform lightning-fast aggregation queries over
@@ -272,7 +275,7 @@ So there's a lot going on in this book, and I hope you'll find it both interesti
 one thing it _isn't_ meant to do is replace the documentation. The purpose of this book is to give you a
 full background on and greater understanding of how RavenDB works. I'm not covering the nitty-gritty details of every API call and what parameters should be passed to it.
 
-In many cases, I have selected to discuss a feature, give one or two examples of its use and where it's best utilized and leave the reader with the task of reading up on the full details in the documentation.
+In many cases, I have elected to discuss a feature, give one or two examples of its use and where it's best utilized and leave the reader with the task of reading up on the full details in the documentation.
 
-This book is meant to be more than API listing. It is meant to tell a story, the story of how how you can make the best use of 
+This book is meant to be more than API listing. It is meant to tell a story, the story of how you can make the best use of 
 RavenDB in your applications and environment. So, without further ado, turn the page and let's get started.
