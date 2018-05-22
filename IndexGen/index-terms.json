@@ -1,0 +1,401 @@
+{
+  "ACID": [
+    "ACID",
+    "ACID transactions"
+  ],
+  "Aggregation": [
+    "Aggregated data",
+    "Aggregated values",
+    "Aggregating",
+    "Aggregation",
+    "Aggregation in ravendb",
+    "Aggregation queries"
+  ],
+  "Aggregation, Dynamic": [
+    "dynamic aggregation",
+    "facets"
+  ],
+  "Attachments": [
+    "Attachments"
+  ],
+  "Audit": [
+    "Audit log",
+    "Auditing",
+    "Audits"
+  ],
+  "High Availability": [
+    "Failover",
+    "high Availability"
+  ],
+  "B+Tree": [
+    "B+Tree"
+  ],
+  "Backup": [
+    "Backup folders",
+    "Backups",
+    "backup process"
+  ],
+  "Backup, Restore": [
+    "restoring"
+  ],
+  "Backup, Schedule": [
+    "Backup schedule"
+  ],
+  "Backup, Snapshots": [
+    "snapshots"
+  ],
+  "Backup, Tasks": [
+    "Backup tasks"
+  ],
+  "Bulk Insert": [
+    "Bulk",
+    "Bulk Insert"
+  ],
+  "Caching": [
+    "Caching"
+  ],
+  "Certificates": [
+    "Certificates"
+  ],
+  "Certificates, Admin Certificates": [
+    "Admin certificates"
+  ],
+  "Certificates, Client Certificates": [
+    "Client certificates"
+  ],
+  "Change Vectors": [
+    "Change vectors"
+  ],
+  "Changes API": [
+    "Changes API"
+  ],
+  "Cluster, Leaders": [
+    "Cluster leader"
+  ],
+  "Cluster, Members": [
+    "Cluster member"
+  ],
+  "Cluster, Nodes": [
+    "cluster node"
+  ],
+  "Cluster, Operations": [
+    "Cluster operation"
+  ],
+  "Cluster, Preferred node": [
+    "preferred node"
+  ],
+  "Cluster, Secured": [
+    "Cluster secured"
+  ],
+  "Compare-Exchange": [
+    "Atomic operation",
+    "Compare-Exchange",
+    "Compare-exchange values",
+    "compare and swap"
+  ],
+  "Concurrency": [
+    "Concurrency"
+  ],
+  "Concurrency, Concurrency Control": [
+    "Concurrency control"
+  ],
+  "Concurrency, Optimistic": [
+    "Optimistic Concurrency"
+  ],
+  "Configuration": [
+    "Configuration"
+  ],
+  "Consensus, Algorithms": [
+    "Consensus algorithm"
+  ],
+  "Consensus, Majority": [
+    "majority"
+  ],
+  "Consensus, Protocol": [
+    "Consensus protocol"
+  ],
+  "Consensus, Raft": [
+    "Rachis",
+    "Raft"
+  ],
+  "Consistency": [
+    "Consistency"
+  ],
+  "Database Record": [
+    "Database Record"
+  ],
+  "Database server": [
+    "Database server"
+  ],
+  "Database topology": [
+    "Database topology"
+  ],
+  "Databases, Administrators": [
+    "Database administrators"
+  ],
+  "Databases, Creating": [
+    "creating database"
+  ],
+  "Databases, Deleting": [
+    "deleting database"
+  ],
+  "Databases, Files": [
+    "DataDir",
+    "database file",
+    "database folder"
+  ],
+  "Databases, Group": [
+    "Database group",
+    "Database group topology"
+  ],
+  "Databases, Restoring": [
+    "restoring database"
+  ],
+  "Debug": [
+    "Debug"
+  ],
+  "Deployment": [
+    "Deploy",
+    "Deployment",
+    "Deployment options"
+  ],
+  "Deployment, Production": [
+    "production deployments"
+  ],
+  "Disk I/O": [
+    "Disk I/O"
+  ],
+  "Disk space": [
+    "Disk space"
+  ],
+  "Disks, NVMe": [
+    "NVMe"
+  ],
+  "Disks, SSD": [
+    "SSD"
+  ],
+  "Distributed computing": [
+    "Distributed computing"
+  ],
+  "Distributed transactions": [
+    "Distributed transactions"
+  ],
+  "DNS": [
+    "DNS",
+    "DNS updates"
+  ],
+  "Document, Session": [
+    "Document session"
+  ],
+  "Documents, Artificial": [
+    "Artificial documents"
+  ],
+  "Documents, Batch": [
+    "Batch of documents"
+  ],
+  "Documents, Change Tracking": [
+    "Change tracking"
+  ],
+  "Documents, IDs": [
+    "Document IDs",
+    "document identifier",
+    "documents identifier",
+    "documents ids"
+  ],
+  "Documents, metadata": [
+    "Document metadata"
+  ],
+  "Documents, Model": [
+    "model",
+    "modeling",
+    "Aggregates"
+  ],
+  "Documents, model": [
+    "Document model"
+  ],
+  "Encryption": [
+    "Decrypt",
+    "Decryption",
+    "Encrypted data",
+    "Encrypted databases",
+    "Encrypting",
+    "Encryption"
+  ],
+  "Encryption, Keys": [
+    "Encryption key",
+    "Encryption keys",
+    "secret key"
+  ],
+  "ETL": [
+    "ETL"
+  ],
+  "Events": [
+    "Events"
+  ],
+  "Facets": [
+    "Facets"
+  ],
+  "Files, memory-mapped": [
+    "memory-mapped Files"
+  ],
+  "Fsync": [
+    "Fsync"
+  ],
+  "I/O": [
+    "I/O"
+  ],
+  "I/O, memory-mapped": [
+    "memory-mapped I/O"
+  ],
+  "I/O, Operations": [
+    "I/O Operations"
+  ],
+  "Indexes, Analyzers": [
+    "Analyzers",
+    "standard analyzer"
+  ],
+  "Indexes, Auto": [
+    "Auto index",
+    "automatic index"
+  ],
+  "Indexes, Creating": [
+    "creating indexes"
+  ],
+  "Indexes, Creation": [
+    "AbstractIndexCreationTask",
+    "AbstractMultiMapIndexCreationTask"
+  ],
+  "Indexes, Definition": [
+    "index Definition"
+  ],
+  "Indexes, Entry": [
+    "index entry"
+  ],
+  "Indexes, Errors": [
+    "index error",
+    "indexing error"
+  ],
+  "Indexes, Static": [
+    "explicit indexes",
+    "static indexes"
+  ],
+  "Indexes, Terms": [
+    "term vector",
+    "terms"
+  ],
+  "JS Console, Admin": [
+    "Admin JS Console"
+  ],
+  "Listeners": [
+    "listeners"
+  ],
+  "Logs, Admin": [
+    "Admin logs"
+  ],
+  "Lucene": [
+    "Lucene"
+  ],
+  "MapReduce": [
+    "MapReduce"
+  ],
+  "MapReduce, indexes": [
+    "MapReduce indexes"
+  ],
+  "Memory": [
+    "memory"
+  ],
+  "Memory, Usage": [
+    "memory usage"
+  ],
+  "More Like This": [
+    "morelikethis"
+  ],
+  "OpenSSL": [
+    "openssl"
+  ],
+  "Permissions": [
+    "File system permissions",
+    "setcap"
+  ],
+  "Queries, Complex": [
+    "Complex queries"
+  ],
+  "Queries, Dynamic": [
+    "dynamic queries"
+  ],
+  "Queries, Parameters": [
+    "query parameters"
+  ],
+  "Queries, Projections": [
+    "projections"
+  ],
+  "Queries, Query Optimizer": [
+    "Query Optimizer"
+  ],
+  "Queries, RQL": [
+    "RQL"
+  ],
+  "Queries, Slow": [
+    "slow queries"
+  ],
+  "Queries, Spatial": [
+    "spatial queries"
+  ],
+  "Queries, Streaming": [
+    "streaming queries"
+  ],
+  "Queryes, cost of": [
+    "cost of querying"
+  ],
+  "Relational Databases": [
+    "relational database"
+  ],
+  "Replication": [
+    "replicas",
+    "replication"
+  ],
+  "Replication, External": [
+    "External replication"
+  ],
+  "Replication, Offsite": [
+    "offsite",
+    "offsite replica"
+  ],
+  "Replication, Replication Factor": [
+    "replication facotr"
+  ],
+  "Requests, Lazy": [
+    "lazy requests"
+  ],
+  "Revisions": [
+    "revisions"
+  ],
+  "Security": [
+    "Security"
+  ],
+  "Security, Authentication": [
+    "Authenticate",
+    "Authentication"
+  ],
+  "Security, Authorization": [
+    "Authorization"
+  ],
+  "Security, TLS": [
+    "TLS"
+  ],
+  "Setup, Wizard": [
+    "Setup Wizard"
+  ],
+  "TCP": [
+    "TCP"
+  ],
+  "Transactions": [
+    "transactions"
+  ],
+  "Voron": [
+    "Voron"
+  ],
+  "Write Ahead Journals": [
+    "journals"
+  ]
+}
