@@ -1,6 +1,8 @@
 
 # Introduction
 
+## Welcome to RavenDB
+
 [Introduction]: #intro
 
 RavenDB is a high performance, distributed, NoSQL document database. Phew, that is a mouthful. But it probably
@@ -42,10 +44,9 @@ people also seem to like reading them.
 
 I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
 the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
-do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog) for close to fifteen years.^[You can find it at
-http://ayende.com/blog]
+do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog) for close to fifteen years.^[You can find it at http://ayende.com/blog]
 
-## About this book
+### About this book
 
 What you're reading now is effectively a book-length blog post. The main idea here is that I want to give you a way to
 _grok_ RavenDB.^[Grok means "to understand so thoroughly that the observer becomes a part of the observed—to merge, blend, 
