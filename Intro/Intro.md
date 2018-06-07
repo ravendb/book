@@ -1,4 +1,11 @@
 
+\newpage \vspace*{8cm}
+\pdfbookmark{Dedication}{dedication}
+\thispagestyle{empty}
+\begin{center}
+  \Large \emph{Dedicated to Rachel and Tamar, with all my love.}
+\end{center}
+
 # Introduction
 
 ## Welcome to RavenDB
