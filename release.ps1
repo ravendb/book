@@ -2,7 +2,7 @@
 .\build.ps1 docx $false
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
-$release = "v4.0.20-rc"
+$release = "v4.0.21-rc"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
