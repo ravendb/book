@@ -1,5 +1,6 @@
-#.\build.ps1 pdf $true
+.\build.ps1 pdf $true
 .\build.ps1 docx $false
+.\build.ps1 epub $false
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
 $release = "v4.0.21-rc"
@@ -50,10 +51,6 @@ Invoke-WebRequest -Uri "https://uploads.github.com/repos/ravendb/book/releases/$
     -Method "POST" `
     -Body $docx
 
-.\build.ps1 epub $false
-
-c:\tools\kindlegen\kindlegen.exe ".\Output\Inside RavenDB 4.0.epub"
-
 Echo "Uploading .epub"
 
 $epub = [System.IO.File]::ReadAllBytes("$pwd\Output\Inside RavenDB 4.0.epub")
@@ -63,13 +60,3 @@ Invoke-WebRequest -Uri "https://uploads.github.com/repos/ravendb/book/releases/$
     -ContentType "application/epub+zip" `
     -Method "POST" `
     -Body $epub
-
-$mobi = [System.IO.File]::ReadAllBytes("$pwd\Output\Inside RavenDB 4.0.mobi")
-
-Echo "Uploading .mobi"
-
-Invoke-WebRequest -Uri "https://uploads.github.com/repos/ravendb/book/releases/$id/assets?name=Inside RavenDB 4.0.mobi" `
-	-Headers @{"Authorization" = "token $token"; "Accept" = "application/vnd.github.v3+json"} `
-    -ContentType "application/octet-stream" `
-    -Method "POST" `
-    -Body $mobi
