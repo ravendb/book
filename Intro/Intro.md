@@ -32,7 +32,7 @@ atomic, consistent, isolated and durable and is a fancy way to say that RavenDB 
 across multiple documents in the same collection, across multiple documents in multiple collections; it's all there, the kinds 
 of transactions developers can rely on. If you send work to RavenDB, you can be assured that either it will be
 done completely and persist to disk or it will fail completely (and let you know about the failure): 
-no half-way measures and no needing to roll your own "transactions".
+no half-way measures and no needing to roll your own "transactions."
 
 This seems silly to mention, I'm aware, but there are databases out there that don't have this. Given how much 
 work we've put into this particular feature, I can empathize with the wish to just drop ACID behaviour, because making
