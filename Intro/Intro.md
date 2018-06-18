@@ -71,6 +71,26 @@ formalization of our internal onboarding training.
 By the end of this book, you're going to have a far better understanding of how and why RavenDB is put together the way it is. 
 More importantly, you'll have the knowledge and skills needed to make efficient use of RavenDB in your systems.
 
+#### Acknowledgments
+
+This book has been written and re-written several times. In fact, looking at the commit logs, I started writing it in
+July of 2014. Writing something of this scope, and at the same time pushing the product itself forward is not easy and
+would not have been possible without the help of many people. 
+
+On the technical side, I want to thank Adi Avivi, Dan Bishop , Maxim Buryak, Danielle Greenberg, Judah Himango,
+Karmel Indych, Elemar Junior, Grisha Kotler, Rafal Kwiatkowski, Grzegorz Lachowski, Marcin Lewandowski, Jonathan Matheus,
+Tomasz Opalach, Arkadiusz Palinski, Pawel Pekrol, Aviv Rahmany, Idan Ben Shalom, Efrat Shenhar, Tal Weiss, 
+Michael Yarichuk, Fitzchak Yitzchaki and Iftah Ben Zaken.
+
+The editors, who had the harsh task of turning raw text into a legible book. Erik Dietrich, Laura Lattimer,
+Katherine Mechling and Amanda Muledy. All the errors you find were put it by myself after the last round of edits, I 
+assure you. 
+
+The early readers of this book, who had gone above merely giving feedback and actively contributed to making this better. 
+Andrej Krivulcik, Jason Ghent, Bobby Johnson,Sean Killeen, Gabriel Schmitt Kohlrausch, Cathal McHale, Daniel Palme, Alessandro Riolo, Clinton Sheppard, Jan Ove Skogheim, Daniel Wonisch and Stephen Zeng.
+
+Thanks you all, it would have been much harder, and likely not possible, without you.
+
 ### Who is this for?
 
 I've tried to make this book useful for a broad category of users. Developers will come away
@@ -154,7 +174,7 @@ learning how to perform basic queries and in general working with the client API
 
 After covering the basics, we'll move into modeling documents in RavenDB; how to build your application so that it meshes well with document-based modeling; what sort of features you need to be aware of when designing the
 domain model and how to deal with common modeling scenarios; concurrency control and dealing with data that 
-don't always match the document model (binary data, for example).
+doesn't always match the document model (binary data, for example).
 
 Following on this high level discussion, we'll dive into the client API and explore the advanced options RavenDB offers: from lazy requests to reduce network traffic, to the optimal way to read and write a lot
 of data very quickly, to peforming partial document updates, to how caching is an integral part of the client API.
@@ -226,7 +246,7 @@ them between environments.
 Focus: Operations and architects
 
 RavenDB is used to store business-critical data such as medical information and financial transactions. In this part, we'll 
-go over all the steps that have been taken to ensure that you data is safe, the communication channels are secure 
+go over all the steps that have been taken to ensure that your data is safe, the communication channels are secure 
 and only authorized users are able to access your database.
 
 We'll cover how to set up RavenDB securely. RavenDB's security model is binary in nature. Either you run RavenDB in an unsecured
