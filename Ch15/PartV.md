@@ -31,7 +31,7 @@ system, meaning you'll be able to notice changes from expected patterns and head
 Routine and preventive maintenance is also an important topic that we'll go over. From proper backup and restore procedures to
 disaster recovery stategies, it pays to be prepared in case trouble lands in your lap. 
 We'll see how to troubleshoot issues in production, covering additional tools available at the operating system
-level and dedicated tools and features meant to help you manage and operate RavenDB. We'll discuss ways to manipluate the 
+level and dedicated tools and features meant to help you manage and operate RavenDB. We'll discuss ways to manipulate the 
 internal state of RavenDB, impact decision making and behavior at runtime and always keep your application running. 
 
 This part is meant for the operations team that will support your RavenDB cluster in production, but it's also very useful 

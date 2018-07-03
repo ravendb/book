@@ -18,7 +18,7 @@ queries in RavenDB.
 I suggest at least skimming the next chapter (which talks about the RavenDB query engine) before heading into the one after (which
 actually teaches you how to actually query). This is especially important for those trying to analyze the behavior of RavenDB or find a good way to handle a specific scenario.
 
-Personally, I consider this kind of discussion facinating, but I realize that I might be in the minority here. I expect that most readers will have a lot more fun when we get to actually runninig queries. RavenDB has a powerful query language and some unique features
+Personally, I consider this kind of discussion fascinating, but I realize that I might be in the minority here. I expect that most readers will have a lot more fun when we get to actually running queries. RavenDB has a powerful query language and some unique features
 around querying, indexing and managing your data that make it easier to find exactly what you want and shape it just the right
 way. MapReduce indexes allow you to perform aggregation queries with very little cost, regardless of the data size. 
 
