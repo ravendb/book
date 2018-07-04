@@ -435,7 +435,7 @@
 >>
 >>> 129-130, 413
 
-> Queryes, cost of
+> Queries, cost of
 >
 > 101, 326, 349
 

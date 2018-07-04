@@ -8,7 +8,7 @@ database: queries. We've mentioned queries in passing in previous chapters, but 
 
 This is because as important as querying is, getting your data model right and understanding the distributed nature of RavenDB
 is of paramount importance for a successful system. These are often somewhat amorphous topics that are quite hard to relate to, whereas 
-queries are much easier to talk about, primiarly because it is so very easy to look at a query and then look at its results.
+queries are much easier to talk about, primarily because it is so very easy to look at a query and then look at its results.
 
 This book is meant to give you an _in-depth_ view of how RavenDB is working, so we'll start by actually looking into the query
 engine and how RavenDB processes queries. We'll dig into the query optimizer and index generation process, as well as how queries are handled,
@@ -18,7 +18,7 @@ queries in RavenDB.
 I suggest at least skimming the next chapter (which talks about the RavenDB query engine) before heading into the one after (which
 actually teaches you how to actually query). This is especially important for those trying to analyze the behavior of RavenDB or find a good way to handle a specific scenario.
 
-Personally, I consider this kind of discussion facinating, but I realize that I might be in the minority here. I expect that most readers will have a lot more fun when we get to actually runninig queries. RavenDB has a powerful query language and some unique features
+Personally, I consider this kind of discussion fascinating, but I realize that I might be in the minority here. I expect that most readers will have a lot more fun when we get to actually running queries. RavenDB has a powerful query language and some unique features
 around querying, indexing and managing your data that make it easier to find exactly what you want and shape it just the right
 way. MapReduce indexes allow you to perform aggregation queries with very little cost, regardless of the data size. 
 
