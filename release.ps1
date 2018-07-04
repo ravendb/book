@@ -3,7 +3,7 @@
 .\build.ps1 epub $false
 
 $token = Get-Content "$pwd\..\Credentials\github.txt"
-$release = "v4.0.25-rc"
+$release = "v4.0.26-rc"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
