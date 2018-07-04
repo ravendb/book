@@ -77,7 +77,7 @@ This book has been written and re-written several times. In fact, looking at the
 July of 2014. Writing something of this scope, and at the same time pushing the product itself forward is not easy and
 would not have been possible without the help of many people. 
 
-On the technical side, I want to thank Adi Avivi, Dan Bishop , Maxim Buryak, Danielle Greenberg, Judah Himango,
+On the technical side, I want to thank Adi Avivi, Dan Bishop, Maxim Buryak, Danielle Greenberg, Judah Himango,
 Karmel Indych, Elemar Junior, Grisha Kotler, Rafal Kwiatkowski, Grzegorz Lachowski, Marcin Lewandowski, Jonathan Matheus,
 Tomasz Opalach, Arkadiusz Palinski, Pawel Pekrol, Aviv Rahmany, Idan Ben Shalom, Efrat Shenhar, Tal Weiss, 
 Michael Yarichuk, Fitzchak Yitzchaki and Iftah Ben Zaken.
@@ -127,7 +127,7 @@ In that decade, we have learned a lot about what it takes to really make a datab
 force you to jump through so many hoops. In particular, I came from a Microsoft-centric world, and that world had a big
 impact on the design of RavenDB. Most NoSQL solutions (especially at the time) had a very different mental model
 for how they should operate. They put a lot of attention on speed, scale out or esoteric data models, often at
-the severe expense of ease of use, operational simplicity and what I consider to be fundemental features such as
+the severe expense of ease of use, operational simplicity and what I consider to be fundamental features such as
 transactions.
 
 I wanted to have a database that would _make sense_ for building web applications and business 
@@ -177,10 +177,10 @@ domain model and how to deal with common modeling scenarios; concurrency control
 doesn't always match the document model (binary data, for example).
 
 Following on this high level discussion, we'll dive into the client API and explore the advanced options RavenDB offers: from lazy requests to reduce network traffic, to the optimal way to read and write a lot
-of data very quickly, to peforming partial document updates, to how caching is an integral part of the client API.
+of data very quickly, to performing partial document updates, to how caching is an integral part of the client API.
 
 We'll conclude the first part of the book with an overview of batch processing in RavenDB and how you can use
-highly avaliable, reliable subscriptions to manage all sorts of background tasks in your application in quite an
+highly available, reliable subscriptions to manage all sorts of background tasks in your application in quite an
 elegant fashion.
 
 #### Part II — Distributed RavenDB
@@ -193,10 +193,10 @@ the cluster and learn how to best structure systems to take advantage of what Ra
 
 We'll begin by dissecting RavenDB's dual-distributed nature. RavenDB is using both a consensus protocol and a gossip
 protocol to build two layers of communication between the various nodes in the cluster. We'll learn why we 
-use this dual-mode and how it adds tremendously to RavenDB's robustness in the precense of failures.
+use this dual-mode and how it adds tremendously to RavenDB's robustness in the presence of failures.
 
 After going over the theory, we'll get practical: setting up RavenDB clusters, exploring different topologies and studying
-how clients interact with a cluster of RavenDB nodes. We'll cover distirubted work, load balancing and ensuring
+how clients interact with a cluster of RavenDB nodes. We'll cover distributed work, load balancing and ensuring
 high availability and zero downtime for your applications.
 
 One key reason you'll want to use a distributed system is to handle bigger load. We'll cover how you
@@ -208,7 +208,7 @@ active steps to ensure the safety of your data at all times.
 Modern systems are rarely composed of a stand-alone application. So to finish up this section, we'll explore how
 RavenDB integrates with other systems and databases. 
 RavenDB was explicitly designed to make such integration easier. We'll go over how to create data flow
-that automatically syncronizes data to different destinations, be they RavenDB instances or even relational databases.
+that automatically synchronizes data to different destinations, be they RavenDB instances or even relational databases.
 
 
 #### Part III — Querying and indexing
@@ -225,11 +225,11 @@ queries to answer them as fast as possible.
 
 Then we'll get to the really fun stuff. RavenDB's queries can answer a lot more than just `where Status = 'Active'`. 
 We'll look at full text queries, querying multiple collections at once and faceted search. We'll look at how RavenDB
-can find similiar documents and suggest to the user different queries to try as the user tries to find a particular 
+can find similar documents and suggest to the user different queries to try as the user tries to find a particular 
 nugget of  information.
 
 Spatial queries (searching based on geographical data) will be covered in depth. We'll also cover how you can find
-documents not based on their own data, but on related documents' data. Similar to but simpler and faster than `JOIN` from relational databases, the ability to efficently find documents using related documents can greatly simplify and speed up 
+documents not based on their own data, but on related documents' data. Similar to but simpler and faster than `JOIN` from relational databases, the ability to efficiently find documents using related documents can greatly simplify and speed up 
 your queries. One of the strengths of 
 RavenDB is that it is schema-less by nature, and that doesn't stop at data storage. RavenDB also has very powerful
 capabilities for querying over dynamic data and user-generated content.

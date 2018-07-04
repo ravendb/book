@@ -22,7 +22,7 @@ that there are literally hundreds of thousands of databases running on publicly 
 and having _no security whatsoever_.
 
 In 2017, there were several waves of attacks on such databases that encrypted data and demanded ransom in order to decrypt it. This
-included databases containing medical and pateint records, recordings of conversations between children and parents and 
+included databases containing medical and patient records, recordings of conversations between children and parents and 
 pretty much everything you _don't_ want to fall into unauthorized hands. 
 
 A large part of the reason for these attacks, I believe, is that security has gotten so hard, obtuse and complex that people often put it off until 
@@ -36,7 +36,7 @@ it easy for mere mortals to get the system up securely.^[We also designed RavenD
 an unsecured fashion.]
 
 We invested a lot of time not just in our security infrastructure, but also in making it approachable, easy to use and switched on
-by default. Intead of having to go through a 60-page document detailing all the steps you need to go through to secure your
+by default. Instead of having to go through a 60-page document detailing all the steps you need to go through to secure your
 database, RavenDB is secured by default. 
 
 We'll cover how RavenDB ensures the safety of your data as it travels the network, using strong encryption to ensure that no

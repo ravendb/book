@@ -8,7 +8,7 @@ database: queries. We've mentioned queries in passing in previous chapters, but 
 
 This is because as important as querying is, getting your data model right and understanding the distributed nature of RavenDB
 is of paramount importance for a successful system. These are often somewhat amorphous topics that are quite hard to relate to, whereas 
-queries are much easier to talk about, primiarly because it is so very easy to look at a query and then look at its results.
+queries are much easier to talk about, primarily because it is so very easy to look at a query and then look at its results.
 
 This book is meant to give you an _in-depth_ view of how RavenDB is working, so we'll start by actually looking into the query
 engine and how RavenDB processes queries. We'll dig into the query optimizer and index generation process, as well as how queries are handled,
