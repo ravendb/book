@@ -31,11 +31,11 @@ In addition to the tagline, RavenDB is also an ACID database, unlike many other 
 atomic, consistent, isolated and durable and is a fancy way to say that RavenDB has _real_ transactions. Per document,
 across multiple documents in the same collection, across multiple documents in multiple collections; it's all there, the kinds 
 of transactions developers can rely on. If you send work to RavenDB, you can be assured that either it will be
-done completely and persist to disk or it will fail completely (and let you know about the failure): 
+done completely and persist to disk or it will fail completely (and let you know about the failure); 
 no half-way measures and no needing to roll your own "transactions."
 
 This seems silly to mention, I'm aware, but there are databases out there that don't have this. Given how much 
-work we've put into this particular feature, I can empathize with the wish to just drop ACID behaviour, because making
+work we've put into this particular feature, I can empathize with the wish to just drop ACID behavior, because making
 a database that is both high performance and fully transactional is anything but trivial. That said, I think this 
 should be one of the most basic requirements of a database, and RavenDB has it out of the box. 
 
@@ -56,7 +56,7 @@ do like writing blog posts, and I've been maintaining an [active blog](http://ay
 ### About this book
 
 What you're reading now is effectively a book-length blog post. The main idea here is that I want to give you a way to
-_grok_ RavenDB.^[Grok means "to understand so thoroughly that the observer becomes a part of the observed—to merge, blend, 
+_grok_ RavenDB.^[Grok means "to understand so thoroughly that the observer becomes a part of the observed — to merge, blend, 
 intermarry, lose identity in group experience." From Robert A. Heinlein, _Stranger in a Strange Land_.] This 
 means not only gaining knowledge of what RavenDB does, but also all the reasoning behind the bytes. In effect, I want
 you to understand all the _whys_ of RavenDB.
@@ -78,16 +78,16 @@ July of 2014. Writing something of this scope, and at the same time pushing the 
 would not have been possible without the help of many people. 
 
 On the technical side, I want to thank Adi Avivi, Dan Bishop, Maxim Buryak, Danielle Greenberg, Judah Himango,
-Karmel Indych, Elemar Junior, Grisha Kotler, Rafal Kwiatkowski, Grzegorz Lachowski, Marcin Lewandowski, Jonathan Matheus,
-Tomasz Opalach, Arkadiusz Palinski, Pawel Pekrol, Aviv Rahmany, Idan Ben Shalom, Efrat Shenhar, Tal Weiss, 
+Karmel Indych, Elemar Junior, Grisha Kotler, Rafał Kwiatkowski, Grzegorz Lachowski, Marcin Lewandowski, Jonathan Matheus,
+Tomasz Opalach, Arkadiusz Paliński, Paweł Pekról, Aviv Rahmany, Idan Ben Shalom, Efrat Shenhar, Tal Weiss, 
 Michael Yarichuk, Fitzchak Yitzchaki and Iftah Ben Zaken.
 
 The editors, who had the harsh task of turning raw text into a legible book. Erik Dietrich, Laura Lattimer,
-Katherine Mechling and Amanda Muledy. All the errors you find were put it by myself after the last round of edits, I 
+Katherine Mechling and Amanda Muledy. All the errors you find were inserted by myself after the last round of edits, I 
 assure you. 
 
 The early readers of this book, who had gone above merely giving feedback and actively contributed to making this better. 
-Andrej Krivulcik, Jason Ghent, Bobby Johnson,Sean Killeen, Gabriel Schmitt Kohlrausch, Cathal McHale, Daniel Palme, Alessandro Riolo, Clinton Sheppard, Jan Ove Skogheim, Daniel Wonisch and Stephen Zeng.
+Andrej Krivulcik, Jason Ghent, Bobby Johnson, Sean Killeen, Gabriel Schmitt Kohlrausch, Cathal McHale, Daniel Palme, Alessandro Riolo, Clinton Sheppard, Jan Ove Skogheim, Daniel Wonisch and Stephen Zeng.
 
 Thanks you all, it would have been much harder, and likely not possible, without you.
 
@@ -133,15 +133,15 @@ transactions.
 I wanted to have a database that would _make sense_ for building web applications and business 
 systems; you know, the bread and butter of our industry. I wanted a database that would be ACID, because a database
 without transactions just didn't make sense to me. I wanted to get rid of the limitations of the rigid schema of 
-relational databases but keep working on domain-driven systems. I wanted something fast but at the same
+relational databases but keep working on domain-driven systems. I wanted something that is fast but at the same
 time could just be thrown on a production server and would work without having to pay for an on-call babysitter.
 
 A lot of the design of RavenDB was heavily influenced by the [Release It!](https://pragprog.com/book/mnee/release-it)
 book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with a decade in production
 to look back at, I think we did a good job there.
 
-That doesn't mean that we always hit the bullseye. Almost a decade in production——deployed to hundreds of
-thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels——will teach you
+That doesn't mean that we always hit the bullseye. Almost a decade in production —— deployed to hundreds of
+thousands of machines (of sometimes dubious origin) and used by teams of wildly different skill levels —— will teach you
 a _lot_ about what works in theory, what the real world can tolerate and what is really needed. 
 
 For the RavenDB 4.0 release, we took the time to look back at what worked and what didn't and made certain to 
@@ -177,11 +177,9 @@ domain model and how to deal with common modeling scenarios; concurrency control
 doesn't always match the document model (binary data, for example).
 
 Following on this high level discussion, we'll dive into the client API and explore the advanced options RavenDB offers: from lazy requests to reduce network traffic, to the optimal way to read and write a lot
-of data very quickly, to performing partial document updates, to how caching is an integral part of the client API.
-
+of data very quickly, perform partial document updates and see how caching is an integral part of the client API.
 We'll conclude the first part of the book with an overview of batch processing in RavenDB and how you can use
-highly available, reliable subscriptions to manage all sorts of background tasks in your application in quite an
-elegant fashion.
+highly available, reliable subscriptions to manage all sorts of background tasks in your application in a quite elegant fashion.
 
 #### Part II — Distributed RavenDB
 
@@ -195,7 +193,7 @@ We'll begin by dissecting RavenDB's dual-distributed nature. RavenDB is using bo
 protocol to build two layers of communication between the various nodes in the cluster. We'll learn why we 
 use this dual-mode and how it adds tremendously to RavenDB's robustness in the presence of failures.
 
-After going over the theory, we'll get practical: setting up RavenDB clusters, exploring different topologies and studying
+After going over the theory, we'll get practical: setting up RavenDB clusters, explore different topologies and study
 how clients interact with a cluster of RavenDB nodes. We'll cover distributed work, load balancing and ensuring
 high availability and zero downtime for your applications.
 
@@ -229,7 +227,7 @@ can find similar documents and suggest to the user different queries to try as t
 nugget of  information.
 
 Spatial queries (searching based on geographical data) will be covered in depth. We'll also cover how you can find
-documents not based on their own data, but on related documents' data. Similar to but simpler and faster than `JOIN` from relational databases, the ability to efficiently find documents using related documents can greatly simplify and speed up 
+documents not based on their own data, but on related documents' data. Similar to, but simpler and faster than `JOIN` from relational databases, the ability to efficiently find documents using related documents can greatly simplify and speed up 
 your queries. One of the strengths of 
 RavenDB is that it is schema-less by nature, and that doesn't stop at data storage. RavenDB also has very powerful
 capabilities for querying over dynamic data and user-generated content.
@@ -253,7 +251,7 @@ We'll cover how to set up RavenDB securely. RavenDB's security model is binary i
 mode (only useful for development) or you run it in a secured mode. There are no half measures or multiple steps to 
 take. 
 
-Setting up RavenDB securely is easy——although making it easy was certainly not easy——and once set up, RavenDB takes care of all aspects of securing your data.
+Setting up RavenDB securely is easy —— although making it easy was certainly not easy —— and once set up, RavenDB takes care of all aspects of securing your data.
 Data in transit is encrypted, and clients and servers mutually authenticate themselves. We'll discuss how RavenDB handles 
 authentication and authorization, as well as how you can control who gets to the database and what they can access. 
 
@@ -289,7 +287,7 @@ disaster strikes.
 
 We'll spend a whole chapter discussing backups and restores. RavenDB supports several options for backing up your data: offsite hot spares, full binary snapshots of your data and highly compressed backups meant for long term storage.
 We'll discuss backup strategies and options, including backing up directly to the cloud. More importantly, we'll cover
-how you can define and execute a restore strategy, a critical——though often (sadly) overlooked——part of your overall backup
+how you can define and execute a restore strategy, a critical —— though often (sadly) overlooked —— part of your overall backup
 strategy. 
 
 Finally, we are going to close this book with a set of operational recipes. These are ready-made answers to specific
