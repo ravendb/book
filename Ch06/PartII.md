@@ -9,8 +9,8 @@ chief topics we've yet to cover are running RavenDB in a distributed cluster and
 
 I struggled to decide the order in which these two topics should show up in the book. Queries are _important_, but 
 RavenDB is quite capable of handling a lot of the decisions around them on its own. And while queries and indexing can have a 
-major impact on coding decisions, the distributed aspect of RavenDB should be a core part of the design of your 
-architecture. For that reason, I decided to cover RavenDB's distributed nature first. If you only intend to run RavenDB as a single node, you can 
+major impact on coding decisions, the distributed aspect of RavenDB should be a core part of your architecture design. For that reason, I decided 
+to cover RavenDB's distributed nature first. If you only intend to run RavenDB as a single node, you can 
 skip this part and go directly to the next, but I still recommend reading through it to understand what's available to you. 
 
 A cluster is always recommended for production deployments for the high availability, fault tolerance and load-balancing features the cluster brings to the table.
