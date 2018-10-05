@@ -26,21 +26,20 @@ included databases containing medical and patient records, recordings of convers
 pretty much everything you _don't_ want to fall into unauthorized hands. 
 
 A large part of the reason for these attacks, I believe, is that security has gotten so hard, obtuse and complex that people often put it off until 
-"later". Of course, eventually they go to production. But at this point, is is easy to forget that all the doors are opened and there is a welcome mat for every Joe and Harry who wants to go into the database and ransack it. Securing the database
+"later". Of course, eventually they go to production. But at this point, it is easy to forget that all the doors are opened and there is a welcome mat for every Joe and Harry who wants to go into the database and ransack it. Securing the database
 is a task that is easy to defer for later, when we "really" need it. In some cases, it is deferred until right after the point
 when the entire database is in the hands of Mr. Unsavory and the rest of his gang.
 
 Security is a hard requirement; if you are properly deployed, but not secured, you _aren't_ properly deployed. RavenDB 
-offers both encryption in transit and at rest, has several layers of protections for your data and was designed to make 
-it easy for mere mortals to get the system up securely.^[We also designed RavenDB so it would be hard to deploy in 
-an unsecured fashion.]
+offers both encryption in transit and at rest, has several layers of protection for your data and was designed to make 
+it easy for mere mortals to get the system up securely.^[At the same time, we also designed RavenDB so that it would be harder to deploy when it is set in an unsecured mode.]
 
 We invested a lot of time not just in our security infrastructure, but also in making it approachable, easy to use and switched on
 by default. Instead of having to go through a 60-page document detailing all the steps you need to go through to secure your
-database, RavenDB is secured by default. 
+database, RavenDB is secure by default. 
 
 We'll cover how RavenDB ensures the safety of your data as it travels the network, using strong encryption to ensure that no
-outside party can read what is being sent, even through the traffic is sent through channels you don't own. Another
+outside party can read what is being sent, even when the traffic is sent through channels you don't own. Another
 important piece of security is knowing who you're talking to; after all, if you're securely sending secrets to a bad guy, the most
 sophisticated encryption in the world won't help you.
 RavenDB uses `X509` certificates to mutually authenticate both clients and servers, ensuring that your data goes only to 
