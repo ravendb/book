@@ -40,7 +40,7 @@ environment and the options you have to inspect and manage it.
 The content of this part of the book was composed after over a decade's work supporting RavenDB deployments in production in a variety of environments. You'll note that
 the general approach we took is that if there's an error RavenDB can do something about, it will. 
 
-That doesn't mean your operations team has nothing to do, mind. There is quite a lot of work to do, but most of it
+That doesn't mean your operations team has nothing to do. There is quite a lot of work to do, but most of it
 should be done before the system is anywhere near a production deployment. We'll cover in detail the notion of capacity planning, 
 setting service-level agreements (SLAs) for RavenDB and your system (and measuring compliance with them) and the kinds of machines and 
 systems you should expect to use to meet these goals.
