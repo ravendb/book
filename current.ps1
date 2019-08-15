@@ -12,7 +12,7 @@ pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--standalone --highlight-style=espresso --self-contained --top-level-division=part `
 	--listings --pdf-engine=xelatex --number-sections --css=pandoc.css `
 	--epub-cover-image=.\Cover.jpg --epub-embed-font=Styling/RobotoMono-Regular.ttf `
-	-o $output .\title.txt .\Intro\Intro.md  `
+	-o $output .\title.txt  `
 	.\Ch05\Ch05.md `
 
 if($start) {
