@@ -3,7 +3,7 @@
 
 [Sharding]: #sharding
 
-	TODO: This is meant to be chapter 8, after the distributed nature discussion, before ETL
+***TODO: This is meant to be chapter 9, after the distributed nature discussion, before ETL***
 
 We spent the previous couple of chapters exploring the distributed nature of RavenDB. Seeing how 
 RavenDB cluster operates and how RavenDB replicate data among the diffrent nodes in the cluster.
@@ -51,8 +51,7 @@ a client perspective, there is (almost) no change when working with a sharded da
 As usual, it is easier to explain with a real world example. Let's consider a database for an ordering system, that 
 holds documents such as `Customers` and `Orders`. We'll create a sharded database called `Orders` 
 
-**TODO: exact steps on how to do that**.
---------------------------------------------
+**TODO: exact steps on how to do that**
 
 > **Sharding terminology**
 >
@@ -541,7 +540,7 @@ two fragements.
 > **Increasing the Range property is a Safe operation**
 >
 > Unlike most content based sharding changes, increasing the value of the `Range` property is a Safe operation to do.
-> Let's assume that your started out with the shard configuration shown in Listing XYZ.1. Over time, you realized that
+> Let's assume that you started out with the shard configuration shown in Listing XYZ.1. Over time, you realized that
 > some of your customers have a *lot* of orders (congrats, what a great problem to have). You are running into issues
 > with an obese shard. 
 >
@@ -563,8 +562,9 @@ You can always increase the `Range` value of the sharding configuration, so it d
 about it. If you *haven't* specified the `Range`, it is initialized to `1` by default (which efectively disable it).
 
 The one important thing about `Range` that you must remember is that it turns a *gurantee* of two documents always residing
-in the same fragement to a *statistically likely*. In other words, you can absolutely count on the fact that some of the 
-documents will reside in different fragements. 
+in the same fragement to a *statistically likely scenario*. In other words, you can absolutely count on the fact that 
+*some* of the `Orders` documents will reside in different fragements from their `Customer`. That won't happen to all 
+customers (it's likely a rare scenario, in fact), but that is something that you'll run into and have to account for.
 
 But aside from the locality of using a single fragement, why does this actually matters? In terms of queries, you are 
 unlikely to notice any different. They may be an additional network roundtrip between the nodes in the cluster, but that
@@ -583,7 +583,7 @@ when we are dealing with sharded database?
 
 A transaction in unsharded database can have one of two modes. It can be a local transaction, which is committed on a single 
 node and utilize RavenDB's multi-master nature to notify the other members in the cluster. Alternatively, it can be a 
-cluster-wide transaction. We discussed cluster-wide transactions vs. local transactions in Chapter 6, so you may want to 
+cluster-wide transaction. We discussed cluster-wide transactions vs. local transactions in Chapter 7, so you may want to 
 check there to remember what are the relevant scenarios for each of them.
 
 For sharded databases, the situation is actually pretty much the same. RavenDB supports local transactions *and* cluster-wide
@@ -607,9 +607,284 @@ typically want to place documents in the same shard, if they are going to change
 
 ### Static indexes and aggregation queries
 
-### Sharding and replication
+RavenDB has two types of queries, the first you have already seen in this chapter, query on a collection, such as: 
+`from Orders where ...`. The second, on the other hand, query an _index_ and looks like this: 
+`from index 'Orders/Totals' where ...`. We cover these in detail in Part III of the book. This section may not make much 
+sense to you at this point without understanding RavenDB indexes in general, so you might want to just make a note of this 
+and come back to it later. The interaction of indexes and sharding is quite important, as you can imagine. There are quite a
+few options that I need to cover and I don't want to unnecessarily duplicate information that is already better explained
+in context in the chapters about indexes. Instead, I'm going to refer to the features and their interaction with sharding
+and let you complete the full picture on your own pace.
 
-#### Conflicts
+> **Where do the indexes run?**
+>
+> RavenDB indexes are run at the level of the individual fragement, over the data local to that fragement. The sharding
+> infrastructure is responisble for querying the rights fragements for the query, merging the results and returning a
+> result set that appears to have come from a single server.
 
-### Sharded subscriptions and changes
+A query such as `from index '<index name>'` is using an index that was defined by the user. Such indexes can do all *sorts*
+of interesting things, such as run computation, aggregate data, index data from related documents, and more. The question is,
+how do all these feature work with sharding?
 
+RavenDB attempts to make the process intuitive and simple for the default case, while giving you enough knobs to customize 
+the behavior per your needs. The first rule of indexes and sharding is that an index that operates on a single collection
+will use, by default, the same sharding strategy as the collection it is covering. 
+
+In other words, the `Orders/Totals` index, which is covering the `Orders` collection, is going to be sharded by RavenDB 
+using the same manner as the `Orders` collection. Assuming that we have used content based sharding on `Customer`, then 
+any query on `Orders/Totals` that includes the `Customer` field will be directed to the specific fragement for that 
+`Customer`. 
+
+This is the casce whatever the index is a simple one or a map/reduce index (one that aggregates data). If the index has a
+single `Map` (covering a single collection), it will default to the content based sharding strategy defined for 
+its source collection.
+
+> **Caveats for queries in sharded environment**
+>
+> For the most part, you can run your queries as you would normally would, and RavenDB will make it happen. There are a
+> few scenarios that you need to take into account that can have a significant performance impact. 
+>
+> First, paging, and in particular deep paging, when running a query that uses multiple fragements is likely going to 
+> be slow. Consider the following query: `from Orders where OrderedAt > $today limit 10 offset 5000`. 
+> This query is going to be *expensive*, but let's see why exactly this is the case, shall we? 
+>
+> This is a query on `OrderedAt` field, which isn't sharded upon. This means that RavenDB needs to query all the 
+> fragements for this query. The query also asks for a single page of 10 results, but 500 pages deep. In order to 
+> properly answer this query, RavenDB needs to fetch 5,010 results from *all* the fragements in the database. 
+> It then need to sort these results and select the 5000 .. 5010 results to return to the client.
+> 
+> Assuming we have 13 fragements, that means that retrieving 65,130 results from all the servers, sorting them and
+> then returning just 10 the client. That is a significant amount of work to go through. In general, it would be 
+> better if you didn't allowed such deep paging operations in sharded environment. 
+>
+> Second, when issuing full text queries and ordering by the score of the matches, you need to be aware that the 
+> score is actually computed on a per fragement level. The sharding infrastructure knows how to scale results from
+> different fragements, but it may have an impact on the order of the results.
+>
+> Third, it is tempting to run queries such as: `from Orders group by Address.City select count(), Address.City` for
+> your aggregations. Such queries will *work*, but they require RavenDB to query all the fragements in the cluster. 
+> It is often better to define a Map/Reduce index (discussed in Chapter 12) and ETL processes (discussed in the next
+> chapter) to a dedicated database. This gives you the best scenario. RavenDB will aggregate the data on each fragement
+> independently, then push it to a single location, where it will be aggregated again. 
+>
+> That final aggregation is likely to be *much* smaller and can reside on a non sharded database. That means that the cost
+> of providing the information is drastically lower. We'll discuss such a scenario later in this chapter.
+
+This convention means that you generally don't need to think about sharding for indexes, they are already going to work
+as you expected them to. If the sharding fields are in the query, they will be used to optimize the query. Otherwise,
+we'll send the query to all the fragements. From experience, when using sharding, you will naturally include the sharding
+fields in your index. It *is* important to make sure that you use the same field name as the source collection, of course.
+
+As you can probably tell from the emphasise, indexes can cover more than a single collection. At this point, RavenDB has no
+idea which of the collections' sharding strategy to apply. In this case, it isn't going to attempt to guess, you are going 
+to have to tell it. Let's look at Listing XYZ.5, which shows how this is done.
+
+```{caption="You can define a shard strategy on indexes as well as collections" .json}
+"Sharding": {
+  "ByContent": {
+    "Orders": {
+      "Fields": ["Customer"]
+    },
+    "Orders/Totals": {
+      "Fields": ["CustomerId"]
+    },
+}
+```
+
+Listing XYZ.5 shows how you can define content based routing on an *index*, as well as a collection. In this case, we tell
+RavenDB that any queries on the index `Orders/Totals` should treat the `CustomerId` field as the shard field. This feature
+is useful for several scenarios.
+
+In the case in Listing XYZ.5, we renamed the `Customer` field to `CustomerId`. If we have a multi map index (which covers
+multiple collections), we use the same technique to tell RavenDB which field(s) it should consider for content based sharding.
+
+#### Indexing related documents
+
+An advanced feature avaiable for RavenDB indexes is the ability to index a document using a *related* document data. 
+For example, in the case of `Employees`, you can index the `Employee`'s *manager* name in the index. This topic is covered
+in depth in Chapter 11, but a quick example of how this looks like can be seen in Listing XYZ.7.
+
+```{caption="Getting values from a related document at indexing time" .cs}
+from e in docs.Employees
+let manager = LoadDocument(e.ReportsTo, "Employees")
+select new // data to index
+{
+    e.FirstName, 
+    e.LastName,
+    ManagerFirstName = manager.FirstName,
+    ManagerLastName = manager.LastName
+}
+```
+
+With sharded databases, you can only index related document (using `LoadDocument` or `load` calls from the index) on documents
+that reside in the same shard as the document you are indexing. In other words, you can only index the `Employee`'s manager if
+the manager is also located on the same shard as the `Employee`.
+
+This limitation applies to *shards*, not to fragements. Even if the related document is physically located in 
+the same fragement as the document that is being indexed, if they are not on the same shard, calling `LoadDocument` would
+fail. Note that for this limitation, the `Range` specification is not relevant. An exact match on the shard is required, a
+range is not sufficent.
+
+Luckily, this feature is already used primarily for data that is already very strong tied together, so if you need to do so, 
+it is already very likely to be bound to the same shard.
+
+#### Map/Reduce indexes
+
+RavenDB indexes are used to... well, find stuff. That is their primary purpose, as you would expect. They are also used for
+a very different purpose, however. They are the backbone of aggregating information. The whole of Chapter 12 is dedicated for
+these types of indexes, called Map/Reduce indexes, so I'm not going to discuss them here. For now, all you need to know is 
+that they allow you to run data aggregation *very* cheaply. 
+
+This is the case when we are talking about unsharded environment, but what about a sharded database? As with other indexes,
+you can define a content based sharding and RavenDB will optimize your aggregation queries as usual. However, what will
+happen if you need to do an aggregation query on a data set that spans multiple fragements? Let's consider Listing XYZ.6
+as a good example.
+
+```{caption="Using range specification for indexes" .json}
+"Sharding": {
+  "ByContent": {
+    "Orders/ByCustomer": {
+      "Range": 1000,
+      "Fields": [
+        "Customer"
+      ]
+    }
+}
+```
+
+The index `Orders/ByCustomer` is sharded on the `Customer` field, and we have the same `Range` specification we saw before. 
+A query such as: `from index 'Orders/ByCustomer' where Customer = 'customers/1-A'` will be processed by the sharding 
+infrastructure as usual. We'll find the relevant ranges for this query, and the fragements that they reside on. In this case,
+let's say that this particular query touches two separate fragements. RavenDB will query both fragements for their results and
+then *merge* them, this include re-aggregating the data from the various fragements into a single whole.
+Once that data from all fragements has been aggregated, we'll apply sorting and paging and then return it to the client.
+
+> **Filtering is only applied once**
+>
+> An interesting caveat of the way RavenDB behaves is that it apply the filtering logic once, at the fragement level.
+> The sharding infrastrcuture will aggregate the data again, sort and page it, etc. What it will *not* do is re-apply
+> filtering for the results.
+>
+> Let's inspect a scenario where this can cause some issues. We have the following query: 
+> `from index 'Orders/ByCustomer' where Count < 10 limit 2`, which requires us to fetch data from multiple fragements. 
+> We get a result with a `Count` of 7 from `Orders$7` and `Count` of 4 from `Orders$8`. RavenDB will 
+> re-aggregate the data, giving us a `Count` with a value of 11. 
+>
+> The reason RavenDB behaves in this manner is simple. Let's say that we'll apply the filter after the aggregation, that 
+> means that we'll filter results for the query. Notice that this query has a `limit 2`, so we got only two results from
+> the fragements. We'll now need to go back to the fragements and ask them for more results, which may also be filtered,
+> etc. 
+>
+> This can turn *very* expensive very quickly, see also the discssion on deep paging earlier in the chapter. Because this is
+> a rare scenario, with devestating consequences if triggered, RavenDB only run the filters on the fragement level and not
+> at the sharding infrastrcuture. 
+
+Map/Reduce indexes and aggregation queries in a sharded environment work great if the number of fragements that they need 
+to use is limited. There are other ways to handle aggregation in a sharded environment, see the section about Sharding and
+ETL later in this chapter. 
+
+
+### Sharding and ETL
+
+In a sharded database, it is common for most operations to follow the sharding strategy you defined, except that *certain*
+tasks require you to go across the shards. This is felt mostly painfully when you need to run aggregations across the entire
+data set. 
+
+Let's assume that we have the `Customers` and `Orders` scenario with 13 fragements across 25 nodes. Figuring out how many
+orders a particular customer have is going to be trivial. RavenDB is going to be able to use a Map/Reduce index to pull 
+the aggregate data from one or two fragements. 
+
+However, if you want to show the number of sales for each product, that is a much more expensive operation. Conceptionally,
+it is identical to the query by `Customer`, but in this case, we can lean on the sharding strategy. We have to touch all
+the nodes to answer such queries, and that can be expensive. 
+
+Instead, we can combine two separate features of RavenDB to come to a very elegant result. Artifical documents and RavenDB
+ETL together give us a very nice way to handle this kind of requirements. Let's go over the skeleton of the solution. 
+We cover artifical documents in detail in Chapter 12 and ETL is discussed in the next chapter. I don't intend to repeat
+that information, but give you the information require to piece these separate features together into a complete solution.
+
+You can define a Map/Reduce index and set its `Output Collection` value. This setting will cause the index to create an 
+artifical document whenever there is a new update to the index. These documents reflect the aggregated status of the index.
+The key here is that these are real documents, which you can operate on using other RavenDB tools and in this case, the 
+RavenDB ETL feature.
+
+Be aware that the documents will *always* be written to the fragement where they were indexed. Make sure to setup the proper
+content based sharding to ensure that RavenDB knows where to find the artificial documents. But the most common use for 
+these artifical documents is to allow us to operate on them using the ETL processes.
+
+RavenDB ETL allows you to define an ETL process that would copy documents from one database to another. Unlikely replication,
+where the entire state of the database is cloned to the other side, ETL allows you to define exactly what collections, 
+documents and data will be sent to the other side.
+
+The underlying idea is to setup Map/Reduce indexes to generate artifical documents, and then push these documents to another
+location, typically, a single database. The idea is that the Map/Reduce operation has already significantly... reduced the
+amount of data that we are working on, so there is no issue pushing it to a single location.
+
+At that point, you can aggregate the resulting data again using additional means, but the dataset you are working on is
+already much smaller, and the existing Map/Reduce indexes and RavenDB ETL processes will keep the data up to date as changes
+happen on the cluster. 
+
+> **Ongoing tasks in a sharded database**
+>
+> RavenDB has the concept of ongoing tasks, such as RavenDB ETL, Subscriptions, backups, etc. These tasks can be defined
+> at the database level and will be tasked to a particular node in the database group. In a sharded environment, they work
+> in pretty much the same manner.
+>
+> The sharding infrastructure is going to apply any ongoing task on a sharded database to each of the fragements, as needed.
+> For example, if you have an ETL process setup, it will run (concurrently) on all the fragements in the sharded database.
+
+Going back to the example of finding out how many sales we have per product, we'll not try compute that by asking
+each fragement in turn. Instead, we'll define a Map/Reduce index to run this aggregation and an ETL process to push this data
+to another (unsharded) database. Each fragement will push the data from its own store to the same location, giving us a 
+global view of the system. At this point, instead of having to deal with the number of orders (tens / hundreds of 
+millions), we have to deal with a record per *product*, a much smaller number.
+
+We can then apply additional Map/Reduce operations to gather the information we want from the summary. It's a good idea to
+do just the required level aggregation on the fragements before sending the data out. Just enough so the data size will
+not overwhelme the destination. This approach gives us the chance to run more aggregation at the destination, across
+multiple dimensions. 
+
+This method isn't really part of the sharding behavior of RavenDB, it is simply a useful approach to dealing with a common
+problem. I've given only the higher level view for this, you can read the full details about Map/Reduce artificial documents
+in Chapter 12 and about ETL in the next chapter.
+
+### Summary
+
+Sharding is a complex and fascinating topic, which we have spent a *lot* of time thinking about. I tried to strike a balance
+between giving you sufficent information to build a system on top of sharded RavenDB while not overwhelming you with 
+implemenetation details that are not relevant to you as a user.
+
+We covered how RavenDB's sharding is layered on top of the distributed architectured that we talked in the previous chapters.
+In particular, a fragement in a sharded database can be thought as a stand alone database, just managed by the sharding
+infrastructure. That means that high availability and replication are there, just as they would be in a normal RavenDB
+database, and following the same rules that you are already familiar with it.
+
+RavenDB sharding operates by hashing the document ids (with some fancy moves thrown in to allow for content based sharding)
+and assigning each document to a shard id between 0 and 1048576. These shards are then split into ranges and allocated to
+fragements. RavenDB will manage the allocation of shards to fragements and use the allocation information to route documents
+and queries to the right location.
+
+Content based sharding allows you to define sophisticated sharding strategies based on your needs. RavenDB's approach allow
+you to modify the sharding strategy on the fly, without incuring the high costs you'll find with other solutions. The system
+allows you to ignore sharding entirely and let RavenDB do what it will or to control exactly where each document will go and
+anywhere in between.
+
+The common usage is to ensure that documents that are often accessed and modified together will reside in the same shard. You
+can ensure that this is the case by using document id conventions or by defining content based sharding. Documents on the 
+same shard are guranteed to be on the same physical location and can participate in an atomic local transaction. For scenarios
+where you want to modify multiple documents in different shards, you can use a cluster-wide transaction, which allow for 
+cross-shard transactions.
+
+We also covered how RavenDB's indexes work in a sharded environment. The indexes can inherit their behavior from their source
+collection or you can define the content based sharding for each index independently. Queries on a sharded database will be
+optimized if possible and routed to a single fragement for answers. If they can't be dealt with on a single fragement, RavenDB
+will send them to all the relevant shards and combine the answers from the fragements to give you the right final result.
+
+The same behavior also applies for Map/Reduce indexes, used for aggregating data inside RavenDB. The sharding infrastructure
+is capable of merging and re-aggregating the data from multiple sources, coming to the correct tally across the entire sharded
+database. 
+
+For certain types of queries, this is a great feature, but if most of your aggregated queries are running contrary to your
+sharding strategy, you are probably better off with using the approach outlined in the last section. Do minimal level of 
+aggregation on the fragement level, and then use ETL to push that to a central location for additional processing. 
+Incidently, this is the exact topic of the next chpater.
