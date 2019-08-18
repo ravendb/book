@@ -73,7 +73,7 @@ The `Orders` database has three fragments, which the following shard range alloc
 
 Operations such as reads, writes or queries on the sharded `Orders` database will work normally as far as the client
 is concerned. On the server side, RavenDB will direct the operations to the right fragement for the documents in 
-question. You can control the number of shards and the shard allocations on database creation and during routine 
+question. You can control the number of fraements and the shard allocations on database creation and during routine 
 operations.
 
 RavenDB handles the allocation of documents to shards by hashing the document id. For instance, here are a few examples
@@ -605,6 +605,23 @@ shards, it is best to use cluster-wide transactions.
 A cluster-wide transaction is typically more costly than a local transaction, of course. That is one reason why you'll
 typically want to place documents in the same shard, if they are going to change together and in a transactional manner.
 
+> **Fragements, Nodes and Database Groups, oh my!**
+>
+> When using an unsharded database, we have a Database Group, a group of nodes that host the database in question and 
+> replicate the data among themselves. When we are using a sharded database, we have fragements instead, but it may
+> be confusing to understand why we use this term and how it relates to the things we already know about RavenDB's 
+> distributed nature.
+>
+> A fragement *is a* database group, for all intents and purposes. It doesn't have its own name, or its own configuration,
+> but it is a Databae Group. It host a database instance that resides on multiple nodes, all of which are replicating
+> data to one another. The key distinction between them is that a fragement only holds... well, a fragement of the overall
+> data in the sharded database. All the fragements in a sharded database has the exact same configuration (indexes, ongoing
+> tasks, etc).
+>
+> The only things that are diffeernt between the various fragements are their topologies (what nodes they reside on) and
+> the shards associations (which documents reside on which fragements). 
+
+
 ### Static indexes and aggregation queries
 
 RavenDB has two types of queries, the first you have already seen in this chapter, query on a collection, such as: 
@@ -847,6 +864,154 @@ multiple dimensions.
 This method isn't really part of the sharding behavior of RavenDB, it is simply a useful approach to dealing with a common
 problem. I've given only the higher level view for this, you can read the full details about Map/Reduce artificial documents
 in Chapter 12 and about ETL in the next chapter.
+
+### Dynamic load and data distribution
+
+This section details how RavenDB actually manages the shards in a sharded database. So far in this chapter, we talked about
+how RavenDB allow you to read and write data on top of multiple fragements seamlessly. We assumed that the shard allocation
+is static and unchanging for most of the dicussion. This isn't the case, however. RavenDB may (and frequently will) balance
+the load and the data across various nodes in the system. Let's see exactly how it does this and what are the implications
+for your operations and code.
+
+> RavenDB's shard rebalancing is fairly sophisticated. There are quite a few factors that impact it and this section is meant
+> to give you a good idea about what RavenDB is doing and how it goes about spreading data and load on the system. It isn't
+> meant to be detailed implementation walkthrough. The full details of RavenDB behavior can be found in the online 
+> documentation. 
+
+When you create a sharded database, RavenDB default to simply dividing the overall shard range (0 .. 1048576) between the 
+fragements that were specfied. If we have 5 fragements in the sharded database, each will be assigned a range of roughly
+200 thousands shards. Remember that the reason we have so many shards is that we'll have about 1 MB per shard for each TB
+of data in the overall database, assuming uniform distribution of data among the shards. 
+The idea is that a shard is likely to be small enough that it will take very little effort to move it between fragements. 
+
+Operators can choose to let RavenDB adjust the sharding ranges on the fly (moving shards between fragements). If you disable
+automatic shard rebalancing, you need to make sure that the data distribution in your fragement remains within the desired
+capacity. You may want to disable RavenDB from doing shard rebalancing if you have a sharding topology that includes data
+locality. For example, if you have a sharded database that is geo distributed, with fragements in New York and in London.
+
+In such a scenario, you'll have setup the content based sharding and shard allocation map so documents will go to their
+nearest fragement. You obviously don't want to move a shard between New York and London, so this is a good candidate for
+disabling automatic rebalancing. 
+For most cases, however, you can let RavenDB free reign with moving the shards around to get the proper balance. 
+
+To facilitate this behavior, RavenDB tracks, on a per fragement basis, the overall fragement size and the size of each 
+shard assigned to this fragement. You can use the **TODO: show where this can be done** endpoint to get a list of the 
+sizes of each shard. This can be very helpful to figure out if you have an issue with your content based sharding strategy.
+The information is also used to decide how to rebalance the load in the sharded database.
+
+RavenDB favors stability and steady state behavior over spikes in activity. Because of that, it will constantly monitor the 
+allocation of data across the sharded database and act whenever there is a sufficent imbalance between the fragements.
+In particular, if there is a greater than 5% or over 1 GB difference in the size of neighbouring fragements.
+
+This probably requires some explanation. RavenDB uses the 5% or 1 GB difference to ensure that the *rate* in which we'll 
+need to move shards between fragements is relatively constant. We don't want a shard move to be something that happens 
+only very rarely. Rare events are recipes for failures. But something that happens all the time? We are ready for it and
+are used to dealing with its impact.
+
+RavenDB also attempts to maintain the number of shard ranges relatively constant. This means that we'll usually move data
+only to neighbouring fragements. Assuming we have a 5 fragements database, shards can move from `$2` to either `$1` or `$3`,
+but will not usually move to `$0` or `$4` directly. The idea is that we want to smooth out spikes in moving the data, with
+the shards slowly migrating between the fragements in a predictable manner.
+
+Let's consider the following shard allocation map, and how rebalancing will work in pratice.
+
+* `Orders$0` - shards `0` - `349525`.
+* `Orders$1` - shards `349525` - `699050`.
+* `Orders$2` - shards `699050` - `1048576`.
+
+If `Orders$0` is sufficently larger than `Orders$1`, we'll need to move some shards over, to rebalance. This is done by
+scanning `Orders$0` from `349525` backward, finding enough shards to move to `Orders$1` to make a difference. 
+Let's say that we decided to move 100,000 shards `Orders$0` to `Orders$1`. After the move, we'll have the following map:
+
+* `Orders$0` - shards `0` - ~~`349525`~~ `249525`.
+* `Orders$1` - shards ~~`349525`~~ `249525` - `699050`.
+
+In order to reduce operational instability, RavenDB will rarely engage is large scale moves. Instead, we'll be applying
+constant corrective action. A typical shard move is limited to a few MB, small enough that it can be done 
+without putting too much burden on the sharded database.
+
+RavenDB will also allow only a single shard move to be in progress between any two fragements. Again, the overriding logic
+is to reduce, as much as possible, the overhead of the process. 
+
+#### Range splits and complex moves
+
+When a fragement become too large and we need to move some data to other fragements, we will start by scanning the edges of 
+the fragements, to see if we can gather enough data to move to another fragement. However, what happens if the shard at the 
+very start (or the very end) of the range is very large? 
+
+Consider shard `699050`, allocated to `Orders$2`. If this shard is too big (over 128 MB, by default), we are probably better 
+off *not* moving it. In this case, we'll attempt to look at the other side, which in this case is shard `1048576`. If we can
+move the data from the end to the next fragement, RavenDB will go that way to avoid doing range splits. However, if on both
+ends of the range in the fragements we have large shards and this fragement is too big, we'll do a range split.
+A range split is a simple process, involving only the sharding metadata. After such a split, here is what the shard allocation
+map for `Orders$2` will look like:
+
+* `Orders$2` - shards `699050` - `873813`.
+* `Orders$2` - shards `873813` - `1048576`.
+
+Instead of having a single range for the fragement, we'll have two of them. Now we can start moving the shards aroung 
+`873813` as well (both up and down from it). In this case, because both ranges are assigned to the same fragement, 
+we'll now allow to move the new shards to any other fragement in the sharded database, not just to neighbouring ones. 
+RavenDB will typically select the smallest fragement to start moving the data over. 
+
+Operators can also initiate a range split (or merge) directly. Typically when adding a new fragement to the database,
+you'll initiate a few range splits to help RavenDB re-assign the shards to the new fragements more quickly, rather than
+allow it to flow across all the fragements as it would usually would.
+
+You can see the history of moves of shards across the fraements in **TODO: explain where this history can be seen.**. 
+As well as manually initiate such moves yourself.
+
+#### How RavenDB moves a shard?
+
+We covered the process of how RavenDB decides to shift shards between fragements, but we didn't talk about how the process
+actually works. As it turns out, there is actually quite a bit of work required to handle this scenario, at all levels of
+the sharding infrastructure. 
+
+For now, let's assume that we want to move `349525` from `Orders$0` to `Orders$1`. One of the reasons that RavenDB limits
+the size of shard moves is that we want the process of moving the shard(s) to be as fast as possible. Repeating the process
+as many times as necessary in order to actually balance the data among the various fragements in the database.
+
+The move process is composed of the following steps:
+
+1. The cluster marks shard `349525` as in transit from `Orders$0` to `Orders$1`. 
+2. One of the nodes in fragement `Orders$0` will send the shard to `Orders$1`.
+3. Fragement `Orders$1` will inform the cluster the cluster that the move has been made.
+4. The clust now consider the move process complete.
+5. Fragement `Orders$0` will delete the shard's data locally.
+
+RavenDB is a distributed database and we have to account for failures and partitions at every stage of the process. There
+are quite a few interesting edge cases along the way. For example, what happens to writes to this shard while this process
+is running? What happens if there is a failure of the destination midway through the move process?
+
+Fragement `Orders$0` will send all the relevant data for the shard to `Orders$1`. While this is going on, a query that 
+touches both fragements may actually get the same document from both fragements. This is expected and handled, the sharding
+infrastructure will use the document version that it got from the fragement that owns the shard at that point.
+
+Any writes to the source fragements during this process will be sent to the destination, until there is no more data that
+hasn't been sent to the destination on the source fragement. Once that happens, the source destination will start rejecting
+operations on that shard, letting the sharding infrastructure know that it need to use the destination from now on. 
+Until that point, any failure would simply cause the process to be restarted. From that point, the move has been complete 
+and the only remaining task is cleanup.
+
+> **Aggregated results during moves**
+>
+> The sharding infrastructure is capable of filtering results that come from fragements that are not yet (or no longer)
+> own the shard. This is done by comparing the document id of the result with the owning fragement and removing data
+> that doesn't match the sharp allocation map. This process is sufficent when we are dealing with queries that operate
+> on single documents. 
+>
+> For aggregation, the situation is more complex. A document for a particular order may exist in two fragements at the
+> same time for the duration of the move. An aggregation query that touches both fragements may include this order twice.
+> At the sharding infrastructure level, there is no longer a document id that we can filter by, however. Therefor, an 
+> aggregation query (a Map/Reduce operation) may give duplicated results during a move. 
+>
+> In order to handle that scenario, RavenDB uses the `IsStale` indicator for all queries that touch fragements that are
+> in the process of shard move (incoming or outgoing). This ensures that your query accurately reflect the state of the
+> system and allow you to deal with such a scenario using the standard RavenDB measures. 
+> 
+> You need to be aware of this behavior because it may cause the queries to remain stale for an extended period of time,
+> depending on how long it will take to complete the move. For this reason, among others, RavenDB attempts to make moves
+> only on small sets of data and do this iteratively, rather than in big batches.
 
 ### Summary
 
