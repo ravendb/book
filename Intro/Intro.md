@@ -51,13 +51,12 @@ people also seem to like reading them.
 
 I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
 the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
-do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog) for close to fifteen years.^[You can find it at http://ayende.com/blog]
+do like writing blog posts, and I've been maintaining an [active blog](http://ayende.com/blog) for close to fifteen years.[^1]
 
 ### About this book
 
 What you're reading now is effectively a book-length blog post. The main idea here is that I want to give you a way to
-_grok_ RavenDB.^[Grok means "to understand so thoroughly that the observer becomes a part of the observed — to merge, blend, 
-intermarry, lose identity in group experience." From Robert A. Heinlein, _Stranger in a Strange Land_.] This 
+_grok_ RavenDB.[^2] This 
 means not only gaining knowledge of what RavenDB does, but also all the reasoning behind the bytes. In effect, I want
 you to understand all the _whys_ of RavenDB.
 
@@ -305,3 +304,7 @@ In many cases, I have elected to discuss a feature, give one or two examples of 
 
 This book is meant to be more than API listing. It is meant to tell a story, the story of how you can make the best use of 
 RavenDB in your applications and environment. So, without further ado, turn the page and let's get started.
+
+[^1]: You can find it at http://ayende.com/blog
+[^2]: Grok means "to understand so thoroughly that the observer becomes a part of the observed — to merge, blend, 
+intermarry, lose identity in group experience." From Robert A. Heinlein, _Stranger in a Strange Land_.
