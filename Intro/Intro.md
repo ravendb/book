@@ -63,7 +63,7 @@ you to understand all the _whys_ of RavenDB.
 Although blog posts and books have very different structures, audiences and purposes, I'll still aim to give you the
 same easy-reading feeling of your favorite blogger. If I've accomplished what I've set out to do, this will be 
 neither dry documentation nor a reference book. If you need either, you can read the 
-[online RavenDB documentation](http://ravendb.net/docs). This is not to say that the book is purely my musings;
+[online RavenDB documentation](https://ravendb.net/docs). This is not to say that the book is purely my musings;
 the content is also born from the training course we've been teaching for the past decade and the 
 formalization of our internal onboarding training.
 
