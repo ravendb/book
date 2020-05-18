@@ -13,7 +13,7 @@ pandoc --table-of-contents --toc-depth=3 --epub-metadata=metadata.xml `
 	--listings --pdf-engine=xelatex --number-sections --css=pandoc.css `
 	--epub-cover-image=.\Cover.jpg --epub-embed-font=Styling/RobotoMono-Regular.ttf `
 	-o $output .\title.txt  `
-	.\Sharding\Sharding.md `
+	.\Ch05\Ch05.md `
 
 if($start) {
 	start $output
