@@ -135,7 +135,7 @@ without transactions just didn't make sense to me. I wanted to get rid of the li
 relational databases but keep working on domain-driven systems. I wanted something that is fast but at the same
 time could just be thrown on a production server and would work without having to pay for an on-call babysitter.
 
-A lot of the design of RavenDB was heavily influenced by the [Release It!](https://pragprog.com/book/mnee/release-it)
+A lot of the design of RavenDB was heavily influenced by the [Release It!](https://pragprog.com/titles/mnee2/release-it-second-edition)
 book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with a decade in production
 to look back at, I think we did a good job there.
 
