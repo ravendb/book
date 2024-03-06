@@ -9,7 +9,7 @@ them was that databases are finicky beasts that require constant care and attent
 
 RavenDB was created specifically to address that issue. I wanted to have a database that would be _boring_, that would
 just hold my data and spit it back up again as needed. Something that I can setup, forget about and have it Just Work on
-its own. I spent the over 15 years (since 2008) making this vision into reality. 
+its own. I spent the past 15 years (since 2008) making this vision into reality. 
 
 Today, RavenDB is a distributed, non-relational, high-performance, multi-model database for online transactions processing,
 suitable for running anywhere from isolated edge deployments to geo-distributed cloud clusters. And in almost all scenarios, 
@@ -28,7 +28,7 @@ JSON documents.
 
 RavenDB is high-performance. It is designed to be fast, and it is. One of the driving forces behind RavenDB's design was to ensure
 that we are able to match or exceed your performance requirements. That shows in the overall design (which we'll discuss in detail
-later in the book), the actual databae implementation and in the API and interaction model that RavenDB uses. 
+later in the book), the actual database implementation and in the API and interaction model that RavenDB uses. 
 
 RavenDB is non-relational. Instead of being based on tables and rows, RavenDB is based on documents. This means that you don't have
 to deal with the classical Impedance Mismatch problem that you have with relational databases. You can store your data in a way that
@@ -46,7 +46,7 @@ load on the operations team by dynamically adjusting to your workload and operat
 Working with a database should be easy and obvious, and to a large extent, RavenDB facilitates that.
 
 
-### Fascniating inforamtion about a boring database
+### Fascniating information about a boring database
 
 RavenDB is _meant_ to be boring, it is an explict design goal for us. This may sound strange, but the idea is that if RavenDB is boring, it is
 doing its job, and you can do yours. That said, the idea is that RavenDB is going to be boring to _use_. I find it fascinating, and I hope
@@ -59,7 +59,7 @@ people also seem to like reading them.
 I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
 the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
 do like writing blog posts, and I've been maintaining an 
-link:https://ayende.com/blog[active blog]footnote:[You can find it at http://ayende.com/blog] for close to fifteen years.
+active blog for close to fifteen years.footnote:[You can find it at http://ayende.com/blog] 
 
 ### About this book
 
@@ -72,7 +72,7 @@ you to understand all the _whys_ of RavenDB.
 Although blog posts and books have very different structures, audiences and purposes, I'll still aim to give you the
 same easy-reading feeling of your favorite blogger. If I've accomplished what I've set out to do, this will be 
 neither dry documentation nor a reference book. If you need either, you can read the 
-link:https://ravendb.net/docs[online RavenDB documentation].footnote:[Available at https://ravendb.net/docs] 
+online RavenDB documentation.footnote:[Available at https://ravendb.net/docs] 
 This is not to say that the book is purely my musings;
 the content is also born from the training course we've been teaching for the past 15 years and the 
 formalization of our internal onboarding training.
@@ -147,7 +147,7 @@ without transactions just didn't make sense to me. I wanted to get rid of the li
 relational databases but keep working on domain-driven systems. I wanted something that is fast but at the same
 time could just be thrown on a production server and would work without having to pay for an on-call babysitter.
 
-A lot of the design of RavenDB was heavily influenced by the link:https://pragprog.com/titles/mnee2/release-it-second-edition[Release It!]
+A lot of the design of RavenDB was heavily influenced by the Release It!footnote:[Michael T. Nygard, _Release It! Design and Deploy Production-Ready Software_, Pragmatic Bookshelf, 2007, https://pragprog.com/titles/mnee2/release-it-second-edition]
 book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with over 15 years in production
 to look back at, I think we did a good job there.
 
@@ -190,7 +190,7 @@ This part focuses on the theory of building robust and high performance systems 
 to working with a cluster of RavenDB nodes on commodity hardware, discuss data and work distribution across 
 the cluster and learn how to best structure systems to take advantage of what RavenDB brings to the table.
 
-We'll begin by dissecting RavenDB's dual-distributed nature. RavenDB is using both a consensus protocol and a gossip
+We'll begin by dissecting RavenDB's dual nature of distributed RavenDB. RavenDB is using both a consensus protocol and a gossip
 protocol to build two layers of communication between the various nodes in the cluster. We'll learn why we 
 use this dual-mode and how it adds tremendously to RavenDB's robustness in the presence of failures.
 
@@ -203,6 +203,9 @@ can grow your cluster and even run RavenDB in a geo-distributed deployment with 
 clusters aren't just collections of machines. They are self-managing entities, sharing load and distributing
 tasks among the various nodes. We'll talk about how clusters are self-monitoring and self-healing and how RavenDB takes
 active steps to ensure the safety of your data at all times.
+
+Sharding is a way to split enormous datasets across multiple nodes. We'll cover how RavenDB handles sharding and what kind
+of impact going to a sharded database has on your system design and architecture. 
 
 Modern systems are rarely composed of a stand-alone application. So to finish up this section, we'll explore how
 RavenDB integrates with other systems and databases. 
