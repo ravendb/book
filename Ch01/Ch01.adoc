@@ -1,6 +1,7 @@
 
 # Introduction
 
+[[welcome-to-ravendb]]
 ## Welcome to RavenDB
 
 I used to be _the_ database guy, going from client to client and getting their systems to work faster and better. 
@@ -205,7 +206,7 @@ tasks among the various nodes. We'll talk about how clusters are self-monitoring
 active steps to ensure the safety of your data at all times.
 
 Sharding is a way to split enormous datasets across multiple nodes. We'll cover how RavenDB handles sharding and what kind
-of impact going to a sharded database has on your system design and architecture. 
+of impact going to a sharded database has on your system design and architecture.
 
 Modern systems are rarely composed of a stand-alone application. So to finish up this section, we'll explore how
 RavenDB integrates with other systems and databases. 

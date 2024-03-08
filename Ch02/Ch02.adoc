@@ -1,8 +1,5 @@
-
+[[zero-to-ravendb]]
 ## Zero to RavenDB 
-
-[Zero To Hero]: #zero-to-ravendb
-
 
 The very first step we need to take in our journey to understand RavenDB is to get
 it running on our machine so we can actually get things done. I'm deferring discussion on what RavenDB is and how it works 
@@ -14,7 +11,14 @@ much easier to understand.
 For this section, I'm assuming that you're a developer trying to get a RavenDB instance so you can explore it. I'm
 going to ignore everything related to actual production deployments in favor of getting you set up in as few steps 
 as possible. A full discussion on how to deploy, secure and run RavenDB in production is available in 
-the ["Production Deployments"](#production-deployments) chapter.
+the <<production-deployments>> chapter.
+
+[NOTE]
+====
+You can run RavenDB in the cloud as well, visit https://cloud.ravendb.net to get started.
+For now, we're going to focus on getting RavenDB running on your local machine and everything that entails.
+I'll cover cloud deployments in the <<cloud-n-edge>>.
+====
 
 I'm going to go over a few quick install scenarios, and you can select whichever one makes the most sense for your
 setup. After that, you can skip to the next section, where we'll actually start using RavenDB.
@@ -22,20 +26,22 @@ setup. After that, you can skip to the next section, where we'll actually start 
 #### Running on Docker
 
 The easiest way to get RavenDB is probably via Docker. If you already have Docker installed, all you need to
-do is run the following command (using PowerShell):
+do is run the following command:
 
-    $rvn_args = "--Setup.Mode=None --License.Eula.Accepted=true" 
-    docker run ` 
-      -p 8080:8080 ` 
-      -e RAVEN_ARGS=$rvn_args ` 
-      ravendb/ravendb
+.Running RavenDB in Docker
+[source,bash]
+----
+docker run -p 8080:8080 ravendb/ravendb
+----
 
-Docker will now get the latest RavenDB version and spin up a new container to host it. Note that we run it in 
-developer mode, without any authentication.
+Docker will now get the latest RavenDB version and spin up a new container to host it. 
 
-The output of this command should look something like Listing 2.1.
+The output of this command should look similar to <<ravendb-docker-output>>.
 
-```{caption="RavenDB Server Output" .cs} 
+[[ravendb-docker-output]]
+.RavenDB Server Output (Docker)
+[source,bash]
+----
        _____                       _____  ____
       |  __ \                     |  __ \|  _ \
       | |__) |__ ___   _____ _ __ | |  | | |_) |
@@ -46,19 +52,19 @@ The output of this command should look something like Listing 2.1.
 
       Safe by default, optimized for efficiency
 
- Build 40038, Version 4.0, SemVer 4.0.4-patch-40038, Commit 4837206
- PID 7, 64 bits, 2 Cores, Phys Mem 1.934 GBytes, Arch: X64
+ Build 60012, Version 6.0, SemVer 6.0.100, Commit 97037d4
+ PID 9, 64 bits, 16 Cores, Phys Mem 7.633 GBytes, Arch: X64
  Source Code (git repo): https://github.com/ravendb/ravendb
  Built with love by Hibernating Rhinos and awesome contributors!
 +---------------------------------------------------------------+
-Using GC in server concurrent mode retaining memory from the OS.
-Server available on: http://a698a4246832:8080
-Tcp listening on 172.17.0.2:38888
+Using GC in server concurrent mode.
+Server available on: http://fff375b500dc:8080
 Server started, listening to requests...
 TIP: type 'help' to list the available commands.
-ravendb> End of standard input detected, switching to server mode...
 Running non-interactive.
-```
+----
+
+
 
 You can now access your RavenDB instance using `http://localhost:8080`. If something is already holding port `8080`
 on your machine, you can map it to a different one using the `-p 8081:8080` option. 

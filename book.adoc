@@ -21,6 +21,18 @@ To Tamar, who think such topics are "soooo boring", I hope you'll change your mi
 
 To Shahar, who would always fall asleep when I talked about the book, hopefully you'll like it better when you grow up.
 
-:figure-caption: Figure 1,
-:listing-caption: Listing 1,
+:figure-caption: Figure 1.
+:listing-caption: Listing 1.
 include::./Ch01/Ch01.adoc[]
+
+:figure-caption: Figure 2.
+:listing-caption: Listing 2.
+include::./Ch02/Ch02.adoc[]
+
+
+[[cloud-n-edge]]
+## RavenDB on Cloud and the Edge 
+
+[[production-deploymentS]]
+## Production Deployments
+
