@@ -1,0 +1,22 @@
+    _____                       _____  ____
+    |  __ \                     |  __ \|  _ \
+    | |__) |__ ___   _____ _ __ | |  | | |_) |
+    |  _  // _` \ \ / / _ \ '_ \| |  | |  _ <
+    | | \ \ (_| |\ V /  __/ | | | |__| | |_) |
+    |_|  \_\__,_| \_/ \___|_| |_|_____/|____/
+
+
+      Safe by default, optimized for efficiency
+
+ Build 60012, Version 6.0, SemVer 6.0.100, Commit 97037d4
+ PID 9, 64 bits, 12 Cores, Phys Mem 15.558 GBytes, Arch: X64
+ Source Code (git repo): https://github.com/ravendb/ravendb
+ Built with love by Hibernating Rhinos and awesome contributors!
++---------------------------------------------------------------+
+Using GC in server concurrent mode.
+Server available on: http://f33937a289c1:8080
+Tcp listening on 172.17.0.2:38888
+Server started, listening to requests...
+TIP: type 'help' to list the available commands.
+ravendb> End of standard input detected, switching to server mode...
+Running non-interactive.

@@ -26,133 +26,177 @@ setup. After that, you can skip to the next section, where we'll actually start 
 #### Running on Docker
 
 The easiest way to get RavenDB is probably via Docker. If you already have Docker installed, all you need to
-do is run the following command:
+do is run the command in <<run-ravendb-docker>>.
 
+[[run-ravendb-docker]]
 .Running RavenDB in Docker
 [source,bash]
 ----
-docker run -p 8080:8080 ravendb/ravendb
+docker run                              \  
+    -e RAVEN_Setup_Mode=None            \  <1>
+    -e RAVEN_License_Eula_Accepted=true \  <2>
+    -p 8080:8080                        \  <3>
+    ravendb/ravendb                        <4>
 ----
+<1> Disable setup wizard, run with default values
+<2> Accept the EULA for RavenDB
+<3> Forward port 8080 from the container to the host machine
+<4> The docker image to run
 
-Docker will now get the latest RavenDB version and spin up a new container to host it. 
+Docker will now get the latest RavenDB version and spin up a new container to host it. Note that we are setting
+RavenDB up to skip the setup process, this is fine for now, since we want to get started as soon as possible. 
+We'll go over RavenDB setup options in <<production-deployments>>. 
 
-The output of this command should look similar to <<ravendb-docker-output>>.
+The output of the command in <<run-ravendb-docker>> is shown in <<ravendb-docker-output>>.
 
 [[ravendb-docker-output]]
 .RavenDB Server Output (Docker)
 [source,bash]
 ----
-       _____                       _____  ____
-      |  __ \                     |  __ \|  _ \
-      | |__) |__ ___   _____ _ __ | |  | | |_) |
-      |  _  // _` \ \ / / _ \ '_ \| |  | |  _ <
-      | | \ \ (_| |\ V /  __/ | | | |__| | |_) |
-      |_|  \_\__,_| \_/ \___|_| |_|_____/|____/
-
-
-      Safe by default, optimized for efficiency
-
- Build 60012, Version 6.0, SemVer 6.0.100, Commit 97037d4
- PID 9, 64 bits, 16 Cores, Phys Mem 7.633 GBytes, Arch: X64
- Source Code (git repo): https://github.com/ravendb/ravendb
- Built with love by Hibernating Rhinos and awesome contributors!
-+---------------------------------------------------------------+
-Using GC in server concurrent mode.
-Server available on: http://fff375b500dc:8080
-Server started, listening to requests...
-TIP: type 'help' to list the available commands.
-Running non-interactive.
+include::docker.output[]
 ----
-
-
 
 You can now access your RavenDB instance using `http://localhost:8080`. If something is already holding port `8080`
 on your machine, you can map it to a different one using the `-p 8081:8080` option. 
 
 #### Running on Windows
 
-To set up RavenDB on Windows, you'll need to go to [https://ravendb.net/download](https://ravendb.net/download), 
+To set up RavenDB on Windows, you'll need to go to https://ravendb.net/download, 
 select the appropriate platform (Windows x64, in this case) and download the `zip` file containing the binaries.
 
-Extract the file to a directory and then run the `Start.cmd` script or `Server\Raven.Server.exe` executable. This 
-will run RavenDB in interactive mode, inside a console application, and you can access the server by going to 
-`http://localhost:8080` in your browser. 
+Extract the file to a directory and then run the `run.ps1` script. This 
+will run RavenDB in interactive mode, inside a console window, and will walk you through the process of setting 
+up ravenDB. We can skip that process and run RavenDB directly, similar to how we run it using Docker, using the
+command in <<run-ravendb-windows>>.
+
+[[run-ravendb-windows]]
+.Running RavenDB in Windows
+[source,bash]
+----
+.\Server\Raven.Server.exe              ` 
+    --Setup.Mode=None                  ` <1>
+    --License.Eula.Accepted=true       ` <2>
+    --ServerUrl=http://127.0.0.1:8080  ` <3>
+    --browser                            <4>
+----
+<1> Disable setup wizard, run with default values
+<2> Accept the EULA for RavenDB
+<3> Bind to loopback (`127.0.0.1`) on port 8080
+<4> Open the browser to the RavenDB Studio on startup.
 
 If something is already using port 8080, RavenDB will fail to start and give you an "address in use" error 
-(more specifically, `EADDRINUSE`). You can customize the port and host from the command line by issuing this command:
-
-	Server\Raven.Server.exe --ServerUrl=http://localhost:8081
+(more specifically, `EADDRINUSE`). You can customize the port and host from the command line by modifying the `ServerUrl` to:
+`--ServerUrl=http://localhost:8081`
 
 That will run RavenDB on port 8081, avoiding the conflicting port issue. You might need to try another port as well if
 port `8081` is also taken on your machine, of course.
 
 #### Running on Linux
 
-To set up RavenDB on Linux, you'll need to go to [https://ravendb.net/download](https://ravendb.net/download), 
+To set up RavenDB on Linux, you'll need to go to https://ravendb.net/download, 
 select the appropriate platform (Linux x64, most likely) and download the `tar.bz2` file containing the binaries.
+You can use `tar -xf RavenDB-6.0.100-linux-x64.tar.bz2` to decompress the archive. 
 
-Extract the file to a directory and then run the `run.sh` script or `./Server/Raven.Server` executable. This 
-will run RavenDB in interactive mode, inside a console application, and you can access the server by going to 
-`http://localhost:8080` in your browser. 
+Go to the `RavenDB` folder and then run `run.sh` script. This will run RavenDB in interactive mode, walking you 
+through the setup wizard. 
+
+We can skip that process and run RavenDB directly, similar to how we run it using Docker, using the
+command in <<run-ravendb-linux>>.
+
+[[run-ravendb-linux]]
+.Running RavenDB in Linux
+[source,bash]
+----
+./Server/Raven.Server.exe              \ 
+    --Setup.Mode=None                  \ <1>
+    --License.Eula.Accepted=true       \ <2>
+    --ServerUrl=http://127.0.0.1:8080    <3>
+----
+<1> Disable setup wizard, run with default values
+<2> Accept the EULA for RavenDB
+<3> Bind to loopback (`127.0.0.1`) on port 8080
 
 If something is already using port 8080, RavenDB will fail to start and give you an "address in use" error 
-(more specifically, `EADDRINUSE`). You can customize the port and host from the command line by issuing this
-command:
-
-	./Server/Raven.Server.exe --ServerUrl=http://localhost:8081
+(more specifically, `EADDRINUSE`). You can customize the port and host from the command line by modifying the `ServerUrl` to:
+`--ServerUrl=http://localhost:8081`
 
 That will run RavenDB on port 8081, avoiding the conflicting port issue. You might need to try another port as well if
 port `8081` is also taken on your machine, of course.
 
+You can now point your browser to http://127.0.0.1:8080 to visit the RavenDB Studio.
+
 #### Using the live demo instance
 
-Without installing anything, you can point your browser to 
-[http://live-test.ravendb.net](http://live-test.ravendb.net) and access the public demo instance 
-that we have available. This is useful for quick checks and verifications, but it isn't meant for anything 
-more serious than that. 
+Without installing anything, you can point your browser to http://live-test.ravendb.net and access the public demo instance 
+that we have available. This is useful for quick checks and verifications, but it isn't meant for anything more serious than that. 
 
 Obviously, all data in the live instance is public, and there are no guarantees about availability. We use this 
 instance to try out the latest versions, so you should take that into consideration. In short, if you need to verify something 
 small, go ahead and hit that instance. Otherwise, you'll need your own version.
 
+#### Using RavenDB Cloud
+
+You can also run RavenDB in the cloud, using https://cloud.ravendb.net/. You can register a free account using: 
+https://cloud.ravendb.net/user/register and then start a free private instance on the cloud. I'm not covering this yet 
+since we have a full chapter to discuss that in <<cloud-n-edge>>. It's worth mentioning here since some people prefer to run
+their databases fully on the cloud, and RavenDB has great support for it. 
+
+For the rest of this chapter, we'll assume that you are running on a local instance or the public `live-test` one. If you are
+using a cloud instance, be sure to note the differences (running with security, mostly). You can skip ahead to <<cloud-n-edge>> to
+learn how to setup a cloud instance properly and then continue forward from here.
+
 ### Your first database
 
 At this point, you've already set up an instance of RavenDB to work with, and you've loaded the RavenDB Studio in 
 your browser. For simplicity's sake, I'm going to assume from now on that you're running RavenDB on the local machine
-on port 8080. Point your browser to `http://localhost:8080`, and you should be greeted with
-an empty RavenDB instance. You can see how it looks in Figure 2.1.
+on port 8080. Point your browser to `http://127.0.0.1:8080`, and you should be greeted with
+an empty RavenDB instance. You can see how it looks in <<empty-ravendb-node>>.
 
-![Empty RavenDB node](./Ch02/img01.png)
+[[empty-ravendb-node]]
+.An empty RavenDB node
+image::./Ch02/img01.png[]
 
-What we have right now is a RavenDB node that is a self-contained cluster.[^1] 
+What we have right now is a RavenDB node that is a self-contained cluster.footnode:[Actually, that's not exactly the case, 
+but the details on the state of a newly minted node are a bit complex and covered in more detail in <<ravendb-clusters>>.] 
 Now that we have a running node, the next step is to create a new database on this node. 
 
-You can do that by clicking the `Create Database` button, naming the new database `Northwind` and accepting all 
-the defaults in the dialog. We'll discuss what all of those mean later in this book. 
-Click the `Create` button, and that's pretty much it. Your new database is ready. 
-Click on the `Databases` button on the left to see what this looks, as shown in Figure 2.2.
+You can do that by clicking `Databases` button on the left and then `New Database` button, naming the new database `Northwind` and accepting all 
+the defaults in the dialog. We'll discuss what all of those mean later in this book. You can see the create database dialog in <<create-db-dialog>>.
 
-![New empty database](./Ch02/img02.png)
+[[create-db-dialog]]
+.Create database dialog
+image::./Ch02/img02.png[]
+
+Click the `Create` button, and that's pretty much it. Your new database is ready. 
+Click on the `Databases` button on the left to see what this looks, as shown in <<new-empty-db>>.
+
+[[new-empty-db]]
+.An empty new database
+image::./Ch02/img03.png[]
 
 #### Creating sample data
 
 Of course, this new database contains no data, which makes it pretty hard to work with. We'll use the 
-`sample data` feature in RavenDB to have some documents to experiment with. Go to `Create Sample Data` under 
-`Tasks` in the left menu and click the `Create` button. 
+`sample data` feature in RavenDB to have some documents to experiment with. 
 
-Clicking this button will populate the database with the sample `Northwind` dataset. For those not familiar with 
+Click on the database name, then select the `Tasks` in the left menu and then `Create Sample Data`. The page
+that this opens has a `Create sample data` button, click on the button. 
+
+This action will populate the database with the sample `Northwind` dataset. For those not familiar with 
 Northwind, it's a sample dataset of an online store, and it includes common concepts such as orders, customers and 
 products. Let's explore this dataset inside of RavenDB.
 
-On the left menu, select `Documents`, and you'll see a view similar to what's pictured in Figure 2.3, showing the recently created 
+On the left menu, select `Documents`, and you'll see a view similar to what's pictured in <<view-northwind-documents>>, showing the recently created 
 documents and collections. 
 
-![Northwind documents view](./Ch02/img03.png)
-
+[[view-northwind-documents]]
+.Northwind documents view
+image::./Ch02/img04.png[]
 
 Collections are the basic building blocks inside RavenDB. Every document belongs to exactly one collection, and the collection typically
 holds similar documents (though it doesn't have to). These documents are most often based on the entity type of the document in your code. 
-It's very similar to tables in a relational database, but unlike tables, there's no requirement that documents within the same collection will share the same structure or have any sort of schema.
+It's very similar to tables in a relational database, but unlike tables, there's no requirement that documents within the same collection 
+will share the same structure or have any sort of schema.
 
 Collections are very important to the way data is organized and optimized internally within RavenDB. 
 We'll frequently use collections to group similar documents together and apply an operation to them (subscribing 
@@ -161,20 +205,24 @@ to changes, indexing, querying, ETL, etc.).
 #### Our first real document
 
 Click on the `Orders` collection and then on the first document in the listing, which should be `orders/830-A`. The 
-result is shown in Figure 2.4. For the first time, we're looking at a real JSON document inside of RavenDB.
+result is shown in <<an-orders-document>>. For the first time, we're looking at a real JSON document inside of RavenDB.
 
-![An Orders document](./Ch02/img04.png)
+[[an-orders-document]]
+.An Orders document
+image::./Ch02/img05.png[]
 
 If you're used to working with non-relational databases, this is pretty obvious and not too exciting. But 
 if you're mostly used to relational databases, there are several things to note here.
 
-In RavenDB, we're able to store arbitrarily complex data as a single unit. If you look closely at Figure 2.4, 
+In RavenDB, we're able to store arbitrarily complex data as a single unit. If you look closely at <<an-orders-document>>, 
 you'll see that instead of just storing a few columns, we can store rich information and work with nested 
 objects (the `ShipTo` property) or arrays of complex types (the `Lines` property). 
 
 This means that we don't have to split our data to satisfy the physical constraints of our storage. A whole
-object graph can be stored in a single document. Modeling will be further discussed in Chapter 3, 
-but for now I'll just mention that the basic modeling method in RavenDB is based around root aggregates.
+object graph can be stored in a single document. Modeling will be further discussed in <<document-modeling>>, 
+but for now I'll just mention that the basic modeling method in RavenDB is based around root aggregates which you 
+may be familiar with from Domain Driven Design.footnote:[Eric Evans, _Domain-Driven Design: Tackling Complexity 
+in the Heart of Software_, Addison-Wesley, 2003.]
 
 In the meantime, you can explore the different collections and the sample data in the Studio. We spent a lot of 
 time and effort on the RavenDB Studio. Though it's pretty, I'll be the first to admit that looking at a syntax
@@ -184,21 +232,23 @@ data as a database.
 ### Working with the RavenDB Studio
 
 This section will cover the basics of working with data within RavenDB Studio. If you're a developer, 
-you're probably anxious to start seeing code. We'll get into that in the next section &mdash; no worries.
+you're probably anxious to start seeing code. We'll get into that in the next section — no worries.
 
 #### Creating and editing documents
 
 When you look at a particular document, you can edit the JSON and click `Save`, and the document will be saved.
 There isn't really much to it, to be honest. Creating new documents is a bit more interesting. Let's create a new
-category document. 
+`Category` document. 
 
 Go to `Documents` in the left menu, click `Categories` under `Collections` and select 
-`New document in current collection`, as shown in Figure 2.5.
+`New document in current collection`, as shown in <<new-doc-in-collection>>.
 
-![New document in current collection](./Ch02/img05.png)
+[[new-doc-in-collection]]
+.New document in current collection
+image::./Ch02/img06.png[]
 
 This will open the editor with an empty, new document that's based on one of the existing categories. Note
-that the document ID is set to `categories/`. Fill in some values for the properties in the new document and
+that the document ID is set to `Categories/`. Fill in some values for the properties in the new document and
 save it. RavenDB will assign the document ID automatically for you.
 
 One thing that may not be obvious is that while the Studio generates an empty document based on the existing ones,
@@ -206,21 +256,25 @@ there is no such thing as schema in RavenDB, and you are free to add or remove p
 structure of the document however you like. This feature makes evolving your data model and handling more 
 complex data much easier.
 
-
 #### Patching documents
 
 The first thing we'll learn is how to do bulk operations inside the Studio. Go to 
-`Documents` on the left menu and click the `Patch` menu item. You'll be presented with the screen shown in Figure 2.6.
+`Documents` on the left menu and click the `Patch` menu item. You'll be presented with the screen shown in <<patching-docs>>.
 
-![Adding field 'Patched' to all documents in the Categories Collection](./Ch02/img06.png)
+[[patching-docs]]
+.Adding field 'Patched' to all documents in the Categories Collection
+image::./Ch02/img07.png[]
 
 Patching allows you to write a query that executes a JavaScript transformation that can modify the matching documents. 
-To try this out, let's run a non-trivial transformation on the `categories` documents. Using a patch script, 
-we'll add localization support &mdash; the ability to store the category name and description in multiple languages.
+To try this out, let's run a non-trivial transformation on the `Categories` documents. Using a patch script, 
+we'll add localization support — the ability to store the category name and description in multiple languages.
 
-Start by adding the code in Listing 2.2 to the query text.
+Start by adding the code in <<localizing-categories>> to the query text.
 
-```{caption="Patching categories for internationalization support" .js}
+[[localizing-categories]]
+.Patching the Categories collection to add localization support
+[source,js]
+----
 from Categories
 update {
     this.Name = [
@@ -230,13 +284,15 @@ update {
         { "Lang": "en-us", "Text": this.Description }
     ];
 }
-```
+----
 
 Click the `Test` button, and you can see the results of running this operation: a category document. You can also select which
 specific document this test will be tested on. The before-and-after results of running this script on `categories/4-A` are 
-shown in Figure 2.7.
+shown in <<patch-test-result>>.
 
-![Categories localization with JavaScript patching](./Ch02/img07.png)
+[[patch-test-result]]
+.Categories localization with JavaScript patching
+image::./Ch02/img08.png[]
 
 Patch scripts allow us to modify our documents en masse, and they are very useful when you need to reshape 
 existing data. They can be applied on a specific document, a whole collection or all documents matching a specific
@@ -263,12 +319,15 @@ In this section, we'll focus on querying documents based on their data.
 In the left menu, go to `Indexes` and then to `Query`. This is the main screen for querying documents in the 
 RavenDB Studio. Enter the following query and then click the query button: `from Companies where Address.Country = 'UK'`
 
-You can see the results of this query in Figure 2.8. 
+You can see the results of this query in <<all-uk-companies-query>>. We'll cover querying in much more detail in <<querying-in-ravendb>>.
 
-![All companies in the UK query results](./Ch02/img08.png)
+[[all-uk-companies-query]]
+.All companies in the UK query results
+image::./Ch02/img09.png[]
 
 The overview in this section was not meant to be a thorough walk-through of all options in RavenDB Studio, 
-but only show you some basic usage so that you can get familiar with the Studio and be able to see the results of the coding done in the next section within the Studio.
+but only show you some basic usage so that you can get familiar with the Studio and be able to see the results of the 
+coding done in the next section within the Studio.
 
 ### Your first RavenDB program
 
@@ -279,38 +338,45 @@ this chapter.
 
 Most of the code samples in this book use C#, but the documentation can guide you on how to achieve the same results with any supported client.  
 
-Create a new console application with RavenDB, as shown Listing 2.3.
+Create a new console application with RavenDB, as shown <<nuget-install-ravendb-client>>.
 
-```{caption="Installing RavenDB Client NuGet package" .powershell}
+[[nuget-install-ravendb-client]]
+.Installing RavenDB Client NuGet package
+[source,powershell]
+----
 dotnet new console --name Rvn.Ch02
-dotnet add .\Rvn.Ch02\ package RavenDB.Client --version 4.*
-```
+dotnet add .\Rvn.Ch02\ package RavenDB.Client
+----
 
-This will setup the latest client version for RavenDB 4.0 on the project. The next step is to add a namespace
+This will setup the latest client version for RavenDB on the project. The next step is to add a namespace
 reference by adding `using Raven.Client.Documents;` to the top of the `Program.cs` file. 
 
 And now we're ready to start working with the client API. The first thing we need to do is to set up access
 to the RavenDB cluster that we're talking to. This is done by creating an instance of `DocumentStore` and 
-configuring it as shown in Listing 2.4.
+configuring it as shown in <<setting-up-document-store>>.
 
-```{caption="Creating a document store pointed to a local instance" .cs }
+[[setting-up-document-store]]
+.Creating a document store pointed to a local instance
+[source,csharp]
+----
 var store = new DocumentStore
 {
-    Urls = new[] { "http://localhost:8080" },
+    Urls = new[] { "http://127.0.0.1:8080" },
     Database = "Tasks"
 };
 
 store.Initialize();
-```
+----
 
-This code sets up a new `DocumentStore` instance and lets it know about a single node &mdash; the one running on the local
-machine &mdash; and that we are going to be using the `Tasks` database. The document store is the starting location for 
+This code sets up a new `DocumentStore` instance and lets it know about a single node — the one running on the local
+machine — and that we are going to be using the `Tasks` database. The document store is the starting location for 
 all communication with the RavenDB cluster. It holds the configuration, topology, cache and any customizations that you might
 have applied.
 
 Typically, you'll have a single instance of a document store per application (singleton pattern) and use that same
 instance for the lifetime of the application. However, before we can continue, we need to go ahead and create the 
-`Tasks` database in the Studio so we'll have a real database to work with. 
+`Tasks` database in the Studio so we'll have a real database to work with. You can create a new database using the same process 
+we went through for the `Northwind` database earlier in this chapter.
 
 The document store is the starting location for all RavenDB work, but the real workhorse is
 the session. The session is what will hold our entities, talk with the server and, in general, act as the 
@@ -323,9 +389,12 @@ completely dynamic data in RavenDB, but that's a specific scenario covered in th
 the time, you're working with your entities. For the purpose of this chapter, we'll use the notion of tasks to 
 build a simple list of things to do. 
 
-Listing 2.5 shows what a class that will be saved as a RavenDB document looks like. 
+<<todo-task-class>> shows what a class that will be saved as a RavenDB document looks like. 
 
-```{caption="Entity class representing a task" .cs }
+[[todo-task-class]]
+.Entity class representing a ToDo task
+[source,csharp]
+----
 public class ToDoTask
 {
     public string Id { get; set; }
@@ -333,13 +402,16 @@ public class ToDoTask
     public bool Completed { get; set; }
     public DateTime DueDate { get; set; }
 }
-```
+----
 
 This is about as simple as you can get, but we're only starting, so that's good. Let's create a new task inside
 RavenDB, reminding us that we need to pick up a bottle of milk from the store tomorrow. The code to perform this
-task (pun intended) is shown in Listing 2.6.
+task (pun intended) is shown in <<creating-new-task>>.
 
-```{caption="Saving a new task to RavenDB" .cs }
+[[creating-new-task]]
+.Saving a new task to RavenDB
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var task = new ToDoTask
@@ -350,24 +422,29 @@ using (var session = store.OpenSession())
     session.Store(task);
     session.SaveChanges();
 }
-```
+----
 
 We opened a new session and created a new `ToDoTask`. We then stored the task in the session and called 
-`SaveChanges` to save all the changes in the session to the server. You can see the results of this in Figure 2.9.
+`SaveChanges` to save all the changes in the session to the server. You can see the results of this in <<creating-new-task-result>>.
 
-![The newly created task document in the Studio](./Ch02/img09.png)
+[[creating-new-task-result]]
+.The newly created task document in the Studio
+image::./Ch02/img10.png[]
 
 As it so happened, I was able to go to the store today and get some milk, so I need to mark this task as
-completed. Listing 2.7 shows the code required to handle updates in RavenDB.
+completed. <<updating-milk-task>> shows the code required to handle updates in RavenDB.
 
-```{caption="Loading, modifying and saving a document" .cs }
+[[updating-milk-task]]
+.Loading, modifying and saving a document
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
-    var task = session.Load<ToDoTask>("ToDoTasks/1-A");
+    ToDoTask task = session.Load<ToDoTask>("ToDoTasks/1-A");
     task.Completed = true;
     session.SaveChanges();
 }
-```
+----
 
 Several interesting things can be noticed even in this very small sample. We loaded the document and modified it, and then
 we called `SaveChanges`. We didn't need to call `Store` again. Because the `task` instance was loaded via the session,
@@ -375,15 +452,22 @@ it was also tracked by the session, and any changes made to it would be sent bac
 was called. Conversely, if the `Completed` property was already set to `true`, the RavenDB client would detect that
 and do nothing since the state of the server and the client match.
 
-The document session implements the `Unit of Work` and `Identity Map` design patterns. This makes it much easier to 
+The document session implements the `Unit of Work` footnote:[Unit of Work pattern: Maintains a list of objects affected by a business transaction and 
+coordinates the writing out of changes and the resolution of concurrency problems. See https://martinfowler.com/eaaCatalog/unitOfWork.html] and 
+`Identity Map` footnote:[Identity Map pattenr: Ensures that each object gets loaded only once by keeping every loaded object in a map. Looks up objects using the map when referring to them.
+See https://martinfowler.com/eaaCatalog/identityMap.html] design patterns. This makes it much easier to 
 work with complex behaviors since you don't need to manually track changes to your objects and decide what needs 
 to be saved and what doesn't. It also means that the only time the RavenDB client will send updates to the 
 server is when you call `SaveChanges`. That, in turn, means you'll experience a reduced number of network 
-calls. All of the changes will be sent as a single batch to the server. And because RavenDB is transactional, all those changes will happen as a single transaction, either completing fully or not at all.
+calls. All of the changes will be sent as a single batch to the server. And because RavenDB is transactional, all those changes will 
+happen as a single transaction, either completing fully or not at all.
 
-Let's expand on that and create a few more tasks. You can see how this works in Listing 2.8.
+Let's expand on that and create a few more tasks. You can see how this works in <<creating-multiple-tasks>>.
 
-```{caption="Creating multiple documents in a single transaction" .cs }
+[[creating-multiple-tasks]]
+.Creating multiple documents in a single transaction
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     for (int i = 0; i < 5; i++)
@@ -397,28 +481,35 @@ using (var session = store.OpenSession())
 
     session.SaveChanges();
 }
-```
+----
 
-Figure 2.10 shows the end result of all this playing around we've done. We're creating five new tasks and saving them in 
+<<creating-multiple-tasks-result>> shows the end result of all this playing around we've done. We're creating five new tasks and saving them in 
 the same `SaveChanges` call, so they will be saved as a single transactional unit.
 
-![All the current task documents](./Ch02/img10.png)
+[[creating-multiple-tasks-result]]
+.All the current task documents
+image::./Ch02/img11.png[]
 
 #### Querying RavenDB
 
 Now that we have all these tasks, we want to start querying the data. Before we get to querying these tasks from code, 
 I want to show you how to query the data from the Studio. Go to `Indexes` and then `Query` in the Studio and you'll see the query page. 
 Let us find all the tasks we still have to do, we can do that using the following query: `from ToDoTasks where Completed = false`.
-You can see the results of this in Figure 2.11.
+You can see the results of this in <<querying-incomplete-tasks-studio>>.
 
-![Querying for incomplete tasks in the Studio](./Ch02/img11.png)
+[[querying-incomplete-tasks-studio]]
+.Querying for incomplete tasks in the Studio
+image::./Ch02/img12.png[]
 
-We'll learn all about querying RavenDB in Part III. For now, let's concentrate on getting results, which means looking
+We'll learn all about querying RavenDB in <<querying-in-ravendb>>. For now, let's concentrate on getting results, which means looking
 at how we can query RavenDB from code. Let's say I want to know what kind of tasks I have for
-the next couple of days. In order to get that information, I can use the query in Listing 2.9. (Remember to add `using System.Linq;`
+the next couple of days. In order to get that information, I can use the query in <<querying-incomplete-tasks-code>>. (Remember to add `using System.Linq;`
 to the top of the `Program.cs` file.)
 
-```{caption="Querying upcoming tasks using LINQ" .cs }
+[[querying-incomplete-tasks-code]]
+.Querying upcoming tasks using LINQ
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var tasksToDo =
@@ -435,25 +526,33 @@ using (var session = store.OpenSession())
         Console.WriteLine($"{task.Id} - {task.Task} - {task.DueDate}");
     }
 }
-```
+----
 
-Running the code in Listing 2.9 gives the following output:
+Running the code in <<querying-incomplete-tasks-code>> will result in the output shown in <<querying-incomplete-tasks-output>>.
   
-    from ToDoTasks where DueDate between $p0 and $p1 
-      and Completed = $p2 order by DueDate
+[[querying-incomplete-tasks-output]]
+.Querying upcoming tasks output
+[source,plaintext]
+----
+from ToDoTasks where DueDate between $p0 and $p1 
+    and Completed = $p2 order by DueDate
 
-    ToDoTasks/2-A - Take the dog for a walk - 5/14/2017 12:00:00 AM
-    ToDoTasks/3-A - Take the dog for a walk - 5/15/2017 12:00:00 AM
-    ToDoTasks/4-A - Take the dog for a walk - 5/16/2017 12:00:00 AM
+ToDoTasks/2-A - Take the dog for a walk - 5/14/2017 12:00:00 AM
+ToDoTasks/3-A - Take the dog for a walk - 5/15/2017 12:00:00 AM
+ToDoTasks/4-A - Take the dog for a walk - 5/16/2017 12:00:00 AM
+----
 
-The query code sample shows us using LINQ to perform queries against RavenDB with very little hassle and no ceremony
-whatsoever. There is actually a _lot_ going on behind the scenes, but we'll leave all of that to 
-Part III. You can also see that we can call `.ToString()` on the query to get the query text from 
+The query in <<querying-incomplete-tasks-code>> shows us using LINQ to perform queries against RavenDB with very little 
+hassle and no ceremony whatsoever. There is actually a _lot_ going on behind the scenes, but we'll leave all of that to 
+<<querying-in-ravendb>>. You can also see that we can call `.ToString()` on the query to get the query text from 
 the RavenDB client API.
 
-Let's look at an aggregation query. The code in Listing 2.10 gives us the results of all the tasks per day.
+Let's look at an aggregation query. The code in <<aggregation-query>> gives us the results of all the tasks per day.
 
-```{caption="Aggregation query on tasks" .cs }
+[[aggregation-query]]
+.Aggregation query on tasks
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var tasksPerDay =
@@ -475,11 +574,11 @@ using (var session = store.OpenSession())
         Console.WriteLine($"{tpd.DueDate} - {tpd.TasksPerDate}");
     }
 }
-```
+----
 
-If you're familiar with LINQ, there isn't much to say about the code in Listing 2.10. It works, and it's obvious and 
+If you're familiar with LINQ, there isn't much to say about the code in <<aggregation-query>>. It works, and it's obvious and 
 easy to understand. If you _aren't_ familiar with LINQ and working with the .NET platform, I strongly recommend learning it. 
-From the consumer side, Linq is quite beautiful. Now, if you were to implement querying using LINQ, it's utterly atrocious &mdash; take 
+From the consumer side, Linq is quite beautiful. Now, if you were to implement querying using LINQ, it's utterly atrocious — take 
 it from someone who's done it a few times. But lucky for you, that isn't _your_ problem. It's ours.
 
 So far, we've explored the RavenDB API a bit, saved documents, edited a task and queried the tasks in various
@@ -503,9 +602,12 @@ Its importance goes beyond connection management, so let's take a closer look at
 The document store holds all the client-side configuration, including serialization configuration, failover behavior,
 caching options and much more. In a typical application, you'll have a single document-store instance per application 
 (singleton). Because of that, the document store is thread safe, with an initialization pattern that typically looks 
-like the code in Listing 2.11.
+like the code in <<document-store-init>>.
 
-```{caption="Common pattern for initialization of the DocumentStore" .cs }
+[[document-store-init]]
+.Common pattern for initialization of the DocumentStore
+[source,csharp]
+----
 public class DocumentStoreHolder
 {
     private readonly static Lazy<IDocumentStore> _store = 
@@ -521,9 +623,8 @@ public class DocumentStoreHolder
                 "https://ravendb-02:8080",
                 "https://ravendb-03:8080",
             },
-            Certificate = 
-                new X509Certificate2("tasks.pfx"),
-                    Database = "Tasks",
+            Certificate = new X509Certificate2("tasks.pfx"),
+            Database = "Tasks",
         };
 
         documentStore.Initialize();
@@ -535,16 +636,15 @@ public class DocumentStoreHolder
         get { return _store.Value; }
     }
 }
-```
+----
 
-The use of "Lazy" ensures that the document store is only created once, without you having to worry about double locking or 
+The use of `Lazy` ensures that the document store is only created once, without you having to worry about double locking or 
 explicit thread safety issues. And you can configure the document store as you see fit. The rest of the code can access the
 document store using `DocumentStoreHolder.Store`. That should be relatively rare since, apart from configuring the document
 store, the majority of the work is done using sessions.
 
-Listing 2.11 shows how to configure multiple nodes, set up security and select the appropriate database. We'll learn about how
-to work with a RavenDB cluster in Chapter 6. We still have a lot to cover 
-on the document store without getting to clusters, though.
+<<document-store-init>> shows how to configure multiple nodes, set up security and select the appropriate database. We'll learn about how
+to work with a RavenDB cluster in <<ravendb-clusters>>. We still have a lot to cover on the document store without getting to clusters, though.
 
 
 ##### Conventions
@@ -560,21 +660,25 @@ need. That's why most of the client API parts are customizable.
 Customizations can be applied by changing various settings and behaviors via the `DocumentStore.Conventions` property. For example,
 by default, the client API will use a property named `Id` (case sensitive) to store the document ID. But there are users
 who want to use the entity name as part of the property name. So they'll have OrderId for orders, ProductId for products, etc.
-[^2]
+footnote:[I'll leave aside Id vs. ID, since it's handled in the same manner.]
 
-Here's how we tell the client API to apply the `TypeName + Id` policy:
+<<type-name-plus-id>> how we tell the client API to apply the `TypeName + Id` policy.
 
-    documentStore.Conventions.FindIdentityProperty = 
-        prop => prop.Name == prop.DeclaringType.Name + "Id";
-
+[[type-name-plus-id]]
+.Setting the document ID convention to 'TypeName + Id'
+[source,csharp]
+----
+documentStore.Conventions.FindIdentityProperty = 
+    prop => prop.Name == prop.DeclaringType.Name + "Id";
+----
 
 Don't worry. We won't go over all of the available options, since there are quite a few of them. Please refer to the 
 online documentation to get the full list of available conventions and their effects. It might be worth your time to go 
-over and quickly study them just to know what's available to you, even if they aren’t something that 
+over and quickly study them just to know what's available to you, even if they aren't something that 
 you'll touch all that often (or ever).
  
 Beside the conventions, there are certain settings available directly from the document store level that you should be aware 
-of, like default request timeouts, caching configuration and event handlers. We'll cover all of those later on. But for now, let’s 
+of, like default request timeouts, caching configuration and event handlers. We'll cover all of those later on. But for now, let's 
 focus on authentication.
 
 ##### Authentication
@@ -587,16 +691,18 @@ any connection will be automatically granted cluster administrator privileges. T
 have to do upfront. But as easy as that is for development, for production, you'll want to run in a secure fashion. 
 After doing so, all access to the server is restricted to authenticated users only. 
 
-> **Caution:** unsecured network-accessible databases are bad for you.
-> 
-> By default, RavenDB will *refuse* to listen to anything but `localhost` in an unsecured mode. 
-> This is done for security reasons, to prevent admins from accidentally exposing RavenDB without authentication over 
-> the network. If you attempt to configure a non-localhost URL with authentication disabled, RavenDB will answer all 
-> requests with an error page explaining the situation and giving instructions on how to fix the issue.
-> 
-> You can let RavenDB know this is something you actually want, if you're running on a secure and isolated network.
-> It requires an additional and explicit step to make sure this is your conscious choice and not an admin 
-> oversight.
+[CAUTION]
+.Unsecured network-accessible databases are bad for you
+====
+By default, RavenDB will *refuse* to listen to anything but `localhost` in an unsecured mode. 
+This is done for security reasons, to prevent admins from accidentally exposing RavenDB without authentication over 
+the network. If you attempt to configure a non-localhost URL with authentication disabled, RavenDB will answer all 
+requests with an error page explaining the situation and giving instructions on how to fix the issue.
+ 
+You can let RavenDB know this is something you actually want, if you're running on a secure and isolated network.
+It requires an additional and explicit step to make sure this is your conscious choice and not an admin 
+oversight.
+====
 
 RavenDB uses `X509` client certificates for authentication. The good thing about certificates 
 is that they're _not_ users. They're not tied to a specific person or need to be managed as such. Instead, they represent specific 
@@ -604,7 +710,7 @@ access that was granted to the database for a particular reason. I find that thi
 authentication, and typically `X509` client certificates are granted on a per application / role basis.
 
 A much deeper discussion of authentication, managing certificates and security in general can be found in the 
-Chapter 13.
+<<securing-your-ravens>>.
 
 #### The document session
 
@@ -612,48 +718,57 @@ The session (also called "document session", but we usually shorten it to just "
 interacts with RavenDB. If you're familiar with Hibernate (Java), Entity Framework (.NET) or Active Record (Ruby), you should feel
 right at home. The RavenDB session was explicitly modeled to make it easy to work with.
 
-> **Terminology**
->
-> We tend to use the term "document" to refer both to the actual documents on the server and to manipulating them on the client side.
-> It's common to say, "load that document and then..." But occasionally, we need to be more precise. 
->
-> We make a distinction between a document and an entity (or aggregate root). A document is the server-side representation,
-> while an entity is the client-side equivalent. An entity is the deserialized document that you work with in the client-side and
-> save back to the database to become an updated server-side document.
+[NOTE]
+.Defining "document" and "entity"
+====
+We tend to use the term "document" to refer both to the actual documents on the server and to manipulating them on the client side.
+It's common to say, "load that document and then..." But occasionally, we need to be more precise. 
+
+We make a distinction between a document and an entity (or aggregate root). A document is the server-side representation,
+while an entity is the client-side equivalent. An entity is the deserialized document that you work with in the client-side and
+save back to the database to become an updated server-side document.
+====
 
 We've already gone over the basics previously in this chapter, so you should be familiar with basic CRUD operations using the 
 session. Let's look at the session with a bit more scrutiny. One of the main design forces behind RavenDB was the idea that
 it should _just work_. And the client API reflects that principle. If you look at the surface API for the session, here are the 
 following high level options:
 
-* Load()
-* Include()
-* Delete()
-* Query()
-* Store()
-* SaveChanges()
-* Advanced
+* `Load()` - Load a document or a set of documents into the session.
+* `Include()` - Include related documents in the load/query results.
+* `Delete()` - Register a deletion of a document from the session.
+* `Query()` - Start a new query.
+* `Store()` - Register a new document in the session to be saved to the server.
+* `SaveChanges()` - Save all the changes in the session to the server.
+* `Advanced` - Access to more advanced options.
 
 Those are the most common operations that you'll run into on a day-to-day basis. And more options are available under the
 `Advanced` property.
 
-> **Disposing the session**
-> 
-> The .NET implementation of the client API holds resources that _must_ be freed. Whenever you make use of the session, be
-> sure to wrap the variable in a `using` statement or else do something to ensure proper disposal. Not doing so can force 
-> the RavenDB client to clean up using the finalizer thread, which can in turn increase the time it takes to release 
-> the acquired resources.
+[IMPORTANT]
+.Disposing the session
+==== 
+The .NET implementation of the client API holds resources that _must_ be freed. Whenever you make use of the session, be
+sure to wrap the variable in a `using` statement or else do something to ensure proper disposal. Not doing so can force 
+the RavenDB client to clean up using the finalizer thread, which can in turn increase the time it takes to release 
+the acquired resources.
+====
 
 ##### Load 
 
 As the name implies, this gives you the option of loading a document or a set of documents into the session. A document
 loaded into the session is managed by the session. Any changes made to the document would be persisted to the database when
-you call `SaveChanges`. A document can only be loaded once in a session. Let's look at the following code:
+you call `SaveChanges`. A document can only be loaded once in a session. Let's look at the code in <<loading-a-document-twice>>.
 
-    var t1 = session.Load<ToDoTask>("ToDoTasks/1-A");
-    var t2 = session.Load<ToDoTask>("ToDoTasks/1-A");
-    
-    Assert.True(Object.ReferenceEquals(t1, t2));
+[[loading-a-document-twice]]
+.Loading the same document twice
+[source,csharp]
+----
+var t1 = session.Load<ToDoTask>("ToDoTasks/1-A");
+var t2 = session.Load<ToDoTask>("ToDoTasks/1-A");
+ 
+Assert.True(Object.ReferenceEquals(t1, t2));
+----
 
 Even though we called `Load<ToDoTask>("ToDoTasks/1-A")` twice, there's only a single remote call to the server and only a single
 instance of the `ToDoTask` class. Whenever you load a document, it's added to an internal dictionary that the session
@@ -663,36 +778,45 @@ so, it will return the existing instance immediately. This helps avoid aliasing 
 For those of you who deal with patterns, the session implements the `Unit of Work` and `Identity Map` patterns. This is most
 obvious when talking about the `Load` operation, but it also applies to `Query` and `Delete`.
 
-`Load` can also be used to read more than a single document at a time. For example, if I wanted three documents, I could use:
+`Load` can also be used to read more than a single document at a time. For example, the code in <<loading-multiple-documents>> 
+loads three documents at once.
 
-    Dictionary<string, ToDoTask> tasks = session.Load<ToDoTask>(
-        "ToDoTasks/1-A",
-        "ToDoTasks/2-A",
-        "ToDoTasks/3-A"
-    );
+[[loading-multiple-documents]]
+.Loading multiple documents in a single call
+[source,csharp]
+----
+Dictionary<string, ToDoTask> tasks = session.Load<ToDoTask>(
+    "ToDoTasks/1-A",
+    "ToDoTasks/2-A",
+    "ToDoTasks/3-A"
+);
+----
 
 This will result in a dictionary with all three documents in it, retrieved in a single remote call from the server. If a 
 document we tried to load wasn't found on the server, the dictionary will contain null for that document ID.
 
-> **Budgeting remote calls**
-> 
-> Probably the easiest way to kill your application performance is to make a lot of remote calls. And a likely culprit is
-> the database. It's common to see a web application making dozens of calls to the database to service a single request, usually
-> for no good reason.
-> In RavenDB, we've done several things to mitigate that problem. The most important among them is to allocate a budget for
-> every session. Typically, a session would encompass a single operation in your system. An HTTP request or the processing of 
-> a single message is usually the lifespan of a session.
->
-> A session is limited by default to a maximum of 30 calls to the server. If you try to make more than 30 calls to the
-> server, an exception is thrown. This serves as an early warning that your code is generating too much load on the system
-> and is a circuit breaker.[^3]
-> 
-> You can increase the budget, of course, but just having that warning in place ensures that you'll think about the number of
-> remote calls you're making.
->
-> The limited number of calls allowed per session also means that RavenDB has a lot of options to _reduce_ the number of
-> calls. When you call SaveChanges(), you don't need to make a separate call per changed entity; you can go to the database
-> once. In the same manner, we also allow you to batch _read_ calls. We'll discuss the `Lazy` feature in more depth in Chapter 4.
+[TIP]
+.Budgeting remote calls
+====
+Probably the easiest way to kill your application performance is to make a lot of remote calls. And a likely culprit is
+the database. It's common to see a web application making dozens of calls to the database to service a single request, usually
+for no good reason.
+In RavenDB, we've done several things to mitigate that problem. The most important among them is to allocate a budget for
+every session. Typically, a session would encompass a single operation in your system. The scope of the session is typically
+limited to handling a single request or a the processing of one message.
+
+A session is limited by default to a maximum of 30 calls to the server. If you try to make more than 30 calls to the
+server, an exception is thrown. This serves as an early warning that your code is generating too much load on the system
+and as a circuit breaker.footnote:[A pattern taken from a wonderful book that heavily influenced the RavenDB design it _Release It! 
+Design and Deploy Production-Ready Software_,  Michael T. Nygard, Pragmatic Bookshelf, 2007.]
+
+You can increase the budget, of course, but just having that warning in place ensures that you'll think about the number of
+remote calls you're making.
+
+The limited number of calls allowed per session also means that RavenDB has a lot of options to _reduce_ the number of
+calls. When you call `SaveChanges()`, you don't need to make a separate call per changed entity; you can go to the database
+once. In the same manner, we also allow you to batch _read_ calls. We'll discuss the `Lazy` feature in more depth in <<ravnedb-client-api>>.
+====
 
 The client API is pretty smart about it. If you try to load a document that was already loaded (directly or via `Include`), the 
 session can serve it directly from the session cache. And if the document doesn't exist, the session will also remember that it 
@@ -702,9 +826,12 @@ couldn't load that document and will immediately return null rather than attempt
 
 We've seen how to work with a single document, and we even saved a batch of several documents into RavenDB in a single
 transaction. But we haven't actually worked with anything more complex than a `ToDoTask`. That's pretty limiting, in terms
-of the amount of complexity we can express. Listing 2.12 lets us add the notion of people who can be assigned tasks to the model.
+of the amount of complexity we can express. <<todo-people-model>> lets us add the notion of people who can be assigned tasks to the model.
 
-```{caption="People and Tasks model in RavenDB" .cs}
+[[todo-people-model]]
+.People and Tasks model in RavenDB
+[source,csharp]
+----
 public class Person
 {
     public string Id { get; set; }
@@ -721,11 +848,11 @@ public class ToDoTask
     public string AssignedTo { get; set; } 
     public string CreatedBy { get; set; } 
 }
-```
+----
 
-From looking at the model in Listing 2.12, we can learn a few interesting tidbits. First, we can see that each class stands on
+From looking at the model in <<todo-people-model>>, we can learn a few interesting tidbits. First, we can see that each class stands on
 its own. We don't have a `Person` property on `ToDoTask` or a `Tasks` collection on `Person`. We'll learn about modeling more 
-extensively in Chapter 3, but the gist of modeling in RavenDB is that each document is independent, isolated and coherent. 
+extensively in <<document-modeling>>, but the gist of modeling in RavenDB is that each document is independent, isolated and coherent. 
 
 What does this mean? It means we should be able to take a single document and work with it successfully without having to look at or 
 load additional documents. The easiest way to conceptualize this is to think about physical documents. With a physical document, I'm
@@ -736,10 +863,13 @@ In the case of the `ToDoTask`, I can look at my tasks, create new tasks or mark 
 `Person` document. This is quite a shift from working with relational databases, where traversing between rows and tables is 
 very common and frequently required. 
 
-Let's see how we can create a new task and assign it to a person. Listing 2.13 shows an interesting feature of 
+Let's see how we can create a new task and assign it to a person. <<creating-new-person>> shows an interesting feature of 
 RavenDB. Take a look and see if you can find the oddity.
 
-```{caption="Creating a new person document" .cs}
+[[creating-new-person]]
+.Creating a new person document
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var person = new Person
@@ -750,7 +880,7 @@ using (var session = store.OpenSession())
     Console.WriteLine(person.Id);
     session.SaveChanges();
 }
-```
+----
 
 RavenDB is transactional, and we only send the request to the server on `SaveChanges`. So how could we print
 the `person.Id` property before we called `SaveChanges`? Later in this chapter, we'll cover document identifiers and how they're 
@@ -853,7 +983,7 @@ do here? What happened is that the session got a reply from the server, saw that
 in its `Identity Map`. When we request the `Person` instance that was assigned to this task, we already have that information
 in the session and can avoid going back to the server to fetch the same document we already have.
 
-The API is almost the same &mdash; and except for that call, everything else remains the same &mdash; but we managed to significantly cut
+The API is almost the same — and except for that call, everything else remains the same — but we managed to significantly cut
 the number of remote calls we make. You can `Include` multiple properties to load several referenced documents (or even a
 collection of them) efficiently. This is similar to a `JOIN` in a relational database, but it's much more efficient since you don't
 have to deal with Cartesian products and it doesn't modify the shape of the results. 
@@ -895,7 +1025,7 @@ multiple times.
 > **Beware of relational modeling inside of RavenDB**
 > 
 > As powerful as the `Include` feature is, one of _the_ most common issues we run into with RavenDB is people using 
-> it with a relational mindset &mdash; trying to use RavenDB as if it was a relational database and modeling their entities
+> it with a relational mindset — trying to use RavenDB as if it was a relational database and modeling their entities
 > accordingly. `Include` can help push you that way because it lets you get associated documents easily. 
 
 We'll talk about modeling in a lot more depth in the next chapter, when you've learned enough 
@@ -1078,7 +1208,7 @@ doing some operations synchronously and some operations asynchronously. Because 
 synchronous session with async calls or vice versa. You can use either mode in your application, depending on the environment 
 you're using. Aside from the minor required API changes, they're completely identical. 
 
-The async support is deep &mdash; all the way to the I/O issued to the server. In fact, as I mentioned earlier, the synchronous 
+The async support is deep — all the way to the I/O issued to the server. In fact, as I mentioned earlier, the synchronous 
 API is built on top of the async API and async I/O.
 
 We covered the basics of working with the client API in this section, but that was mostly mechanics. We'll dive deeper into using RavenDB in the next chapter, where we'll also learn how it's all put together.
@@ -1130,7 +1260,7 @@ to.
 
 The document ID is a unique string that globally identifies a document inside a RavenDB database. A document ID can be any 
 UTF8 string up to 2025 bytes, although getting to those sizes is extremely rare. You've already seen document IDs used in
-this chapter &mdash; `people/1-A`, `ToDoTasks/4-A` and the like. Using a `Guid` like `92260D13-A032-4BCC-9D18-10749898AE1C`
+this chapter — `people/1-A`, `ToDoTasks/4-A` and the like. Using a `Guid` like `92260D13-A032-4BCC-9D18-10749898AE1C`
 is possible but not recommended because it's opaque and hard to read/work with.
 
 By convention, we typically use the collection name as the prefix, a slash and then the actual unique portion of the key. But
@@ -1220,7 +1350,7 @@ account for May 17th, 2017.
 > is to make sure our document IDs are very clear about their contents. 
 
 You might recall that I mentioned that RavenDB doesn't require documents within a given collection to be have an ID with the 
-collection prefix. This is one of the major reasons why &mdash; because it allows you to nest document IDs to get yourself a clearer
+collection prefix. This is one of the major reasons why — because it allows you to nest document IDs to get yourself a clearer
 model of your documents.
 
 #### Client-side identifier generation (hilo)
@@ -1295,7 +1425,7 @@ When you save a document whose ID ends with a slash, RavenDB will generate the I
 > 
 > What this means is that if you manually generate a document ID with a pattern that matches the server-side generated IDs, 
 > RavenDB will not check for that and may _overwrite_ the existing document. That's partly why we're putting all those
-> zeros in the ID &mdash; to make sure that we aren't conflicting with any existing document by accident.
+> zeros in the ID — to make sure that we aren't conflicting with any existing document by accident.
 
 This kind of ID plays quite nicely with how RavenDB actually stores the information on disk, which is convenient. We'll give this 
 topic a bit more time further down in the chapter. This is the recommended method if you just need to generate a large number
@@ -1363,7 +1493,7 @@ There are also performance differences among the various methods that I want to 
 > This section is included because it's important at scale, but for most users, there's no need to consider it at all. 
 > RavenDB is going to accept whatever document IDs you throw at it, and it's going to be _very_ fast when doing so. 
 > My strong recommendation is that you use whatever document ID generation that best matches _your_ needs, and only consider
-> the performance impact if you notice an observable difference &mdash; or have crossed the hundreds of millions of documents
+> the performance impact if you notice an observable difference — or have crossed the hundreds of millions of documents
 > per database mark. 
 
 RavenDB keeps track of the document IDs by storing them inside a B+Tree. If the document IDs are very big, it will mean that RavenDB can
@@ -1412,11 +1542,11 @@ with words separated by a dash (e.g., `@last-modified`).
 
 RavenDB uses the metadata to store several pieces of information about the document that it keeps track of:
 
-* The collection name &mdash; stored in the `@collection` metadata property and determines where RavenDB will store the document. 
+* The collection name — stored in the `@collection` metadata property and determines where RavenDB will store the document. 
   If the collection isn't set, the document will be placed in the `@empty` collection. The client API will 
   automatically assign an entity to a collection based on its type. (You can control exactly how using the conventions.)
-* The last modified date &mdash; stored in the `@last-modified` metadata property in UTC format.
-* The client-side type &mdash; This is a client-side metadata property. So for .NET, it will be named `Raven-Clr-Type`; for a Java 
+* The last modified date — stored in the `@last-modified` metadata property in UTC format.
+* The client-side type — This is a client-side metadata property. So for .NET, it will be named `Raven-Clr-Type`; for a Java 
   client, it will be `Raven-Java-Class`; for Python, `Raven-Python-Type` and...you get the point. This is used solely by the
   clients to deserialize the entity into the right client-side type.
 
@@ -1698,12 +1828,7 @@ In this chapter, we started building the foundation of your RavenDB knowledge. I
 foundation. We'll discuss modeling data and documents inside RavenDB and how to best structure your system to take advantage of what
 RavenDB has to offer.
 
-[^1]: Actually, that's not exactly the case, 
-but the details on the state of a newly minted node are a bit complex and covered in more detail in
-Chapter 6.
-[^2]: I'll leave aside Id vs. ID, since it's handled in the same manner.
-[^3]: See [_Release It!_](https://pragprog.com/titles/mnee2/release-it-second-edition), a wonderful book that heavily
-influenced the RavenDB design.
+
 [^4]: You can call `session.Advanced.Refresh` if you want to force the session to update the state of
 the document from the server.
 [^5]: The 1% case where it will help is the realm of demo apps with 

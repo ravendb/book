@@ -29,10 +29,26 @@ include::./Ch01/Ch01.adoc[]
 :listing-caption: Listing 2.
 include::./Ch02/Ch02.adoc[]
 
+[[document-modeling]]
+## Document Modeling
+
+	
+[[ravnedb-client-api]]
+## Deep Dive Into the RavenDB Client API
+
 
 [[cloud-n-edge]]
 ## RavenDB on Cloud and the Edge 
 
-[[production-deploymentS]]
+[[ravendb-clusters]]
+## RavenDB Clusters
+
+[[querying-in-ravendb]]
+## Querying in RavenDB
+
+[[production-deployments]]
 ## Production Deployments
+
+[[securing-your-ravens]]
+##  Securing your Ravens
 
