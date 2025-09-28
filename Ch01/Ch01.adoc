@@ -10,9 +10,9 @@ them was that databases are finicky beasts that require constant care and attent
 
 RavenDB was created specifically to address that issue. I wanted to have a database that would be _boring_, that would
 just hold my data and spit it back up again as needed. Something that I can setup, forget about and have it Just Work on
-its own. I spent the past 15 years (since 2008) making this vision into reality. 
+its own. I spent the better part of two decades (since 2008) making this vision into reality. 
 
-Today, RavenDB is a distributed, non-relational, high-performance, multi-model database for online transactions processing,
+Today, RavenDB is a multi-model, high-performance, non-relational, distributed database for online transactions processing,
 suitable for running anywhere from isolated edge deployments to geo-distributed cloud clusters. And in almost all scenarios, 
 it is can be run in a setup-and-forget mode, where the database will take care of its own management.
 
@@ -21,22 +21,22 @@ with the hassle of data management. That design decision had a major impact on h
 
 ### What is RavenDB?
 
-RavenDB is a multi-model database. It primarily deals with documents, but it also supports binary, counters and time-series data.
-When talking about "documents" in the context of RavenDB, we're talking about structured information in the form of self-contained 
-data (as opposed to Word or Excel documents). A document is usually in JSON or XML format. RavenDB is, essentially, a database for
-storing and working with JSON data. You can also store binary data and a few other types, but you'll primarily use RavenDB for 
-JSON documents.
+RavenDB is a *multi-model* database. It primarily deals with documents, but it also supports binary data (BLOB), counters 
+and time-series data. When talking about "documents" in the context of RavenDB, we're talking about structured information in 
+the form of self-contained data (as opposed to Word or Excel documents). A document is usually in JSON or XML format. RavenDB is,
+essentially, a database for storing and working with JSON data. You can also store binary data and a few other types, but 
+you'll primarily use RavenDB for JSON documents.
 
-RavenDB is high-performance. It is designed to be fast, and it is. One of the driving forces behind RavenDB's design was to ensure
+RavenDB is *high-performance*. It is designed to be fast, and it is. One of the driving forces behind RavenDB's design was to ensure
 that we are able to match or exceed your performance requirements. That shows in the overall design (which we'll discuss in detail
 later in the book), the actual database implementation and in the API and interaction model that RavenDB uses. 
 
-RavenDB is non-relational. Instead of being based on tables and rows, RavenDB is based on documents. This means that you don't have
+RavenDB is *non-relational*. Instead of being based on tables and rows, RavenDB is based on documents. This means that you don't have
 to deal with the classical Impedance Mismatch problem that you have with relational databases. You can store your data in a way that
 make sense from a business perspective. Complex data structures can be stored in a single document, and you can query and update them
 with ease.
 
-RavenDB is distributed. You can run it on a single node, (suitable for development or running on the edge) or on a cluster of nodes
+RavenDB is *distributed*. You can run it on a single node, (suitable for development or running on the edge) or on a cluster of nodes
 to gain high availability, load balancing and geo distribution. A single cluster can host multiple databases, each of which can span
 some or all of the nodes in the cluster.  You can run RavenDB on your own machines or used the hosted RavenDB service, which is a 
 fully managed RavenDB in the cloud.
@@ -51,16 +51,16 @@ Working with a database should be easy and obvious, and to a large extent, Raven
 
 RavenDB is _meant_ to be boring, it is an explict design goal for us. This may sound strange, but the idea is that if RavenDB is boring, it is
 doing its job, and you can do yours. That said, the idea is that RavenDB is going to be boring to _use_. I find it fascinating, and I hope
-that after reading this book, you'll understand the lengths we went to in order to make RavenDB boring to use.
+that after reading this book, you'll understand the lengths we went to in order to make RavenDB boring to use, reliable to deploy and a joy to work with.
 
-This book isn't meant to provide documentation; RavenDB has quite a bit of documentation that tells you exactly how to use it. While informative, documentation tends to be dry and it hardly makes for good reading (or for an interesting time writing it). A blog post, on the other hand, tells
+This book isn't meant to provide documentation; RavenDB has quite a bit of documentation that tells you exactly how to use it. While 
+informative, documentation tends to be dry and it hardly makes for good reading (or for an interesting time writing it). A blog post, on the other hand, tells
 a story -- even if most of mine are technical stories. I like writing them, and I've been pleasantly surprised that a large number of
 people also seem to like reading them.
 
-I'm a developer at heart. That means that one of my favorite activities is writing code. Writing documentation, on
-the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
-do like writing blog posts, and I've been maintaining an 
-active blog for close to fifteen years.footnote:[You can find it at http://ayende.com/blog] 
+I'm a developer at heart. That means that one of my favorite activities is writing code. Next in the list is writing about writing code.
+Writing documentation, on the other hand, is so far down the list of my favorite activities that one could say it isn't even on the list. I
+do like writing blog posts, and I've been maintaining an active blog for close to fifteen years.footnote:[You can find it at http://ayende.com/blog] 
 
 ### About this book
 
@@ -87,13 +87,15 @@ This book has been written and re-written several times. In fact, looking at the
 July of 2014. Writing something of this scope, and at the same time pushing the product itself forward is not easy and
 would not have been possible without the help of many people. 
 
-On the technical side, I want to thank Adi Avivi, Dan Bishop, Maxim Buryak, Danielle Greenberg, Judah Himango,
-Karmel Indych, Elemar Junior, Grisha Kotler, Rafał Kwiatkowski, Grzegorz Lachowski, Marcin Lewandowski, Jonathan Matheus,
-Tomasz Opalach, Arkadiusz Paliński, Paweł Pekról, Aviv Rahmany, Idan Ben Shalom, Efrat Shenhar, Tal Weiss, 
-Michael Yarichuk, Fitzchak Yitzchaki and Iftah Ben Zaken.
+On the technical side, I want to thank Adi Avivi, Anders Wåglund, Arkadiusz Paliński, Arkadiusz Palinski, Aviv Rahmany,
+Bartosz Piekarski, Dan Bishop, Damian Olszewski, Danielle Greenberg, Djordje Djukic, Egor Shamanaev, Elemar Junior, Efrat Shenhar, 
+Federico Lois, Fitzchak Yitzchaki, Golan Nahum, Gracjan Sadowicz, Grisha Kotler, Grzegorz Lachowski, Idan Ben Shalom, Iftah Ben Zaken, 
+Igal Merhavia, Jay Lokhande, Jonathan Matheus, Judah Himango, Karmel, Karmel Indych, Lev Skuditsky, Liel Nagar, Lukas Bickel, Maciej Aszyk, 
+Maksym Smoliński, Marcin Lewandowski, Mateusz Bartosik, Maxim Buryak, Michael Yarichuk, Michał Leśniak, Paweł Pekról, Rafał Kwiatkowski,
+Shahar Hikri, Shiran Shalom, Stav Lagziel, Szymon Kulec, Tal Weiss and Tomasz Opalach.
 
 The editors, who had the harsh task of turning raw text into a legible book. Erik Dietrich, Laura Lattimer,
-Katherine Mechling, Amanda Muledy and Danielle Greenberg. All the errors you find were inserted by myself after the last 
+Katherine Mechling, Amanda Muledy and above all Danielle Greenberg. All the errors you find were inserted by myself after the last 
 round of edits, I assure you. 
 
 The early readers of this book, who had gone above merely giving feedback and actively contributed to making this better. 
@@ -121,7 +123,7 @@ standards. So regardless of the platform you use to connect to RavenDB, this boo
 
 ### Who am I?
 
-My name in Oren Eini and over 15 years ago, I got frustrated working with relational databases. At the time, I was
+My name in Oren Eini and over 18 years ago, I got frustrated working with relational databases. At the time, I was
 working mostly as a consultant for companies looking to improve the performance of data-driven applications. I kept
 seeing customer after customer really struggle with this, not because they were
 unqualified for the task, but because they kept using the wrong tools for the job. 
@@ -131,7 +133,7 @@ datastore for OLTP applications (online transaction processing applications, a f
 look like. That blog post turned into a series of blog posts and then into some weekend hacking. Fast-forward a 
 few months, and I had the skeleton of what would eventually become RavenDB and a burning desire to make it a reality.
 
-At some point, building RavenDB felt not like I was creating something from scratch, but like I was merely letting out something
+At the time, building RavenDB felt not like I was creating something from scratch, but like I was merely letting out something
 that was already fully formed. As I mentioned, that was over a while ago, and RavenDB has been running production
 systems ever since 2010.
 
@@ -149,7 +151,7 @@ relational databases but keep working on domain-driven systems. I wanted somethi
 time could just be thrown on a production server and would work without having to pay for an on-call babysitter.
 
 A lot of the design of RavenDB was heavily influenced by the Release It!footnote:[Michael T. Nygard, _Release It! Design and Deploy Production-Ready Software_, Pragmatic Bookshelf, 2007, https://pragprog.com/titles/mnee2/release-it-second-edition]
-book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with over 15 years in production
+book, which I _highly_ recommend. We tried to get a lot of things right from the get go, and with close to two decades in production
 to look back at, I think we did a good job there.
 
 ### In this book...
@@ -242,10 +244,25 @@ MapReduce in RavenDB is a very important feature. It allows RavenDB to perform l
 practically any dataset, regardless of size. We'll explore exactly how this feature works, the kind of behaviors it enables
 and what you can do with what are effectively free aggregation queries. 
 
-Finally, we'll go over the care and feeding of indexes in RavenDB: how you can create, deploy, monitor and manage them yourself. We'll talk about how the RavenDB query optimizer interacts with your indexes and how to move
-them between environments. 
+Finally, we'll go over the care and feeding of indexes in RavenDB: how you can create, deploy, monitor and manage them yourself. 
+We'll talk about how the RavenDB query optimizer interacts with your indexes and how to move them between environments. 
 
-#### Part IV — Security
+#### Part VI - AI & Large Language Models Integration
+
+Focus: Developers and architects
+
+This part discusses RavenDB's integration with AI and Large Language Models, starting with how vector search allows for advanced semantic queries.
+We'll explore embedding generation, which creates vectors from your data, enabling this type of search. Then we'll cover how you can apply Generative AI
+directly from within the database to enhance, summarize, and make decisions on your data.
+
+You'll also learn how to build AI agents that leverage RavenDB's capabilities to become intelligent, production-ready systems with a very short development
+time. We'll dive into features like conversation memory and summarization, and see how you can expose RavenDB data and queries directly to the model. 
+You'll also learn how to let the model securely invoke actions within your code.
+
+The AI integration in RavenDB is designed to let you use the advanced features of AI models while protecting you from the risks of giving a potentially
+ untrustworthy model full control. We'll discuss RavenDB's security approach, which allows you to manage the AI models and their access to your systems safely.
+
+#### Part V — Security
 
 Focus: Operations and architects
 
@@ -270,7 +287,7 @@ transaction.
 We'll also cover other aspects of running an encrypted database: how you should manage encryption keys and how to back up
 and restore encrypted databases.
 
-#### Part V — Running in production
+#### Part VI — Running in production
 
 Focus: Operations
 
@@ -289,13 +306,15 @@ can make or break a production environment.
 Just getting to production isn't good enough; we are also going to cover how you can _stay_ in production and stay
 there healthily. We'll discuss monitoring and troubleshooting, what sort of details you need to keep an eye on and how
 RavenDB surfaces potential issues early on. 
-We'll discover how you can dig into RavenDB and see exactly what is going on inside the engine. We'll go over the kinds of self-optimizations RavenDB routinely applies and how you can take advantage of them.
+We'll discover how you can dig into RavenDB and see exactly what is going on inside the engine. We'll go over the kinds of 
+self-optimizations RavenDB routinely applies and how you can take advantage of them.
 
 We'll cover common issues and how to troubleshoot them, diagnosing and resolving problems
 while keeping the cluster up and functioning. We'll learn how to plan for disaster recovery and actually apply the plan if (and when)
 disaster strikes.
 
-We'll spend a whole chapter discussing backups and restores. RavenDB supports several options for backing up your data: offsite hot spares, full binary snapshots of your data and highly compressed backups meant for long term storage.
+We'll spend a whole chapter discussing backups and restores. RavenDB supports several options for backing up your data: offsite hot spares, 
+full binary snapshots of your data and highly compressed backups meant for long term storage.
 We'll discuss backup strategies and options, including backing up directly to the cloud. More importantly, we'll cover
 how you can define and execute a restore strategy, a critical —— though often (sadly) overlooked —— part of your overall backup
 strategy. 
@@ -309,9 +328,11 @@ RavenDB in production.
 
 So there's a lot going on in this book, and I hope you'll find it both interesting and instructive. But remember, the
 one thing it _isn't_ meant to do is replace the documentation. The purpose of this book is to give you a
-full background on and greater understanding of how RavenDB works. I'm not covering the nitty-gritty details of every API call and what parameters should be passed to it.
+full background on and greater understanding of how RavenDB works. I'm not covering the nitty-gritty details of every API call and 
+what parameters should be passed to it.
 
-In many cases, I have elected to discuss a feature, give one or two examples of its use and where it's best utilized and leave the reader with the task of reading up on the full details in the documentation.
+In many cases, I have elected to discuss a feature, give one or two examples of its use and where it's best utilized and leave 
+the reader with the task of reading up on the full details in the documentation.
 
 This book is meant to be more than API listing. It is meant to tell a story, the story of how you can make the best use of 
 RavenDB in your applications and environment. So, without further ado, turn the page and let's get started.

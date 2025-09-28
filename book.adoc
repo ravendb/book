@@ -7,9 +7,9 @@
 :source-highlighter: coderay
 :source-language: csharp
 :xrefstyle: short
-= Inside RavenDB 6.0
+= Inside RavenDB 8.0
 Oren Eini <oren@ravendb.net>
-March 2024
+October 2025
 
 [dedication]
 
@@ -46,9 +46,17 @@ include::./Ch02/Ch02.adoc[]
 [[querying-in-ravendb]]
 ## Querying in RavenDB
 
+[[ai-llm]]
+## Large Language Models & AI Integration
+
 [[production-deployments]]
 ## Production Deployments
 
 [[securing-your-ravens]]
 ##  Securing your Ravens
 
+[[inside-voron]]
+## Inside the Voron storage engine
+
+[[inside-corax]]
+## Inside the Corax indexing engine
