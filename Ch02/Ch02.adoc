@@ -1630,14 +1630,17 @@ RavenDB uses the metadata to store several pieces of information about the docum
   automatically assign an entity to a collection based on its type. (You can control exactly how using the conventions.)
 * The last modified date — stored in the `@last-modified` metadata property in UTC format.
 * The client-side type — This is a client-side metadata property. So for .NET, it will be named `Raven-Clr-Type`; for a Java 
-  client, it will be `Raven-Java-Class`; for Python, `Raven-Python-Type` and...you get the point. This is used solely by the
+  client, it will be `Raven-Java-Class`; for Python, `Raven-Python-Type` and... you get the point. This is used solely by the
   clients to deserialize the entity into the right client-side type.
 
 You can use the metadata to store your own values. For example, `Last-Modified-By` is a common metadata property that's
 added when you want to track who changed a document. From the client side, you can access the document metadata using the
-code in Listing 2.20.
+code in <<modifying-metadata>>.
 
-```{caption="Modifying the metadata of a document" .cs}
+[[modifying-metadata]]
+.Modifying the metadata of a document
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var task = session.Load<ToDoTask>("ToDoTasks/1-A");
@@ -1645,19 +1648,19 @@ using (var session = store.OpenSession())
     metadata["Last-Modified-By"] = person.Name;
     session.SaveChanges();
 }
-```
+----
 
 Note that there will be no extra call to the database to fetch the metadata. Whenever you load the 
 document, the metadata is fetched as well. That metadata is embedded inside the document and is an integral part of it.
 
-> **Changing a document collection**
->
-> RavenDB does _not_ support changing collections, and trying to do so will raise an error. You _can_ delete a document and
-> then create a new document with the same ID in a different collection, but that tends to be confusing, so it's best
-> to be avoided if you can.
+.Changing a document collection
+****
+RavenDB does _not_ support changing collections, and trying to do so will raise an error. You _can_ delete a document and
+then create a new document with the same ID in a different collection, but that tends to be confusing, so it's best
+to be avoided if you can.
+****
 
-
-Once you have the metadata, you can modify it as you wish, as seen in Listing 2.20. The session tracks changes to
+Once you have the metadata, you can modify it as you wish, as seen in <<modifying-metadata>>. The session tracks changes to
 both the document and its metadata, and changes to either one of those will cause the document to be updated on the server 
 once `SaveChanges` has been called.
 
@@ -1687,9 +1690,12 @@ with multi-thread solutions is the atomic compare-and-swap operation. From code,
 `Interlocked.CompareExchange` when using C#. Because this operation is so useful, it's supported at the hardware level with
 the `CMPXCHG` assembly instruction. In a similar way, RavenDB offers a distributed compare-exchange feature. 
 
-Let's take a look at Listing 2.21, for a small sample of what this looks like in code.
+Let's take a look at <<using-compare-exchange>>, for a small sample of what this looks like in code.
 
-```{caption="Using compare exchange to validate unique username in a distributed system" .cs}
+[[using-compare-exchange]]
+.Using compare exchange to validate unique username in a distributed system
+[source,csharp]
+----
 var cmd = new PutCompareExchangeValueOperation<string>(
     key: "names/john",
     value: "users/1-A",
@@ -1699,51 +1705,99 @@ if (result.Successful)
 {
     // users/1-A now owns the username 'john'
 }
-```
+----
 
-The code in Listing 2.21 uses `PutCompareExchangeValueOperation` to submit a compare-exchange operation to the cluster
+The code in <<using-compare-exchange>> uses `PutCompareExchangeValueOperation` to submit a compare-exchange operation to the cluster
 at large. This operation compares the existing index for `names/john` with the expected index (in this case, `0`, meaning
 we want to create a new value). 
+
 If successful, the cluster will store the value `users/1-A` for the key `names/john`. However, if there is already a value
 for the key and the index does not match, the operation will fail. You'll get the existing index and the current value
 and can decide how to handle things from that point (show an error to the user, try writing again with the new index, etc.).
 
+[NOTE]
+.Cluster-wide operations & regular transactions
+====
+In <<using-compare-exchange>>, we create a `names/john` compare exhcnage value that is tied to `users/1-A`. What happens if we
+fail immediately after the creation of the compare exchange value, but before we saved the `users/1-A`? We may have inconsistent state.
+RavenDB offers cluster-wide transactions for this scenario, see later in this chapter for more details.
+====
+
 The most important aspect of this feature is the fact that this is a cluster-wide, distributed operation. It is guaranteed
 to behave properly even if you have concurrent requests going to separate nodes. This feature is a low-level one; it is meant
 to be built upon by the user to provide more sophisticated features.
-For example, in Listing 2.21, we ensure a unique username for each user using a method that is resilient to failures, network
+For example, in <<using-compare-exchange>>, we ensure a unique username for each user using a method that is resilient to failures, network
 partitions, etc. 
 
-You can see how this is exposed in the Studio in Figure 2.14.
+You can see how this is exposed in the Studio in <<viewing-compare-exchnage-values>>.
 
-![Viewing the compare exchange values in the Studio](./Ch02/img14.png)
+[[viewing-compare-exchnage-values]]
+.Viewing the compare exchange values in the Studio
+image:./Ch02/img14.png[]
 
-We'll talk more about compare-exchange values in Chapter 6. For now, it's good to remember that they're there and can help
+We'll talk more about compare-exchange values in <<ravendb-clusters>>. For now, it's good to remember that they're there and can help
 you make distributed decisions in a reliable manner. A compare-exchange value isn't limited to just a string. You can also
 use a complex object, a counter, etc. However, remember that these are _not_ documents. You can read the current value of 
-compare-exchange value using the code in Listing 2.22. Aside from checking the current value of the key, you get the 
+compare-exchange value using the code in <<reading-compare-exchange-values>>. Aside from checking the current value of the key, you get the 
 current index, which you can then use in the next call to `PutCompareExchangeValueOperation`. 
 
-```{caption="Reading an existing compare exchange value by name" .cs}
+[[reading-compare-exchange-values]]
+.Reading an existing compare exchange value by name
+[source,csharp]
+----
 var cmd = new GetCompareExchangeValueOperation<string>("names/john");
 var result = await store.Operations.SendAsync(cmd);
-```
+----
 
 Aside from getting the value by key, there is no other way to query for the compare-exchange values. Usually you already know what the compare-exchange
 key will be (as in the case of creating a new username and checking the name isn't already taken). Alternatively, you can store the 
 compare-exchange key in a document that you'll query and then use the key from the document to make the compare-exchange
 operation.
 
-If you know the name of the compare-exchange value, you can use it directly in your queries, as shown in Listing 2.23.
+If you know the name of the compare-exchange value, you can use it directly in your queries, as shown in <<querying-compare-exchange>>.
 
-```{caption="Querying for documents using cmpxchg() values" .sql}
+[[querying-compare-exchange]]
+.Querying for documents using cmpxchg() values
+[source,sql]
+----
 from Users 
 where id() == cmpxchg('names/john')
-```
+----
 
-The query in Listing 2.23 will find a document whose ID is located in the `names/john` compare-exchange value. We'll discuss
-this feature again in Chapter 6. This feature relies on some of the low-level details of RavenDB distributed flow, and it 
+The query in <<querying-compare-exchange>> will find a document whose ID is located in the `names/john` compare-exchange value. We'll discuss
+this feature again in <<ravendb-clusters>>. This feature relies on some of the low-level details of RavenDB distributed flow, and it 
 will make more sense once we have gone over that. 
+
+### Cluster-wide transactions
+
+RavenDB is always transactional. But there are two types of transactions that you can use, single-node transacctions and cluster-wide transactions.
+We'll learn more about them in <<ravendb-clusters>>, but <<using-cluster-wide-tx>> is a simple example of using cluster-wide transactions to do the same work as we
+did in <<using-compare-exchange>>.
+
+[[using-cluster-wide-tx]]
+.Using cluster-wide transaction to ensure a unique username in a distributed environment
+[source,csharp]
+----
+using (var session = store.OpenSession(new SessionOptions {
+           TransactionMode = TransactionMode.ClusterWide
+}))
+{
+    var user = new User("john", "john@example.com");
+    session.Store(user);
+    session.Advanced.ClusterTransaction
+        .CreateCompareExchangeValue("names/john", user.Id);
+    session.SaveChanges();
+}
+----
+
+The main difference we have here is the use of `ClusterWide` as the `TransactionMode` when we open the session. What this code does is store a new `User`
+document in the session (and thus getting its ID). We then create a new compare exchange value off the session's cluster transaction and then we call to
+`SaveChanges`. 
+
+RavenDB ensures that the creation of the `names/john` compare exchange value and the saving of the new `User` document will happen in an atomic fashion.
+Two concurrent operations trying to also create a user named `john` is _guranteed_ to have one of them fail with a `ConcurrencyException` (and reverting
+all operations sent in the `SaveChanges` call) and one will succeed. We'll learn more about cluster-wide and how it works in <<ravendb-clusters>>.
+
 
 ### Testing with RavenDB
 
@@ -1751,14 +1805,18 @@ This chapter is quite long, but I can't complete the basics without discussing t
 it's important to be able to verify that your code works. That has become an accepted reality, and an application 
 using RavenDB is no exception.
 
-In order to aid in testing, RavenDB provides the `Raven.TestDriver` NuGet package. Using the test driver, you can get an 
+In order to aid in testing, RavenDB provides the `Raven.TestDriver` NuGet package. The same capability exists for other platforms
+as well, check the online documentation for the full details.  Using the test driver, you can get an 
 instance of an `IDocumentStore` that talks to an in-memory database. Your tests will be very fast, they won't require you to do complex
 state setup before you start and they will be isolated from one another. 
 
-Listing 2.24 shows the code for a simple test that saves and loads data from RavenDB. 
+<<basic-crud-test>> shows the code for a simple test that saves and loads data from RavenDB. 
 
-```{caption="Basic CRUD test using RavenDB Test Driver" .cs}
-public class BasicCrud : RavenTestDriver<RavenExecLocator>
+[[basic-crud-test]]
+.Basic CRUD test using RavenDB Test Driver
+[source,csharp]
+----
+public class BasicCrud : RavenTestDriver
 {
     public class Play
     {
@@ -1794,41 +1852,31 @@ public class BasicCrud : RavenTestDriver<RavenExecLocator>
         }
     }
 }
-```
+----
 
-There are two interesting things happening in the code in Listing 2.24. The code inherits from the `RavenTestDriver<RavenExecLocator>`
-class, and it uses the `GetDocumentStore` method to get an instance of the document store. Let's break apart what's going on.
+There are two interesting things happening in the code in <<basic-crud-test>>. The code inherits from the 
+`RavenTestDriver` class, and it uses the `GetDocumentStore` method to get an instance of the document store.
+Let's break apart what's going on.
 
-The `RavenTestDriver<T>` class is the base test driver, which is responsible for setting up and tearing down databases. All 
-your RavenDB tests will use this class as a base class.[^12] 
-Most importantly, from your point of view, is that the `RavenTestDriver<T>` class provides the `GetDocumentStore` method, which 
+The `RavenTestDriver` class is the base test driver, which is responsible for setting up and tearing down databases. All 
+your RavenDB tests will use this class as a base class.footnote:[Not strictly necessary, but this is the easiest way to build tests.] 
+Most importantly, from your point of view, is that the `RavenTestDriver` class provides the `GetDocumentStore` method, which 
 generates a new in-memory database and is responsible for tearing it down at the end of the test. Each call to the 
 `GetDocumentStore` method will generate a _new_ database. It will run purely in memory, but other then that, it's fully functional and 
 behaves in the same manner as a typical RavenDB server.
 
-If you've been paying attention, you might have noticed the difference between `RavenTestDriver<RavenExecLocator>` and 
-`RavenTestDriver<T>`. What's that about? The `RavenTestDriver<T>` uses its generic argument to find the `Raven.Server.exe` 
-executable. Listing 2.25 shows the implementation of `RavenExecLocator`. 
-
-```{caption="Letting the RavenTestDriver know where the Raven.Server exec is located"}
-public class RavenExecLocator : RavenTestDriver.Locator
-{
-    public override string ExecutablePath => 
-        @"d:\RavenDB\Raven.Server.exe";
-}
-```
-
-The code in Listing 2.24 is using `xunit` for testing, but there's no dependency on the testing framework from 
+The code in <<basic-crud-test>> is using `xunit` for testing, but there's no dependency on the testing framework from 
 `Raven.TestDriver`. You can use whatever testing framework you prefer. 
 
-> **How does Raven.TestDriver work?**
->
-> In order to provide fast tests and reduce environment noise, the test driver runs a single instance of the RavenDB server
-> using an in-memory-only node binding to `localhost` and a dynamic port. Each call to the `GetDocumentStore` 
-> method will then create a new database on that single-server instance. 
->
-> When the test is closed, we'll delete the database, and when the test suite is over, the server instance will be closed. 
-> This provides you with a test setup that's both very fast and that runs the exact same code as you will run in production.
+.How does Raven.TestDriver work?
+****
+In order to provide fast tests and reduce environment noise, the test driver runs a single instance of the RavenDB server
+using an in-memory-only node binding to `localhost` and a dynamic port. Each call to the `GetDocumentStore` 
+method will then create a new database on that single-server instance. 
+
+When the test is closed, we'll delete the database, and when the test suite is over, the server instance will be closed. 
+This provides you with a test setup that's both very fast and that runs the exact same code as you will run in production.
+****
 
 #### Debugging tests
 
@@ -1839,20 +1887,26 @@ to inspect, validate and modify the content of the in-memory database (while the
 you've looked at the database state, you can resume the test and continue execution.
 
 This makes it much easier to figure out what's going on because you can just _look_. Let's test this out. Add the following 
-line between the two sessions in the code in Listing 2.24 and then run the test:
+line between the two sessions in the code in <<basic-crud-test>> and then run the test:
 
     WaitForUserToContinueTheTest(store);
 
-When the test reaches this line, a magical thing will happen, as shown in Figure 2.15. The Studio will open, and you'll be able to
-see and interact with everything that's going on inside RavenDB. One nice feature I like for complex cases is
-the ability to just export the entire database to a file, which lets me import it into another system later on for further analysis.
+When the test reaches this line, a magical thing will happen, as shown in <<peeking-into-running-test>>. 
+The Studio will open, and you'll be able to see and interact with everything that's going on inside RavenDB.
+One nice feature I like for complex cases is the ability to just export the entire database to a file, which
+lets me import it into another system later on for further analysis.
 
-![Peeking into running test instance mid-test](./Ch02/img15.png)
+[[peeking-into-running-test]]
+.Peeking into running test instance mid-test
+image::./Ch02/img15.png[]
 
 At this time, the rest of the test is suspended, waiting for you to confirm you're done peeking inside. You can do that 
-by clicking the button shown in Figure 2.16, after which your test will resume normally and (hopefully) turn green.
+by clicking the button shown in <<continue-the-test>>, located at the bottom of the screen, after which your test will 
+resume normally and (hopefully) turn green.
 
-![Press this to continue the test](./Ch02/img16.png)
+[[continue-the-test]]
+.Press this to continue the test
+image:./Ch02/img16.png[]
 
 The test driver can do quite a bit more (configure the database to your specifications, create relevant indexes, load initial
 data, etc.). You can read all about its features in the online documentation.
@@ -1860,8 +1914,9 @@ data, etc.). You can read all about its features in the online documentation.
 ### Summary
 
 At this point in the book, we've accomplished quite a lot. We started by setting up a development instance of RavenDB on
-your machine.[^13] And we learned how to set up a new 
-database and played a bit with the provided sample database.
+your machine.footnote:[The steps outlined in this chapter are meant to be quick and hassle-free, rather than an examination of
+proper production deployments. Check Chapter 15 for details on those.]
+And we learned how to set up a new database and played a bit with the provided sample database.
 
 We then moved to the most common tasks you'll do with RavenDB: 
 
@@ -1888,12 +1943,12 @@ and more complex scenarios are possible by accessing the `session.Advanced` func
 From the client API, we moved to discussing how RavenDB deals with the crucial task of properly generating document identifiers. 
 We looked at a few of RavenDB's identifier generation strategies and how they work in a distributed cluster:
 
-* The hilo algorithm: generates the identifier on the client by collaborating with the server to reserve identifier ranges that can be 
-         exclusively generated by a particular client.
+* The `hilo` algorithm: generates the identifier on the client by collaborating with the server to reserve identifier ranges that can be 
+  exclusively generated by a particular client.
 * Server-side: generates the identifier on the server side, optimized for very large tasks. It allows each server to generate
-         human-readable, unique identifiers independently of each other.
+  human-readable, unique identifiers independently of each other.
 * Identity: generates a consecutive numeric value using a consensus of the entire cluster. Typically the slowest method to use
-         and only useful if you _really_ need to generate consecutive IDs for some reason.
+  and only useful if you _really_ need to generate consecutive IDs for some reason.
 
 You can also generate the document ID yourself, which we typically call a semantic ID. Semantic IDs are identifiers that have meaning: 
 maybe it's an external ID brought over from another system, or maybe it's a naming convention that implies the content of the 
@@ -1910,12 +1965,4 @@ test midway through and inspect the running RavenDB instance using the Studio.
 In this chapter, we started building the foundation of your RavenDB knowledge. In the next one, we'll build even further on that 
 foundation. We'll discuss modeling data and documents inside RavenDB and how to best structure your system to take advantage of what
 RavenDB has to offer.
-
-
-
-[^12]: Not strictly necessary, but this is the easiest way to build tests.
-[^13]: The steps outlined in this chapter are meant to be quick and hassle-free, rather than an examination of
-proper production deployments. Check Chapter 15 for details on those.
-
-
 
