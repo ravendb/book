@@ -160,14 +160,14 @@ What we have right now is a RavenDB node that is a self-contained cluster.footno
 but the details on the state of a newly minted node are a bit complex and covered in more detail in <<ravendb-clusters>>.] 
 Now that we have a running node, the next step is to create a new database on this node. 
 
-You can do that by clicking `Databases` button on the left and then `New Database` button, naming the new database `Northwind` and accepting all 
-the defaults in the dialog. We'll discuss what all of those mean later in this book. You can see the create database dialog in <<create-db-dialog>>.
+You can do that by clicking `Databases` button on the left and then `New Database` button, naming the new database `Northwind` and 
+selecting `Quick Create` to accept all the defaults. We'll discuss what all of those mean later in this book. You can see the create database dialog in <<create-db-dialog>>.
 
 [[create-db-dialog]]
 .Create database dialog
 image::./Ch02/img02.png[]
 
-Click the `Create` button, and that's pretty much it. Your new database is ready. 
+Click the `Quick Create` button, and that's pretty much it. Your new database is ready. 
 Click on the `Databases` button on the left to see what this looks, as shown in <<new-empty-db>>.
 
 [[new-empty-db]]
@@ -250,11 +250,6 @@ image::./Ch02/img06.png[]
 This will open the editor with an empty, new document that's based on one of the existing categories. Note
 that the document ID is set to `Categories/`. Fill in some values for the properties in the new document and
 save it. RavenDB will assign the document ID automatically for you.
-
-One thing that may not be obvious is that while the Studio generates an empty document based on the existing ones,
-there is no such thing as schema in RavenDB, and you are free to add or remove properties and values and modify the
-structure of the document however you like. This feature makes evolving your data model and handling more 
-complex data much easier.
 
 One thing that may not be obvious is that while the Studio generates an empty document based on existing ones, you're free 
 to add or remove properties and values and modify the document's structure however you like. RavenDB is typically run in schema-less
@@ -364,13 +359,11 @@ configuring it as shown in <<setting-up-document-store>>.
 .Creating a document store pointed to a local instance
 [source,csharp]
 ----
-var store = new DocumentStore
+using var store = new DocumentStore
 {
-    Urls = new[] { "http://127.0.0.1:8080" },
+    Urls = ["http://127.0.0.1:8080"],
     Database = "Tasks"
-};
-
-store.Initialize();
+}.Initialize();
 ----
 
 This code sets up a new `DocumentStore` instance and lets it know about a single node — the one running on the local
@@ -629,11 +622,11 @@ public class DocumentStoreHolder
         var documentStore = new DocumentStore
         {
             Urls = // urls of the nodes in the RavenDB Cluster
-            {
+            [
                 "https://ravendb-01:8080",
                 "https://ravendb-02:8080",
                 "https://ravendb-03:8080",
-            },
+            ],
             Certificate = new X509Certificate2("tasks.pfx"),
             Database = "Tasks",
         };
@@ -673,10 +666,11 @@ by default, the client API will use a property named `Id` (case sensitive) to st
 who want to use the entity name as part of the property name. So they'll have OrderId for orders, ProductId for products, etc.
 footnote:[I'll leave aside Id vs. ID, since it's handled in the same manner.]
 
-<<type-name-plus-id>> how we tell the client API to apply the `TypeName + Id` policy.
+The code in <<type-name-plus-id>> is how you can tell the client API to apply the `TypeName + Id` policy to find the ID property
+for your entities.
 
 [[type-name-plus-id]]
-.Setting the document ID convention to 'TypeName + Id'
+.Customizing how the RavenDB client selects which property is used as the ID
 [source,csharp]
 ----
 documentStore.Conventions.FindIdentityProperty = 
@@ -806,9 +800,8 @@ Dictionary<string, ToDoTask> tasks = session.Load<ToDoTask>(
 This will result in a dictionary with all three documents in it, retrieved in a single remote call from the server. If a 
 document we tried to load wasn't found on the server, the dictionary will contain null for that document ID.
 
-[TIP]
 .Budgeting remote calls
-====
+****
 Probably the easiest way to kill your application performance is to make a lot of remote calls. And a likely culprit is
 the database. It's common to see a web application making dozens of calls to the database to service a single request, usually
 for no good reason.
@@ -827,7 +820,7 @@ remote calls you're making.
 The limited number of calls allowed per session also means that RavenDB has a lot of options to _reduce_ the number of
 calls. When you call `SaveChanges()`, you don't need to make a separate call per changed entity; you can go to the database
 once. In the same manner, we also allow you to batch _read_ calls. We'll discuss the `Lazy` feature in more depth in <<ravnedb-client-api>>.
-====
+****
 
 The client API is pretty smart about it. If you try to load a document that was already loaded (directly or via `Include`), the 
 session can serve it directly from the session cache. And if the document doesn't exist, the session will also remember that it 
@@ -897,11 +890,14 @@ using (var session = store.OpenSession())
     {
         Name = "Oscar Arava"
     };
-    session.Store(person);
-    Console.WriteLine(person.Id);
-    session.SaveChanges();
+    session.Store(person);          <1>
+    Console.WriteLine(person.Id);   <2>
+    session.SaveChanges();          <3>
 }
 ----
+<1> Storing the `Person` entity in the session (and generating an ID for it)
+<2> Printing the (newly generated) ID of the `Person` entity - _before_ we save that to the database
+<3> Actually going to the database server and saving the new entity
 
 RavenDB is transactional, and we only send the request to the server on `SaveChanges`. So how could we print
 the `person.Id` property before we called `SaveChanges`? Later in this chapter, we'll cover document identifiers and how they're 
@@ -958,13 +954,14 @@ using (var session = store.OpenSession())
         $"{task.Id} - {task.Task} by {assignedTo.Name}");
 
     // will print 2
-    Console.WriteLine(session.Advanced.NumberOfRequests); 
+    Console.WriteLine(session.Advanced.NumberOfRequests); <1>
 }
 ----
+<1> The code prints how many requests we made to the server (one to load the task, and one to load the assigned person)
 
 This code works, but it's inefficient. We're making _two_ calls to the server here, one to fetch the task and another to
-fetch the assigned user. The last line of <<loading-two-documents>> prints how many requests we made to the server. 
-This is part of the budgeting and awareness program RavenDB has, aimed at reducing the number of remote calls and speeding up your applications.
+fetch the assigned user. This is part of the budgeting and awareness program RavenDB has, aimed at reducing the number 
+of remote calls and speeding up your applications.
 
 .Error handling
 ****
@@ -989,18 +986,21 @@ using (var session = store.OpenSession())
     string taskId = Console.ReadLine();
 
     ToDoTask task = session
-              .Include<ToDoTask>(x => x.AssignedTo)
+              .Include<ToDoTask>(x => x.AssignedTo)             <1>
               .Load(taskId);
     
-    Person assignedTo = session.Load<Person>(task.AssignedTo);
+    Person assignedTo = session.Load<Person>(task.AssignedTo);  <2>
 
     Console.WriteLine(
       $"{task.Id} - {task.Task} by {assignedTo.Name}");
 
     // will print 1
-    Console.WriteLine(session.Advanced.NumberOfRequests);
+    Console.WriteLine(session.Advanced.NumberOfRequests);       <3>
 }
 ----
+<1> Including the document referred to by the `AssignedTo` property
+<2> Loading the related document (no remote call required)
+<3> Printing the number of remote calls (only one, since we included the referenced value)
 
 The only difference between the two code listings is that in <<loading-two-documents-with-include>> we're calling to `Include` 
 before the `Load`. The `Include` method gives instructions to RavenDB: when it loads the document, it should look at the 
@@ -1313,7 +1313,7 @@ see in <<document-with-emoji>>. Amusingly enough, trying to include a raw emoji 
 
 [[document-with-emoji]]
 .Unicode gave us Emojis, and the birdie document
-image::./Ch02/img12.png[]
+image::./Ch02/img13.png[]
 
 While going full-on emoji for document identifiers might be going too far footnote:[Although, when you think about it, there's a huge
 untapped market of teenage developers...], using Unicode for document IDs means that you don't have to worry if you need
@@ -1480,8 +1480,8 @@ ends with the slash (`/`). Go into the RavenDB Studio and create a new document.
 and then click on the `Save` button. The generated document ID should look something like <<server-side-gen-id>>. 
  
 [[server-side-gen-id]]
-.Server side generated document ID (tryouts/0000000000000000021-A)
-images::./Ch02/img13.png[]
+.Server side generated document ID (tryouts/0000000000000000012-A)
+image::./Ch02/img14.png[]
 
 When you save a document whose ID ends with a slash, RavenDB will generate the ID for you by appending a numeric value
 (the only guarantee you have about this value is that it's always increasing) and the node ID.
@@ -1733,7 +1733,7 @@ You can see how this is exposed in the Studio in <<viewing-compare-exchnage-valu
 
 [[viewing-compare-exchnage-values]]
 .Viewing the compare exchange values in the Studio
-image:./Ch02/img14.png[]
+image::./Ch02/img15.PNG[]
 
 We'll talk more about compare-exchange values in <<ravendb-clusters>>. For now, it's good to remember that they're there and can help
 you make distributed decisions in a reliable manner. A compare-exchange value isn't limited to just a string. You can also
@@ -1779,16 +1779,20 @@ did in <<using-compare-exchange>>.
 [source,csharp]
 ----
 using (var session = store.OpenSession(new SessionOptions {
-           TransactionMode = TransactionMode.ClusterWide
+           TransactionMode = TransactionMode.ClusterWide        <1>
 }))
 {
     var user = new User("john", "john@example.com");
-    session.Store(user);
+    session.Store(user);                                        <2>
     session.Advanced.ClusterTransaction
-        .CreateCompareExchangeValue("names/john", user.Id);
-    session.SaveChanges();
+        .CreateCompareExchangeValue("names/john", user.Id);     <3>
+    session.SaveChanges();                                      <4>
 }
 ----
+<1> Open the session with cluster-wide transaction mode.
+<2> Store an entity as we normally would (to go through the cluster).
+<3> Create a new compare exchange value (and ensure it _is_ new) in the same transaction as storing the `user`.
+<4> Save both the compare exchange and the document store to the database in a cluster-wide transaction.
 
 The main difference we have here is the use of `ClusterWide` as the `TransactionMode` when we open the session. What this code does is store a new `User`
 document in the session (and thus getting its ID). We then create a new compare exchange value off the session's cluster transaction and then we call to
@@ -1816,7 +1820,7 @@ state setup before you start and they will be isolated from one another.
 .Basic CRUD test using RavenDB Test Driver
 [source,csharp]
 ----
-public class BasicCrud : RavenTestDriver
+public class BasicCrud : RavenTestDriver            <1>
 {
     public class Play
     {
@@ -1828,7 +1832,7 @@ public class BasicCrud : RavenTestDriver
     [Fact]
     public void CanSaveAndLoad()
     {
-        using (var store = GetDocumentStore())
+        using (var store = GetDocumentStore())      <2>
         {
             string id;
             using (var session = store.OpenSession())
@@ -1853,6 +1857,8 @@ public class BasicCrud : RavenTestDriver
     }
 }
 ----
+<1> Inherits from the `RavenTestDriver` to enable using RavenDB directly in your tests.
+<2> Use `GetDocumentStore` to get a live document store instance managed by the testing infrastructure.
 
 There are two interesting things happening in the code in <<basic-crud-test>>. The code inherits from the 
 `RavenTestDriver` class, and it uses the `GetDocumentStore` method to get an instance of the document store.
@@ -1898,7 +1904,7 @@ lets me import it into another system later on for further analysis.
 
 [[peeking-into-running-test]]
 .Peeking into running test instance mid-test
-image::./Ch02/img15.png[]
+image::./Ch02/img16.png[]
 
 At this time, the rest of the test is suspended, waiting for you to confirm you're done peeking inside. You can do that 
 by clicking the button shown in <<continue-the-test>>, located at the bottom of the screen, after which your test will 
@@ -1906,7 +1912,7 @@ resume normally and (hopefully) turn green.
 
 [[continue-the-test]]
 .Press this to continue the test
-image:./Ch02/img16.png[]
+image:./Ch02/img17.png[]
 
 The test driver can do quite a bit more (configure the database to your specifications, create relevant indexes, load initial
 data, etc.). You can read all about its features in the online documentation.

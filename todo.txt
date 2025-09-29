@@ -10,11 +10,7 @@ Topics to cover:
 * Sharding
 * Cloud
 
-Chapter 2
- - images & todos/1 vs ToDos/1-A
- - | id generation
-
-
 Cluster-wide transactions
+
 
 Part I - @refresh, @expires
