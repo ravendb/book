@@ -3,6 +3,7 @@
 :sectnums:
 :partnums:
 :toc:
+:pdf-footnotes:
 :icons: font
 :source-highlighter: coderay
 :source-language: csharp

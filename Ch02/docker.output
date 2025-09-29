@@ -8,7 +8,6 @@
 
       Safe by default, optimized for efficiency
 
- Build 60012, Version 6.0, SemVer 6.0.100, Commit 97037d4
  PID 9, 64 bits, 12 Cores, Phys Mem 15.558 GBytes, Arch: X64
  Source Code (git repo): https://github.com/ravendb/ravendb
  Built with love by Hibernating Rhinos and awesome contributors!

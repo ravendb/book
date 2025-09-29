@@ -1,5 +1,6 @@
 Topics to cover:
 
+* Schema validation
 * Time Series, Incrmental, Counters
 * Documents Compression
 * Expiration & Archive
@@ -8,3 +9,12 @@ Topics to cover:
 * Hub & Filtered replication
 * Sharding
 * Cloud
+
+Chapter 2
+ - images & todos/1 vs ToDos/1-A
+ - | id generation
+
+
+Cluster-wide transactions
+
+Part I - @refresh, @expires

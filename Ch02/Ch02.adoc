@@ -11,13 +11,13 @@ much easier to understand.
 For this section, I'm assuming that you're a developer trying to get a RavenDB instance so you can explore it. I'm
 going to ignore everything related to actual production deployments in favor of getting you set up in as few steps 
 as possible. A full discussion on how to deploy, secure and run RavenDB in production is available in 
-the <<production-deployments>> chapter.
+<<production-deployments>>.
 
 [NOTE]
 ====
 You can run RavenDB in the cloud as well, visit https://cloud.ravendb.net to get started.
 For now, we're going to focus on getting RavenDB running on your local machine and everything that entails.
-I'll cover cloud deployments in the <<cloud-n-edge>>.
+I'll cover cloud deployments in <<cloud-n-edge>>.
 ====
 
 I'm going to go over a few quick install scenarios, and you can select whichever one makes the most sense for your
@@ -40,8 +40,8 @@ docker run                              \
 ----
 <1> Disable setup wizard, run with default values
 <2> Accept the EULA for RavenDB
-<3> Forward port 8080 from the container to the host machine
-<4> The docker image to run
+<3> Forward port 8080 from the container to port 8080 in the host machine
+<4> The docker image to run: `ravendb/ravendb`
 
 Docker will now get the latest RavenDB version and spin up a new container to host it. Note that we are setting
 RavenDB up to skip the setup process, this is fine for now, since we want to get started as soon as possible. 
@@ -95,7 +95,7 @@ port `8081` is also taken on your machine, of course.
 
 To set up RavenDB on Linux, you'll need to go to https://ravendb.net/download, 
 select the appropriate platform (Linux x64, most likely) and download the `tar.bz2` file containing the binaries.
-You can use `tar -xf RavenDB-6.0.100-linux-x64.tar.bz2` to decompress the archive. 
+You can use `tar -xf RavenDB-8.0-linux-x64.tar.bz2` to decompress the archive. 
 
 Go to the `RavenDB` folder and then run `run.sh` script. This will run RavenDB in interactive mode, walking you 
 through the setup wizard. 
@@ -142,7 +142,7 @@ since we have a full chapter to discuss that in <<cloud-n-edge>>. It's worth men
 their databases fully on the cloud, and RavenDB has great support for it. 
 
 For the rest of this chapter, we'll assume that you are running on a local instance or the public `live-test` one. If you are
-using a cloud instance, be sure to note the differences (running with security, mostly). You can skip ahead to <<cloud-n-edge>> to
+using a cloud instance, be sure to note the differences (running with secured setup, mostly). You can skip ahead to <<cloud-n-edge>> to
 learn how to setup a cloud instance properly and then continue forward from here.
 
 ### Your first database
@@ -156,7 +156,7 @@ an empty RavenDB instance. You can see how it looks in <<empty-ravendb-node>>.
 .An empty RavenDB node
 image::./Ch02/img01.png[]
 
-What we have right now is a RavenDB node that is a self-contained cluster.footnode:[Actually, that's not exactly the case, 
+What we have right now is a RavenDB node that is a self-contained cluster.footnote:[Actually, that's not exactly the case, 
 but the details on the state of a newly minted node are a bit complex and covered in more detail in <<ravendb-clusters>>.] 
 Now that we have a running node, the next step is to create a new database on this node. 
 
@@ -200,7 +200,7 @@ will share the same structure or have any sort of schema.
 
 Collections are very important to the way data is organized and optimized internally within RavenDB. 
 We'll frequently use collections to group similar documents together and apply an operation to them (subscribing 
-to changes, indexing, querying, ETL, etc.).
+to changes, indexing, querying, ETL, applying AI operations, etc.).
 
 #### Our first real document
 
@@ -256,6 +256,12 @@ there is no such thing as schema in RavenDB, and you are free to add or remove p
 structure of the document however you like. This feature makes evolving your data model and handling more 
 complex data much easier.
 
+One thing that may not be obvious is that while the Studio generates an empty document based on existing ones, you're free 
+to add or remove properties and values and modify the document's structure however you like. RavenDB is typically run in schema-less
+mode, although it offers schema validation for enforcing data consistency. This flexibility in document structure makes it much easier to
+evolve your data model and handle more complex data.
+
+
 #### Patching documents
 
 The first thing we'll learn is how to do bulk operations inside the Studio. Go to 
@@ -300,8 +306,7 @@ query.
 
 It's important to mention that for performance reasons, such bulk operations can be composed of multiple, 
 independent and concurrent transactions instead of spanning a single large transaction. Each such independent 
-transaction processes some portion of the data with full ACID properties (while the patch operation 
-as a whole does not).
+transaction processes a set of documents with full ACID properties (while the patch operation as a whole does not).
 
 #### Deleting documents
 
@@ -452,9 +457,15 @@ it was also tracked by the session, and any changes made to it would be sent bac
 was called. Conversely, if the `Completed` property was already set to `true`, the RavenDB client would detect that
 and do nothing since the state of the server and the client match.
 
-The document session implements the `Unit of Work` footnote:[Unit of Work pattern: Maintains a list of objects affected by a business transaction and 
-coordinates the writing out of changes and the resolution of concurrency problems. See https://martinfowler.com/eaaCatalog/unitOfWork.html] and 
-`Identity Map` footnote:[Identity Map pattenr: Ensures that each object gets loaded only once by keeping every loaded object in a map. Looks up objects using the map when referring to them.
+[NOTE]
+.Asynchronous vs synchronous APIs
+====
+The RavenDB Client is natively asynchronous (it is using async to implement the synchronous API). In C#, you can choose which
+API to use by calling `OpenSession()` or `OpenAsyncSession()`. The async session has methods such as `LoadAsync`, `StoreAsync`,
+`SaveChangesAsync`, etc. We'll cover the async API later in this chapter.
+====
+
+The document session implements the `Unit of Work` footnote:[Unit of Work pattern: Maintains a list of objects affected by a business transaction and  coordinates the writing out of changes and the resolution of concurrency problems. See https://martinfowler.com/eaaCatalog/unitOfWork.html] and `Identity Map` footnote:[Identity Map pattenr: Ensures that each object gets loaded only once by keeping every loaded object in a map. Looks up objects using the map when referring to them.
 See https://martinfowler.com/eaaCatalog/identityMap.html] design patterns. This makes it much easier to 
 work with complex behaviors since you don't need to manually track changes to your objects and decide what needs 
 to be saved and what doesn't. It also means that the only time the RavenDB client will send updates to the 
@@ -863,6 +874,16 @@ In the case of the `ToDoTask`, I can look at my tasks, create new tasks or mark 
 `Person` document. This is quite a shift from working with relational databases, where traversing between rows and tables is 
 very common and frequently required. 
 
+
+[NOTE]
+.Modeling data in the age of Large Languages Models
+====
+The reason we model documents to be  independent, isolated, and coherent is that a single document holds all
+the information it needs to be understood. It turns out that this approach is incredibly beneficial for AI models. 
+Because the documents are self-contained, an AI can process them as they are, without needing to pull data from other 
+sources to make sense of them. This simplifies the data for the model and makes it easier for the AI to work with.
+====
+
 Let's see how we can create a new task and assign it to a person. <<creating-new-person>> shows an interesting feature of 
 RavenDB. Take a look and see if you can find the oddity.
 
@@ -885,10 +906,13 @@ using (var session = store.OpenSession())
 RavenDB is transactional, and we only send the request to the server on `SaveChanges`. So how could we print
 the `person.Id` property before we called `SaveChanges`? Later in this chapter, we'll cover document identifiers and how they're 
 generated, but the basic idea is that the moment we returned from `Store`, the RavenDB client 
-ensured that we had a valid ID to use with this document. As you can see with Listing 2.14, this can be quite
+ensured that we had a valid ID to use with this document. As you can see with <<create-person-and-task>>, this can be quite
 important when you're creating two documents at the same time, with references between them.
 
-```{caption="Creating a new person and assigning him a task at the same time" .cs}
+[[create-person-and-task]]
+.Creating a new person and assigning him a task at the same time
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var person = new Person
@@ -907,8 +931,7 @@ using (var session = store.OpenSession())
     session.Store(task);
     session.SaveChanges();
 }
-
-```
+----
 
 Now that we know how to write multiple documents and create associations between documents, let's see how we read them back.
 There's a catch, though. We want to do it efficiently.
@@ -918,9 +941,12 @@ There's a catch, though. We want to do it efficiently.
 RavenDB doesn't actually _have_ references in the usual sense. There's no such thing as foreign keys, like you might be used to. 
 A reference to another document is just a string property that happens to contains the ID of another document. What does this
 mean for working with the data? Let's say that we want to print the details of a particular task, including the name of the 
-person assigned to it. Listing 2.15 shows the obvious way to do this.
+person assigned to it. <<loading-two-documents>> shows the obvious way to do this.
 
-```{caption="Displaying the details of a task (and its assigned person)" .cs}
+[[loading-two-documents]]
+.Displaying the details of a task (and its assigned person)
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     string taskId = Console.ReadLine();
@@ -934,27 +960,30 @@ using (var session = store.OpenSession())
     // will print 2
     Console.WriteLine(session.Advanced.NumberOfRequests); 
 }
-
-```
+----
 
 This code works, but it's inefficient. We're making _two_ calls to the server here, one to fetch the task and another to
-fetch the assigned user. The last line of Listing 2.15 prints how many requests we made to the server. This is part of the 
-budgeting and awareness program RavenDB has, aimed at reducing the number of remote calls and speeding up your applications.
+fetch the assigned user. The last line of <<loading-two-documents>> prints how many requests we made to the server. 
+This is part of the budgeting and awareness program RavenDB has, aimed at reducing the number of remote calls and speeding up your applications.
 
-> **Error handling** 
-> 
-> Listing 2.15 really bugged me when I wrote it, mostly because there's a lot of error handling that isn't being done: 
-> the task ID being empty, the task document not existing, the task not being assigned to anyone...you get the drift. I just
-> wanted to mention that most code samples in this book will contain as little error handling as possible so as not to distract
-> from the code that actually _does_ things.
+.Error handling
+****
+<<loading-two-documents>> really bugged me when I wrote it, mostly because there's a lot of error handling that isn't being done: 
+the task ID being empty, the task document not existing, the task not being assigned to anyone...you get the drift. I just
+wanted to mention that most code samples in this book will contain as little error handling as possible so as not to distract
+from the code that actually _does_ things.
+****
 
 Having to go to the database twice is a pity because the server already knows the value of the `AssignedTo` property, 
 and it could send the document that matches the value of that property at the same time it's sending us the task. RavenDB's 
 `Includes` functionality, which handles this in one step, is a favorite feature of mine because I still remember how excited
-I was when we finally figured out how to do this in a clean fashion. Look at Listing 2.16 to see how it works, and compare it 
-to Listing 2.15.
+I was when we finally figured out how to do this in a clean fashion. Look at <<loading-two-documents-with-include>> to see how it
+works, and compare it to <<loading-two-documents>>.
 
-```{caption="Task and assigned person - single roundtrip" .cs}
+[[loading-two-documents-with-include]]
+.Task and assigned person - single roundtrip
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     string taskId = Console.ReadLine();
@@ -971,12 +1000,12 @@ using (var session = store.OpenSession())
     // will print 1
     Console.WriteLine(session.Advanced.NumberOfRequests);
 }
+----
 
-```
-
-The only difference between the two code listings is that in Listing 2.16 we're calling to `Include` before the `Load`. The 
-`Include` method gives instructions to RavenDB: when it loads the document, it should look at the `AssignedTo` property. If there's a
-document with the document ID that's stored in the `AssignedTo` property, it should send it to the client immediately.
+The only difference between the two code listings is that in <<loading-two-documents-with-include>> we're calling to `Include` 
+before the `Load`. The `Include` method gives instructions to RavenDB: when it loads the document, it should look at the 
+`AssignedTo` property. If there's a document with the document ID that's stored in the `AssignedTo` property, it should send 
+it to the client immediately.
 
 However, we didn't change the type of the `task` variable. It remains a `ToDoTask`. So what exactly did this `Include` method 
 do here? What happened is that the session got a reply from the server, saw that there are included documents, and put them
@@ -988,22 +1017,23 @@ the number of remote calls we make. You can `Include` multiple properties to loa
 collection of them) efficiently. This is similar to a `JOIN` in a relational database, but it's much more efficient since you don't
 have to deal with Cartesian products and it doesn't modify the shape of the results. 
 
-> **Includes aren't joins**
-> 
-> It's tempting to think about includes in RavenDB as similar to a join in a relational database. And there are similarities, 
-> but there are also fundamental differences.
-> A join will modify the shape of the output. It combines each matching row from one side with each matching row on the other, 
-> sometimes creating Cartesian products that can cause panic attacks for your DBAs.
-> 
-> And the more complex your model, the more joins you'll have, the wider your result sets become and the slower your application
-> will become. In RavenDB, there's very little cost to adding includes. That's because they operate on a different channel
-> than the results of the operation and don't change the shape of the returned data.
-> 
-> Includes are also important in queries. There, they operate _after_ paging has applied, instead of before, like
-> joins. 
-> 
-> The end result is that includes don't modify the shape of the output, don't have a high cost when you use more than one of them
-> and don't suffer from problems like Cartesian products.
+.Includes aren't joins
+****
+It's tempting to think about includes in RavenDB as similar to a join in a relational database. And there are similarities, 
+but there are also fundamental differences.
+A join will modify the shape of the output. It combines each matching row from one side with each matching row on the other, 
+sometimes creating Cartesian products that can cause panic attacks for your DBAs.
+
+And the more complex your model, the more joins you'll have, the wider your result sets become and the slower your application
+will become. In RavenDB, there's very little cost to adding includes. That's because they operate on a different channel
+than the results of the operation and don't change the shape of the returned data.
+
+Includes are also important in queries. There, they operate _after_ paging has applied, instead of before, like
+joins. 
+
+The end result is that includes don't modify the shape of the output, don't have a high cost when you use more than one of them
+and don't suffer from problems like Cartesian products.
+****
 
 `Include` cannot, however, be used to include documents that are referenced by included documents. In other words, `Include` is
 not recursive. This is quite intentional because allowing includes on included documents will lead to complex requests, 
@@ -1022,11 +1052,12 @@ What about when both of them are pointing at the same document? RavenDB will ret
 it was included multiple times. On the session side of things, you'll get the same instance of the entity when you load it
 multiple times. 
 
-> **Beware of relational modeling inside of RavenDB**
-> 
-> As powerful as the `Include` feature is, one of _the_ most common issues we run into with RavenDB is people using 
-> it with a relational mindset — trying to use RavenDB as if it was a relational database and modeling their entities
-> accordingly. `Include` can help push you that way because it lets you get associated documents easily. 
+.Beware of relational modeling inside of RavenDB
+****
+As powerful as the `Include` feature is, one of _the_ most common issues we run into with RavenDB is people using 
+it with a relational mindset — trying to use RavenDB as if it was a relational database and modeling their entities
+accordingly. `Include` can help push you that way because it lets you get associated documents easily. 
+****
 
 We'll talk about modeling in a lot more depth in the next chapter, when you've learned enough 
 about the kind of environment that RavenDB offers to make sense of the choices we'll make.
@@ -1038,6 +1069,8 @@ document ID. The following are various ways to delete a document:
 
     var task = session.Load<ToDoTask>("ToDoTasks/1-A");
     session.Delete(task); // delete by instance
+
+And:
 
     session.Delete("ToDoTasks/1-A"); // delete by ID
 
@@ -1054,7 +1087,8 @@ query to find documents that match a particular predicate, using LINQ.
 Like documents loaded via the `Load` call, documents that were loaded via a `Query` are managed by the session. Modifying
 them and calling `SaveChanges` will result in their update on the server. A document that was returned via a query and was
 loaded into the session explicitly via `Load` will still have only a single instance in the session and will retain all the
-changes that were made to it.[^4]
+changes that were made to it.footnote:[You can call `session.Advanced.Refresh` if you want to force 
+the session to update the state of the document from the server.]
 
 Queries in RavenDB don't behave like queries in a relational database. RavenDB doesn't allow computation during queries, and
 it doesn't have problems with table scans or slow queries. We'll touch on exactly why and cover details about indexing in
@@ -1102,7 +1136,6 @@ The typical way one would work with the session is:
     using (var session = documentStore.OpenSession())
     {
         // do some work with the session
-
         session.SaveChanges();
     }
 
@@ -1138,29 +1171,32 @@ I'm not going to go over the `Advanced` options here. There are quite a few, and
 It's worth taking the time to read about, even if you'll rarely need the extra options.
 
 
-> **Hiding the session: avoid the `IRepository` mess**
->
-> A common problem we see with people using the client API is that they frequently start by defining their own 
-> data access layer, usually named `IRepository` or something similar.
->
-> This is generally a bad idea. We've only started to scratch the surface of the client API, and you can already see 
-> there are plenty of valuable features (`Includes`, optimistic concurrency, change tracking). Hiding behind a 
-> generic interface typically results in one of two situations:
->
-> * Because a generic interface doesn't expose the relevant (and useful) features of RavenDB, you're stuck with using the lowest
->   common denominator. That means you give up a lot of power and flexibility, and in 99% of cases, the interface won't
->   allow you to switch between data store implementations.[^5]
-> 
-> * The second situation is that, because of issues mentioned in the previous point, you expose the RavenDB features behind the  
->   `IRepository`. In this case, you're already tied to the RavenDB client, but you added another layer that doesn't do much but 
->   increase code complexity. This can make it hard to understand what's actually going on.
->
-> The client API is meant to be easy to use and high level enough that you'll not need to wrap it for convenience’s sake.
-> In all likelihood, if you do wrap it, you'll just wind up forwarding calls back and forth.
->
-> One thing that's absolutely wrong to do, however, is to have methods like `T IRepository.Get<T>(string id)` that will 
-> create and dispose of a session within the scope of the `Get` method call. That cancels out a _lot_ of optimizations, 
-> behaviors and functionality,[^6] and it would be a real shame for you to lose these features of RavenDB.
+.Hiding the session: avoid the `IRepository` mess
+****
+A common problem we see with people using the client API is that they frequently start by defining their own 
+data access layer, usually named `IRepository` or something similar.
+
+This is generally a bad idea. We've only started to scratch the surface of the client API, and you can already see 
+there are plenty of valuable features (`Includes`, optimistic concurrency, change tracking). Hiding behind a 
+generic interface typically results in one of two situations:
+
+* Because a generic interface doesn't expose the relevant (and useful) features of RavenDB, you're stuck with using the lowest
+  common denominator. That means you give up a lot of power and flexibility, and in 99% of cases, the interface won't
+  allow you to switch between data store implementations.footnote:[The 1% case where it will help is the realm of demo apps with 
+  little to no functionality.]
+ 
+* The second situation is that, because of issues mentioned in the previous point, you expose the RavenDB features behind the  
+  `IRepository`. In this case, you're already tied to the RavenDB client, but you added another layer that doesn't do much but 
+  increase code complexity. This can make it hard to understand what's actually going on.
+
+The client API is meant to be easy to use and high level enough that you'll not need to wrap it for convenience’s sake.
+In all likelihood, if you do wrap it, you'll just wind up forwarding calls back and forth.
+
+One thing that's absolutely wrong to do, however, is to have methods like `T IRepository.Get<T>(string id)` that will 
+create and dispose of a session within the scope of the `Get` method call. That cancels out a _lot_ of optimizations, 
+behaviors and functionality,footnote:[`Unit of Work` won't work. Neither will change tracking, optimistic concurrency you'll have
+to deal with manually, etc.] and it would be a real shame for you to lose these features of RavenDB.
+****
 
 #### The Async Session
 
@@ -1169,7 +1205,10 @@ applications. That's why RavenDB has full support for it. In fact, that's the re
 built on top of the async version. The async API is exposed via the async session. In all respects, it's identical to the 
 sync version. 
 
-```{caption="Working with the async session" .cs }
+[[working-with-async-session]]
+.Working with the async session
+[source,csharp]
+----
 using (var session = documentStore.OpenAsyncSession())
 {
     var person = new Person
@@ -1198,10 +1237,10 @@ using (var session = documentStore.OpenAsyncSession())
     }
 
 }
-```
+----
 
-Listing 2.17 shows a few examples of working with the async session. For the rest of the book, we'll use both the async and synchronous 
-sessions to showcase features and behavior of RavenDB. 
+<<working-with-async-session>> shows a few examples of working with the async session. For the rest of the book, we'll use both 
+the async and synchronous sessions to showcase features and behavior of RavenDB. 
 
 RavenDB splits the sync and async API because their use cases are quite different, and having separate APIs prevents you from 
 doing some operations synchronously and some operations asynchronously. Because of that, you can't mix and use the 
@@ -1219,11 +1258,12 @@ We covered the basics of working with the client API in this section, but that w
 with, are the document store and the document session. They, in turn, are built on top of the notion of `Operations` 
 and `Commands`. An `Operation` is a high level concept, such as loading a document from the server.
 
-> **Deep dive note**
-> 
-> I'm going to take a small detour to explain how the client API is structured internally. This shouldn't have an
-> impact on how you're _using_ the client API, but it might help you better understand how the client is put together. 
-> Feel free to skip this section for now and come back to it at a later date.
+.Deep dive note
+****
+I'm going to take a small detour to explain how the client API is structured internally. This shouldn't have an
+impact on how you're _using_ the client API, but it might help you better understand how the client is put together. 
+Feel free to skip this section for now and come back to it at a later date.
+****
 
 The `LoadOperation` is the canonical example of this. A session `Load` or `LoadAsync` will translate into a call to the 
 `LoadOperation`, which will run all the associated logic (`Identity Map`, `Include` tracking, etc.) up to the point where it
@@ -1232,14 +1272,17 @@ will make a call to the server. That portion is handled by the `GetDocumentComma
 
 The same `GetDocumentCommand` is also used by the `session.Advanced.Refresh` method to get an updated version of the document
 from the server. You won't typically be using any of that directly, going instead through the session. Occasions to use an `Operation` 
-directly usually arise when you're writing some sort of management code, such as Listing 2.18, which creates a new database
-on the cluster.
+directly usually arise when you're writing some sort of management code, such as <<creating-database-using-operations>>, 
+which creates a new database on the cluster.
 
-```{caption="Creating a database named 'Orders' using Operation" .cs}
+[[creating-database-using-operations]]
+.Creating a database named 'Orders' using Operation
+[source,csharp]
+----
 var dbRecord = new DatabaseRecord("Orders");
 var createDbOp = new CreateDatabaseOperation(dbRecord);
 documentStore.Admin.Server.Send(createDbOp);
-```
+----
 
 A lot of the management functionality (creating and deleting databases, assigning permissions, changing configuration, etc.) 
 is available as operations that can be invoked in such a manner. 
@@ -1266,18 +1309,22 @@ is possible but not recommended because it's opaque and hard to read/work with.
 By convention, we typically use the collection name as the prefix, a slash and then the actual unique portion of the key. But
 you can also call your document `hello/world` or `what-a-wonderful-world`. For the adventurous, Unicode is also a valid 
 option. The character `U+1F426` is a valid document ID, and trying to use it in RavenDB is possible, as you can 
-see in Figure 2.12. Amusingly enough, trying to include a raw emoji character broke the build for this book.
+see in <<document-with-emoji>>. Amusingly enough, trying to include a raw emoji character broke the build for this book.
 
-![Unicode gave us Emojis, and the birdie document](./Ch02/img12.png)
+[[document-with-emoji]]
+.Unicode gave us Emojis, and the birdie document
+image::./Ch02/img12.png[]
 
-While going full-on emoji for document identifiers might be going too far[^7], using Unicode for document IDs means that you don't have to worry if you need
+While going full-on emoji for document identifiers might be going too far footnote:[Although, when you think about it, there's a huge
+untapped market of teenage developers...], using Unicode for document IDs means that you don't have to worry if you need
 to insert a Unicode character (such as someone's name).
 
-> **RavenDB and Unicode**
-> 
-> I hope it goes without saying that RavenDB has full support for Unicode. Storing and retrieving documents, querying on
-> Unicode data and pretty much any related actions are supported. I haven't talked about it so far because it seems like an
-> obvious requirement, but I think it's better to state this support explicitly.
+.RavenDB and Unicode
+**** 
+I hope it goes without saying that RavenDB has full support for Unicode. Storing and retrieving documents, querying on
+Unicode data and pretty much any related actions are supported. I haven't talked about it so far because it seems like an
+obvious requirement, but I think it's better to state this support explicitly.
+****
 
 So RavenDB document IDs are Unicode strings up to 2025 bytes in length, which must be globally unique in the scope of the 
 database. This is unlike a relational database, in which a primary key must only be unique in the scope of its table. This has never 
@@ -1285,19 +1332,20 @@ been a problem because we typically use the collection name as the prefix to the
 requirement that a document in a specific collection will use the collection name prefix as the document key. There are a 
 few interesting scenarios that open up because of this feature, discussed later in this section.
 
-> **Human-readable document IDs**
->
-> Usually, we strongly recommend to have document IDs that are human-readable (`ToDoTasks/123-A`, 
-> `people/oscar@arava.example`). We often use identifiers for many purposes. Debugging and troubleshooting are not the least
-> of those. 
-> 
-> A simple way to generate IDs is to just generate a new `Guid`, such as `92260D13-A032-4BBC-9D18-10749898AE1C`. 
-> But if you've ever had to read a `Guid` over the phone, keep track of multiple `Guid`s in a log file or just didn't realize 
-> that the `Guid` in this paragraph and the one at the start of this section aren't, in fact, the same Guid...
->
-> If you're anything like me, you went ahead and compared the two `Guid`s to see if they actually didn't match. Given how 
-> hard finding the difference is, I believe the point is made. `Guid`s are not friendly, and we want to avoid having to deal with 
-> them on an ongoing basis if we can avoid it.
+.Human-readable document IDs
+****
+Usually, we strongly recommend to have document IDs that are human-readable (`ToDoTasks/123-A`, 
+`people/oscar@arava.example`). We often use identifiers for many purposes. Debugging and troubleshooting are not the least
+of those. 
+
+A simple way to generate IDs is to just generate a new `Guid`, such as `92260D13-A032-4BBC-9D18-10749898AE1C`. 
+But if you've ever had to read a `Guid` over the phone, keep track of multiple `Guid` values in a log file or just didn't realize 
+that the `Guid` in this paragraph and the one at the start of this section aren't, in fact, the same Guid...
+
+If you're anything like me, you went ahead and compared the two `Guid` values to see if they actually didn't match. Given how 
+hard finding the difference is, I believe the point is made. `Guid` values are not friendly, and we want to avoid having to deal with 
+them on an ongoing basis if we can avoid it.
+****
 
 So pretty much the only thing we require is some way to generate a unique ID as the document ID. Let's see the strategies that
 RavenDB uses to allow that. 
@@ -1306,9 +1354,13 @@ RavenDB uses to allow that.
 
 The most obvious way to get an identifier is to ask the user to generate it. This is typically done when you want an  
 identifier that's of some meaningful value. For example, `people/oscar@arava.example` or `accounts/591-192` are two document IDs 
-that the developer can choose. Listing 2.19 shows how you can provide an external identifier when creating documents.
+that the developer can choose. <<saving-new-person-with-external-id>> shows how you can provide an external identifier 
+when creating documents.
 
-```{caption="Saving a new person with an externally defined document ID" .cs}
+[[saving-new-person-with-external-id]]
+.Saving a new person with an externally defined document ID
+[source,csharp]
+----
 using (var session = store.OpenSession())
 {
     var person = new Person
@@ -1318,7 +1370,7 @@ using (var session = store.OpenSession())
     session.Store(person, "people/oscar@arava.example");
     session.SaveChanges();
 }
-```
+----
 
 The `people/oscar@arava.example` example, which uses an email address in the document identifier, is a common technique to generate a 
 human-readable document identifier that makes it easy to locate a document based on a user provided value (the email). While 
@@ -1336,18 +1388,19 @@ practical to hold all the transactions directly inside the account document. So 
 We _could_ identify those documents using `transactions/1234-A`, `transactions/1235-A`, etc. It would work, but there are better ways. 
 
 We're going to store the transaction information on a per-day basis, using identifiers that embed both the owner account and the 
-time of the transactions: `accounts/591-192/txs/2017-05-17`. This document holds all the transactions for the `591-192` 
-account for May 17th, 2017. 
+time of the transactions: `accounts/591-192/txs/2017-05-27`. This document holds all the transactions for the `591-192` 
+account for May 27th, 2017. 
 
-> **RavenDB doesn't care about your document IDs**
-> 
-> RavenDB treats the document IDs as opaque values and doesn't attach any meaning to a document whose key is the prefix
-> of other documents. In other words, as far as RavenDB is concerned, the only thing that `accounts/591-192` and 
-> `accounts/591-192/txs/2017-05-17` have in common is that they're both documents.
-> 
-> In practice, the document IDs are stored in a sorted fashion inside RavenDB, and it allows for efficient scanning of all
-> documents with a particular prefix quite cheaply. But this is a secondary concern. What we're really trying to achieve here
-> is to make sure our document IDs are very clear about their contents. 
+.RavenDB doesn't care about your document IDs
+****
+RavenDB treats the document IDs as opaque values and doesn't attach any meaning to a document whose key is the prefix
+of other documents. In other words, as far as RavenDB is concerned, the only thing that `accounts/591-192` and 
+`accounts/591-192/txs/2017-05-17` have in common is that they're both documents.
+
+In practice, the document IDs are stored in a sorted fashion inside RavenDB, and it allows for efficient scanning of all
+documents with a particular prefix quite cheaply. But this is a secondary concern. What we're really trying to achieve here
+is to make sure our document IDs are very clear about their contents. 
+****
 
 You might recall that I mentioned that RavenDB doesn't require documents within a given collection to be have an ID with the 
 collection prefix. This is one of the major reasons why — because it allows you to nest document IDs to get yourself a clearer
@@ -1359,17 +1412,20 @@ External identifiers and nesting document IDs are nice, but they tend to be the 
 part, when we create documents, we don't want to have to think about what IDs we should be giving them. We want RavenDB to 
 just handle that for us.
 
-> **RavenDB is a distributed database**
-> 
-> A minor wrinkle in generating identifiers with RavenDB is that the database is distributed and capable of handling writes
-> on any of the nodes without requiring coordination between them. On the plus side, it means that in the presence of 
-> failures we stay up and are able to process requests and writes. On the other hand, it can create non-trivial complexities. 
-> 
-> If two clients try to create a new document on two nodes in parallel, we need to ensure that they will not accidentally create
-> documents with the same ID.[^8]
->
-> It's important to note, even at this early date, that such conflicts are part of life in any distributed database, and
-> RavenDB contains several ways to handle them (this is discussed in Chapter 6 in more detail). 
+.RavenDB is a distributed database
+**** 
+A minor wrinkle in generating identifiers with RavenDB is that the database is distributed and capable of handling writes
+on any of the nodes without requiring coordination between them. On the plus side, it means that in the presence of 
+failures we stay up and are able to process requests and writes. On the other hand, it can create non-trivial complexities. 
+
+If two clients try to create a new document on two nodes in parallel, we need to ensure that they will not accidentally create
+documents with the same ID.footnote:[If the user explicitly specified the document ID, there's nothing that RavenDB
+_can_ do here. But for IDs that are being generated by RavenDB (client or server), we can do better than just hope that
+we'll have no collisions.]
+
+It's important to note, even at this early date, that such conflicts are part of life in any distributed database, and
+RavenDB contains several ways to handle them (this is discussed in <<ravendb-clusters>> in more detail). 
+****
 
 Another wrinkle that we need to consider is that we really want to be able to generate document IDs on the client, since that 
 allows us to write code that creates a new document and uses its ID immediately, in the same transaction. Otherwise, we'll need
@@ -1399,7 +1455,18 @@ documents using just the numeric portion of the ID is common, but pay attention 
 It's important to note that this scenario rarely occurs. Typically, the nodes can talk to one another and
 share information about the provided ID ranges. Even if they can't, all clients will typically try to use the same server
 for getting the ranges, so you need multiple concurrent failures to cause this. If it _does_ happen, RavenDB will handle it
-smoothly, and the only impact is that you'll have a few documents with similar IDs. A minor consideration indeed.
+smoothly, and the only impact is that you'll have a few documents with similar IDs.
+
+.Dispose the document store to return unused range back to the system
+**** 
+When you take a range out using the `hilo` algorithm, it is marked as yours exclusively. If you aren't using the entire
+range, it will be lost when another client is using it. That can be annoying if you care about gaps in the numbers.
+
+When you dispose the document store, RavenDB will attempt to return any unused range back to the system. Note that this is
+done simply for cosmetic reasons, to avoid the simplest scenario of running a process to save a single document and consuming
+the entire range. With `hilo`, there is no actual attempt to _ensure_ that there would only be sequenctial values. 
+****
+
 
 #### Server-side identifier generation
 
@@ -1410,26 +1477,32 @@ are additional options.
 
 You can ask RavenDB to assign a document ID to a new document when it is saved. You do that by providing a document ID that 
 ends with the slash (`/`). Go into the RavenDB Studio and create a new document. Enter in the ID the value `tryouts/`
-and then click on the `Save` button. The generated document ID should look something like Figure 2.13. 
+and then click on the `Save` button. The generated document ID should look something like <<server-side-gen-id>>. 
  
-![Server side generated document ID (tryouts/0000000000000000021-A)](./Ch02/img13.png)
+[[server-side-gen-id]]
+.Server side generated document ID (tryouts/0000000000000000021-A)
+images::./Ch02/img13.png[]
 
 When you save a document whose ID ends with a slash, RavenDB will generate the ID for you by appending a numeric value
 (the only guarantee you have about this value is that it's always increasing) and the node ID.
 
-> **Don't generate similar IDs manually**
->
-> Due to the way we implement server-side identifier generation, we can be sure that RavenDB will never generate an ID that
-> was previously generated. That allows us to skip some checks in the save process (avoid a B+Tree lookup). Since server-side
-> generation is typically used for large batch jobs, this can have a significant impact on performance. 
-> 
-> What this means is that if you manually generate a document ID with a pattern that matches the server-side generated IDs, 
-> RavenDB will not check for that and may _overwrite_ the existing document. That's partly why we're putting all those
-> zeros in the ID — to make sure that we aren't conflicting with any existing document by accident.
+.Don't generate similar IDs manually
+****
+Due to the way we implement server-side identifier generation, we can be sure that RavenDB will never generate an ID that
+was previously generated. That allows us to skip some checks in the save process (avoid a B+Tree lookup). Since server-side
+generation is typically used for large batch jobs, this can have a significant impact on performance. 
+
+What this means is that if you manually generate a document ID with a pattern that matches the server-side generated IDs, 
+RavenDB will not check for that and may _overwrite_ the existing document. That's partly why we're putting all those
+zeros in the ID — to make sure that we aren't conflicting with any existing document by accident.
+****
 
 This kind of ID plays quite nicely with how RavenDB actually stores the information on disk, which is convenient. We'll give this 
 topic a bit more time further down in the chapter. This is the recommended method if you just need to generate a large number
 of documents, such as in bulk insert scenarios, since it will generate the least amount of work for RavenDB.
+
+The id generated by the `/` prefix contains the node id as well, since it is possible for two nodes to generate the same id
+on two nodes independently. For higher consistency, we need to turn to cluster-wide approaches, see the next section.
 
 #### Identity generation strategy
 
@@ -1446,18 +1519,19 @@ the document, you use a pipe symbol (`|`). In the Studio, try to save a document
 The pipe character will be replaced by a slash (/) and a document with the ID `tryouts/1` will be created. 
 Doing so again will generate `tryouts/2`, and so on.
 
-> **Invoices and other tax annoyances**
-> 
-> For the most part, unless you're using semantic IDs (covered earlier in this chapter), you shouldn't care what your
-> document ID is. The one case you care about is when you have an outside requirement to generate absolute consecutive IDs. One 
-> such common case is when you need to generate invoices.
->
-> Most tax authorities have rules about not missing invoice numbers, to make it just a tad easier to audit your 
-> system. But an invoice document's _identifier_ and the invoice _number_ are two very different things. 
-> 
-> It's entirely possible to have the document ID of `invoices/843-C` for invoice number `523`. And using an identity doesn't
-> protect you from skipping values because documents have been deleted or a failed transaction consumed the identity
-> and now there's a hole in the sequence.
+.Invoices and other tax annoyances
+****
+For the most part, unless you're using semantic IDs (covered earlier in this chapter), you shouldn't care what your
+document ID is. The one case you care about is when you have an outside requirement to generate absolute consecutive IDs. One 
+such common case is when you need to generate invoices.
+
+Most tax authorities have rules about not missing invoice numbers, to make it just a tad easier to audit your 
+system. But an invoice document's _identifier_ and the invoice _number_ are two very different things. 
+
+It's entirely possible to have the document ID of `invoices/843-C` for invoice number `523`. And using an identity doesn't
+protect you from skipping values because documents have been deleted or a failed transaction consumed the identity
+and now there's a hole in the sequence.
+****
 
 For people coming from a relational database background, the identity option usually seems to be the best one, since it's what
 they're most familiar with. But updating an identity happens in a _separate transaction_ from the current one. 
@@ -1471,7 +1545,8 @@ since they are easier to grasp. Identity has a real cost associated with it.
 
 The biggest problem with identities is that generating them in a distributed database requires us to do a lot more work than one
 might think. In order to prevent races, such as two clients generating the same identity on two different servers, part of the
-process of generating a new identity requires the nodes to coordinate with one another.[^9] 
+process of generating a new identity requires the nodes to coordinate with one another.footnote:[This is done using the Raft 
+consensus protocol, which covered in <<ravendb-clusters>>.] 
 
 That means we need to go over the network and talk to the other members in the cluster to guarantee we have the next
 value of the identity. That can increase the cost of saving a new document with identity. What's worse is that, under failure
@@ -1483,26 +1558,33 @@ us from talking to a majority of the nodes, we'll not be able to generate the id
 document. All the other ID generation methods can work without issue when we're disconnected from the cluster, so unless you
 truly need consecutive IDs, use one of the other options.
 
+RavenDB also has the notion of *cluster-wide transactions*, which we'll cover in the <<ravendb-clusters>>, ensuring that you
+can both generate identifiers _and_ persist documents in an atomic fashion. 
+
 #### Performance implications of document identifiers
 
 We've gone over a lot of options for generating document identifiers, and each of them have their own behaviors and costs. 
 There are also performance differences among the various methods that I want to talk about.
 
-> **Premature optimization warning**
-> 
-> This section is included because it's important at scale, but for most users, there's no need to consider it at all. 
-> RavenDB is going to accept whatever document IDs you throw at it, and it's going to be _very_ fast when doing so. 
-> My strong recommendation is that you use whatever document ID generation that best matches _your_ needs, and only consider
-> the performance impact if you notice an observable difference — or have crossed the hundreds of millions of documents
-> per database mark. 
+.Premature optimization warning
+****
+This section is included because it's important at scale, but for most users, there's no need to consider it at all. 
+RavenDB is going to accept whatever document IDs you throw at it, and it's going to be _very_ fast when doing so. 
+My strong recommendation is that you use whatever document ID generation that best matches _your_ needs, and only consider
+the performance impact if you notice an observable difference — or have crossed the hundreds of millions of documents
+per database mark. 
+****
 
 RavenDB keeps track of the document IDs by storing them inside a B+Tree. If the document IDs are very big, it will mean that RavenDB can
-pack less of them in a given space.[^10] 
+pack less of them in a given space.footnote:[RavenDB is using B+Tree for on disk storage, and uses pages of 8KB in size. Bigger 
+document IDs means that we can fit less entries in each page, and need to traverse down the tree, requiring us to do a bit more 
+work to find the right document. The same is true for saving unsorted document IDs, which can cause page splits and increase the 
+depth of the tree. In nearly all cases, that doesn't really matter.] 
 
 The `hilo` algorithm generates document IDs that are lexically sortable, up to a degree (`people/2-A` is sorted after 
-`people/100-A`). But with the exception of when we add a digit to the number[^11], values 
-are nicely sorted. This means that for the most part we get nice trees and very efficient searches. It also generates the 
-most human-readable values.
+`people/100-A`). But with the exception of when we add a digit to the number footnote:[Rolling from `99` to `100` or from 
+`999` to `1000`.], values are nicely sorted. This means that for the most part we get nice trees and very efficient searches. 
+It also generates the most human-readable values.
 
 The server-side method using the slash (`/`) generates the best values in terms of suitability for storage. They're a 
 bit bigger than the comparable `hilo` values, but they make up for it by being always lexically sorted and predictable as 
@@ -1514,14 +1596,15 @@ Semantic IDs (`people/oscar@arava.example` or `accounts/591-192/txs/2017-05-17`)
 cause people to want to avoid them. But this is rarely a good reason to do so. RavenDB can easily handle a large 
 number of documents with semantic identifiers without any issue. 
 
-> **Running the numbers**
->
-> If you're familiar with database terminology, then you're familiar with terms like B+Tree and page splits. In the case of 
-> RavenDB, we're storing document IDs separately from the actual document data, and we're making sure to coalesce the pages
-> holding the document keys so we have a good locality of reference. 
-> 
-> Even with a database that holds a hundred million documents, the whole of the document ID data is likely to be memory 
-> resident, which makes the cost of finding a particular document extremely cheap. 
+.Running the numbers
+****
+If you're familiar with database terminology, then you're familiar with terms like B+Tree and page splits. In the case of 
+RavenDB, we're storing document IDs separately from the actual document data, and we're making sure to coalesce the pages
+holding the document keys so we have a good locality of reference. 
+
+Even with a database that holds a hundred million documents, the whole of the document ID data is likely to be memory 
+resident, which makes the cost of finding a particular document extremely cheap. 
+****
 
 The one option you need to be cautious of is the identity generation method. Be careful not to use
 it without careful consideration and analysis. Identity requires network round trips to generate the next value, and it will 
@@ -1829,22 +1912,7 @@ foundation. We'll discuss modeling data and documents inside RavenDB and how to 
 RavenDB has to offer.
 
 
-[^4]: You can call `session.Advanced.Refresh` if you want to force the session to update the state of
-the document from the server.
-[^5]: The 1% case where it will help is the realm of demo apps with 
-little to no functionality.
-[^6]: `Unit of Work` won't work. Neither will change tracking, optimistic concurrency you'll have
-to deal with manually, etc.
-[^7]: Although, when you think about it, there's a huge untapped market of teenage developers...
-[^8]: If the user explicitly specified the document ID, there's nothing that RavenDB
-_can_ do here. But for IDs that are being generated by RavenDB (client or server), we can do better than just hope that
-we'll have no collisions.
-[^9]: This is done using the Raft consensus protocol, which covered in Chapter 6.
-[^10]: RavenDB is using B+Tree for on disk storage, and uses pages of 8KB in size. Bigger document IDs means
-that we can fit less entries in each page, and need to traverse down the tree, requiring us to do a bit more work to find the right document. 
-The same is true for saving unsorted document IDs, which can cause page splits and increase the depth of the tree. In nearly all cases,
-that doesn't really matter.
-[^11]: Rolling from `99` to `100` or from `999` to `1000`.
+
 [^12]: Not strictly necessary, but this is the easiest way to build tests.
 [^13]: The steps outlined in this chapter are meant to be quick and hassle-free, rather than an examination of
 proper production deployments. Check Chapter 15 for details on those.
