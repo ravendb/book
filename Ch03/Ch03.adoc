@@ -1,0 +1,604 @@
+[[documents-extensions]]
+## Beyond mere documents: Attachments, Counters, Times Series and Revisions
+
+RavenDB is all about documents, everything in RavenDB revolves around them. And documents in RavenDB are JSON objects that can
+be as complex and large as you want them to be.footnote:[Well, actually... documents in RavenDB are limited to about 2GB in size,
+and the largest record document that _I_ personally saw in RavenDB was ~800MB. That is _not_ recommended, see <<document-modeling>> 
+for more details on that.]
+JSON is awesome, but it isn't always the best format to store your data. Luckily, RavenDB comes with several additional options to 
+handle most common scenarios.
+
+### Attachments
+
+Binary data is not well suited for JSON. You _can_ use BASE64 to encode the value (at 25% overhead in storage), but that is rarely
+a good idea unless they are very small. Many applications needs to handle large binary values, a profile picture or an uploaded PDFs
+are two such common examples. 
+
+RavenDB offers the attachments feature to handle this scenario. Conceptually, you can think about attachments in RavenDB in the same
+manner you do attachments in email. Let's see how this works first, and then discuss what is actually going on behind the scenes. In
+<<storing-attachments>> you can see how we create a new `Invoice` document and add a PDF file to it.
+
+[[storing-attachments]]
+.Storing an attachment in RavenDB
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    Invoice invoice = CreateNewInvoice(out string pdfInvoice);  <1>
+    session.Store(invoice);                                     <2>
+    using var pdfStream = File.OpenRead(pdfInvoice);            <3>
+    session.Advanced.Attachments
+        .Store(invoice, "invoice.pdf", pdf,"application/pdf");  <4>
+    session.SaveChanges();                                      <5>
+}
+----
+<1> Here we create the invoice instance and get the `pdfInvoice` filename. This piece is not related to RavenDB.
+<2> Storing the new invoice in the session (same as we did in the previous chapter).
+<3> Open a `Stream` from PDF file, to pass to the `Attachments.Store()` method.
+<4> Store the attachment stream (with a name and content type) into the session. Does _not_ call to the server.
+<5> Atomically stores both the new invoice and its attachments into the database.
+
+In <<storing-attachments>> you can see the basics of storing a new attachment in RavenDB. As the name suggests, we _attach_ the stream
+to an existing document. Attachments do not exists on their own and are always associated with a docuemnt. 
+As a result, deleting the document will also delete all its attachments. You cannot have a free-standing attachment.footnote:[You can 
+have a document just to hold an attachment, of course]
+
+In the Studio, you can see the attachments for a document on the right hand side, as you can see in <<attachments-in-studio>>.
+
+[[attachments-in-studio]]
+.The `invoice.pdf` attachment on the `Invoice` document in the Studio
+image::./Ch03/img01.png[]
+
+As you can see, in the RavenDB Studio we have a dedicated pane for attachments. You can click on the `invoice.pdf` in 
+<<attachments-in-studio>> to download the file. We talked about document metadata in the previous chapter, and here is a good 
+chance to see how RavenDB makes use of it in <<attachment-metadata>>.
+
+[[attachment-metadata]]
+.The metadata element in the `Invoice` document after we attached a file to it.
+[source,json]
+----
+{
+    "@metadata": {
+        "@attachments": [                                               <1>
+            {
+                "Name": "invoice.pdf",                                  <2>
+                "Hash": "SszdDSioWjvoO7ygOIGz52srIoicf4slUMy/js2WQKc=", <3>
+                "ContentType": "application/pdf",                       <4>
+                "Size": 258642                                          <5>
+            }
+        ],
+        "@collection": "Invoices",
+        "Raven-Clr-Type": "Tryouts.Invoice, Tryouts",
+        "@change-vector": "A:16-woIsp5F3M0m00sjsTKlJ0g",
+        "@flags": "HasAttachments",                                     <6>
+        "@id": "invoices/1-A",
+        "@last-modified": "2025-09-30T06:18:26.2639106Z"
+    }
+}
+----
+<1> The `@attachments` array holds all the details about the attachment on this document.
+<2> The name of the attachment, must be unique _within_ this document. In other words, two documents can each have `invoice.pdf` 
+    attachment with no issues.
+<3> Cryptographic hash of the attachment - used for de-duplication of data, discussed more later.
+<4> The content-type of the attached file - this is not used by RavenDB directly, except to set the `Content-Type` header when 
+    downloading the file.
+<5> The size of the attachment in bytes.
+<6> RavenDB internal flags - indicating that this document has an attachment.
+
+<<attachment-metadata>> shows a _lot_ of information about attachments. At first glance, this is just the metadata about the 
+file we attached. On closer inspection, there is a wealth of information here that shows what happens behind the scenes.
+A document has an array for `@attachments`, and natually you can have multiple attachments for the same document. 
+Attachments names are scoped to the document that you attach them to. So you can have two `Invoice` documents each with their own
+`invoice.pdf` file. In the same document, however, attachment names are unique. 
+
+.Attachments in the sample data
+****
+In the previous chapter, we created the `Northwind` database and seeded that with the sample data. The sample dataset contains 
+attachments in the `Employees` and `Categories` collections. <<employee-image>> shows the attachment section for the 
+`employees/1-A` document.
+****
+
+[[employee-image]]
+.The employee's image in the sample dataset.
+image::./Ch03/img02.png[]
+
+The attachment metadata also includes all the information you need _about_ the attachment, expect its content. You can access the
+`ContentType` or the `Size` of the attachment directly from the document metadata, without needing to make a separate remote call
+to get those details. There is also the `Hash` element, which holds the cryptographic hash of the attachment's contents. 
+
+[IMPORTANT]
+.Attachments de-duplication
+====
+RavenDB automatically handles de-duplication for attachments when you add them to the database. This is done by computing a cryptographic
+hash of the attachment's content and seeing if we already have that stored. If the value is already stored, we'll just reference the 
+stored data, rather than needing to hold duplicate copies. This is handled completely transparently to you and requires no attention.
+You _can_ make interestting use cases using this information, however.
+====
+
+#### Working with attachments
+
+Beyond just storing attachments, we can also do various (server-side) operations on them, such as:
+
+* `Rename` - change the name of the attachment to a new one (no need to re-upload the file) on the same document.
+* `Move` - move the attachment from the source document to _another_ document (potentially renaming along the way).
+* `Copy` - associate already existing attachment on a document with another document (no data is duplicated).
+* `Delete` - delete the attachment from the document (if there are no other documents referencing the attachment, it will be remove).
+
+A good example of how you make use of attachments in shown in <<copying-attachments>>. Like all such calls in the session,
+calling `Copy`, `Move` or `Rename` does not actually perform the work but register it in the session to be executed as a single
+transaction when `SaveChanges` is called.
+
+[[copying-attachments]]
+.Copying the default profile image when we create a new user
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    User person = new User("Oscar", "Arava");
+    session.Store(person);
+    session.Advanced.Attachments.Copy(          <1>
+        "users/default", "default-image.png",   <2>
+        person.Id, "profile-image.png");        <3>
+    session.SaveChanges();                      <4>
+}
+----
+<1> Copy the attachment one document to another (without going through the client).
+<2> The source docuemnt and attachment name.
+<3> The destination document and attachment name.
+<4> Actually sending the `Copy` command to the database for execution. 
+
+<<copying-attachments>> shows creation of a new user and attaching the default profile image to it. Note that we don't need to
+download & upload the file to create it. Furthermore, we take advantage of RavenDB's attachment de-duplication to have a single
+copy of all the default profile images, across however many numbers of users we have.
+
+.Attachments vs. BLOB
+****
+If you have worked with binary data with other databases, you are likely familiar with the concept of BLOB (binary large objects)
+columns. RavenDB's attachments are similar in concept, but quite different when you look in depth. The actual data for the attachment
+isn't stored alongside the document's data. In fact, given that a single copy of the attachment can be associated with many documents, 
+it _can't_ be stored inline. 
+
+To read the content of the attachment, you _must_ explicitly load it. There is no option for doing something like `SELECT * ...` and
+accidently reading very large values. 
+****
+
+#### Reading attachments
+
+The simplest way to read an attachment is shown in <<reading-attachment-content>>. We get back an `AttachmentResult` which holds the
+attachment's `Details` and you can read the actual contents from the `Stream`.
+
+[[reading-attachment-content]]
+.Reading the attachment concept and writing to the output
+[source,csharp]
+----
+using AttachmentResult result = session.Advanced.Attachments
+    .Get("people/1-A", "profile-image.png");
+result.Stream.CopyTo(outputStream);
+----   
+
+Note that you should dispose the `AttachmentResult` you get from the opertion when you are done with it. You can also use the `Get()`
+overload that accepts a number of `AttachmentRequest` values, to download multiple documents in a single remote call.
+You can also read a particular range of data from the attachment using the `GetRange` method. This allows advanced scenarios on your
+end if you are working with large attachments.
+
+[NOTE]
+.RavenDB's attachments has no size limit
+====
+Attachments in RavenDB have no size limits. You can store 10GB of video file inside of RavenDB (and stream it out using 
+the `GetRange` method) without any issues.
+
+_Documents_ are limited in size in RavenDB (to about 2GB or so), and the attachment names and metadata are stored in the document itself.
+You should avoid having a "dumping ground" with a single document holds a _lot_ (tens of thousands) of attachments. It is better to have
+a separate document per attachment if this is the case.
+====
+
+#### Attachments storage
+
+RavenDB doens't do _anything_ with the attachment data. It simply holds them for you. This is in sharp contrast to storing JSON data, where
+RavenDB expose a lot of operations on documents and store them internally in an optimized format for its needs.
+Attachments are just stored. And this has important implications for your usage. 
+
+Consider storing a large `data.txt` file as an attachment. RavenDB will simply store that. If you were to compress using `GZip` or `Zstd`
+you'll likely get a far smaller file, which you can them upload as an attachment (`data.txt.gz`, for example). Usually storage space on 
+database servers is _expensive_ and you should attempt to reduce the amount you use needlessly.
+
+RavenDB also supports the notion fo retiring attachments (sometimes called remote attachments). That allows you to set a specific period
+of time before RavenDB will move the attachment's content to object storage (S3 or any compatible API backend) to store the attachment's
+contents. This is done in a manner that is completely transparent to your application. 
+
+After retiring an attachment to S3, you can still call to `Get()`, `GetRange()`, etc as you previously did. RavenDB will take care of 
+proxying the request to the appropriate location. A major benefit of this is that you can have a transactional operation on both documents
+and attachments, then RavenDB will push the data to S3 (and transparently proxy as needed for reads) behind the scenes.
+See the online documentation for the full details on how to confiure and run this option.
+
+[WARNING]
+.Indexing attachments contents
+====
+We'll cover indexing in RavenDB in <<indexing-in-ravendb>>, but it is important to note that you _can_ index attachments' contents. 
+However, if you'll retire attachments to object storage, you'll _not_ be able to index the remote attachments. In practice, you'll
+usually only index small attachments and thus aren't usually candidates to retire to object storage.
+====
+
+### Counters
+
+Counters are a very simple concept, it is just a named 64 bits signed integer that can be attached to a document. 
+In the sample data (which you can find in the `Northwind` database we created in the previous chapter) you can look at the `Products`
+collection to see usages of counters. You can see that in <<counters-usage>>.
+
+[[counters-usage]]
+.Counters usage in the `Products` collection for ranking products
+image::./Ch03/img03.png[]
+
+In <<counters-usage>> we were having fun, using emojis as the counter names. The idea is that we count how many times a product was
+rated one to five stars, with a dedicated counter to each rating.
+
+Why would you want to use a Counter compared to a simple numeric property on the document? Let's consider the scenario
+of starring a product. You can use counters for this, as in <<counters-usage>>, or a property on the document. The key difference
+between the two is that counters allow you to increment or decrement a counter in a concurrent and distributed fashion safely.
+
+<<increment-counter>> shows how we can use the RavenDB client API to increment a counter on a document.
+
+[[increment-counter]]
+.Creating a document and incrementing a counter vs. incrementing a property vs. patching the document
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    var page = new Page("/index.html");         <1>
+    session.Store(page);
+    session.SaveChanges();
+}
+
+using (var session = store.OpenSession())
+{
+    session.CountersFor("pages/1-A")
+            .Increment("Visits");               <2>
+    session.SaveChanges();
+}
+
+using (var session = store.OpenSession())
+{
+    var page = session.Load<Page>("pages/1-A");
+    page.Visits++;                              <3>
+    session.SaveChanges();
+}
+
+using (var session = store.OpenSession())
+{
+    session.Advanced.Defer(new PatchCommandData("pages/1-A", 
+        null, new PatchRequest                  <4>
+        {
+            Script = "this.Visits++;"
+        }));
+    session.SaveChanges();
+}
+----
+<1> Create a `Page` document.
+<2> Increment the `Visits` counter (creating it along the way) on the `pages/1-A` document.
+<3> Loading the page, incrementing the `Visits` property and saving the changes back to the database.
+<4> Using patching to increment the `Visits` property on the server side.
+
+<<increment-counter>> shows all the ways that we can record a visit to a page. The first is using a counter and the second is using
+a property on the document. What is the difference between the two?
+To increment a counter, we don't need to load the document, and RavenDB will take care of merging concurrent increments to the same
+counter (even if they happen on different nodes). 
+
+.Counters are created on the fly
+****
+A counter is created the first time you call `Increment` on it, there is no need to create a counter before you can use it. 
+This make it very useful to use dyanmic names for the counter to record information (for example: `visits/os:macosx`, 
+`visits/browser:edge`). If you go that route, remember that the list of counter names is stored in the document metadata and 
+that you don't want that to get out of hand. Dozens to low hundreds counters on a document is okay, thousands or more probably require
+a rethink on how you model the data.
+****
+
+On the other hand, to increment the `Visits` property on the document, you must load the document first, increment the property then
+save the _entire_ document back to the database. There is also the option of using _patching_, the last example in <<increment-counter>>,
+we'll discuss patching documents in more dpeth in <<ravnedb-client-api>>. For now, just know that this allows you to do document 
+modifications completely on the server side.
+
+Consider the scenario of two concurrent visits to the same page. How would that work? If we use the option of loading the document
+and modifying the property, we've problem of losing one of those updates. If we use the patch approach, if we talk to multiple nodes
+at the same time, we run the risk of a conflict between them. 
+
+.Decrementing a counter
+****
+RavenDB doesn't offer a `Decrement` operation on counters. You can pass a negative value to `Increment` in order to decrement
+the value.
+****
+
+Counters solves this problem completely, you don't need to read the previous value, and RavenDB will merge concurrent writes both
+in a single node and distributed across the cluster.
+
+Following RavenDB's design philosophy, you can `include` a counter when you load a document, as you can see in <<reading-counters>>.
+Meaning you need a single remote call to fetch both pieces of infomration.
+
+[[reading-counters]]
+.Reading a document & its counter in a single roundtrip to the database
+[source,csharp]
+----
+var page = session.Load<Page>("pages/1-A", includes =>
+    includes.IncludeCounter("Visits"));
+long visits = session.CountersFor(page).Get("Visits") ?? 0;
+----
+
+Similar to attachments, we store information _about_ the counters associated with a document in the document's metadata. 
+The actual counters' data is kept separate from the document itself.
+
+[[counters-metadata]]
+.The metadata RavenDB keeps about counters in the document's metadata
+[source,json]
+----
+{
+    "@metadata": {
+        "@collection": "Pages",
+        "@counters": [                                      <1>
+            "Visits"
+        ],
+        "Raven-Clr-Type": "Tryouts.Page, Tryouts",
+        "@change-vector": "A:34-woIsp5F3M0m00sjsTKlJ0g",
+        "@flags": "HasCounters",                            <2>
+        "@id": "pages/1-A",
+        "@last-modified": "2025-09-30T18:39:19.8423899Z"
+    }
+}
+----
+<1> The counter names in this document
+<2> RavenDB internal flags noting that this document has counters
+
+.Counters cannot overflow or underflow
+****
+Counters are 64 bits signed integers (`long` in C#/Java/C, etc). If an increment operation would cause the value to overflow
+or underflow, an exception will be raised. In practice, this is not something that you usually have to concern yourself with, but
+it is important to note that you are protected from this issue.
+****
+
+#### Deleting counters
+
+RavenDB offers the `Delete` operation on counters, as you can see in <<delete-counters>>.
+
+[[delete-counters]]
+.Deleting a named counter on a document
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    session.CountersFor("pages/1-A")
+            .Delete("Visits");
+    session.SaveChanges();
+}
+----
+
+Deleting counters is expected to be rare operation, and it has important interactions with concurrent `Increment` when working in a
+distributed environment. Consider the case of two concurrent requests to two separate nodes in the cluster. One to `Delete` the
+`Visits` counter on `pages/1-A` and the other to `Increment` the same counter. What will happen?
+
+In this case, the `Increment` wins and the value will be retained. Some of the previous increments (before the `Delete`) that haven't
+been pushed to the cluster may be lost, however. In general, users are expected to avoid mixing `Delete` and `Increment` operations.
+That isn't a case of undefined behavior leading to nasal demons, mind. The behavior is well defined and tested, it is simply complex
+and involved a lot of distributed state and concurrency. 
+
+### Time Series
+
+Time Series is used when you care about a value and the way it changes over time. The classic example is your heartrate. My 
+_current_ heartrate, for example, is currently at 66 BPM. This doesn't tell you much about me or my health. A doctor looking at heartrate
+over a period of 24 hours, on the other hand, can probably tell a lot about the health of the patient. Another common example is currency
+exchange rate. If the USD/EUR is at 0.99 at the moment, that is interesting. But you can derive a lot of interesting information from 
+looking at how this value changed over time.
+
+RavenDB supports time series natively, and it stores them using an optimal format to reduce storage costs and improve queries efficeincies. 
+In the sample dataset (check the `Northwind` database we created in the previous chapter), we have time series available on the `Employees`
+and `Companies` collections. You can see what this looks like for `employees/1-A` in <<time-series-in-studio>>.
+
+[[time-series-in-studio]]
+.Time Series pane for the `employees/1-A` document
+image::./Ch03/img04.png[]
+
+You can see the count of values (120) and the range of values for the `HeartRates` time series (in this case, a single day). If you'll click
+on the eye icon, you'll be able to see the actual values, showing in <<time-series-details>>.
+
+[[time-series-details]]
+.Detail view for the `HeartRates` time series for `employees/1-A`
+image::./Ch03/img05.png[]
+
+<<time-series-details>> shows a lot of interesting details. You can see that each value in a time series has a `Date`, a `Value` and a `Tag`.
+The `Date` is the instnace in time when this value was recorded, the `Value` the `BPM` (beats per minute) in that instance and the `Tag` is 
+a way to provide some additional information about that particular value.
+
+.Time Series tags
+****
+Each time series value has a tag associated with it. This tag is just free text that you can add. It's purpose is to record information
+about the value itself. In the case of <<time-series-details>>, you can see that the tag records that the data came from `watches/fitbit`.
+Another user may have that data provided through `watches/apple-watch`, etc.
+
+It is recommended that the tag will be short and repetitive. A document ID that contains information about the source for that particular 
+datum is best. In most cases, the data source doesn't change often, so you'll naturally get good results. The reason this matters relates
+to the way RavenDB actually stores this information, and is discussed in more depth later in this chapter.
+****
+
+You'll usually not care about individual values in a time series, you care a lot more about all the values together. <<time-series-query>> 
+shows how you can run a query on a time series and get aggregated information about it. <<time-series-graph>> shows the results of this
+query.
+
+[[time-series-query]]
+.Getting average & max heart rate every 15 minutes from `employees/1-A`
+[source,sql]
+----
+from 'Employees'
+where id() == 'employees/1-A'
+select timeseries(from 'HeartRates' group by 15m select avg(), max())
+----
+
+[[time-series-graph]]
+.Chart view for the query in <<time-series-query>>
+image::./Ch03/img06.png[]
+
+Time Series are associated with a document, just like attachments and counters. You can see how we append a value to a time series on a
+document in <<time-series-append>>.
+
+[[time-series-append]]
+.Appending a value to a time series
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    session.TimeSeriesFor("pages/1-A","DailyUsers")
+        .Append(DateTime.Today, [2351], tag: "google/analytics");
+    session.SaveChanges();
+}
+----
+
+In <<time-series-append>> you can see that we append a value for today to the `DailyUsers` time series on `pages/1-A`. Like counters, there
+is no time series creation step. The time series for a document is created on the first append of a value. You can also see that we can
+append mulitple values to a particular time in a time series. In <<time-series-append>> we add a single value, but you can add up to 32
+values to a time series. 
+
+The `Append` call accepts a `DateTime` as its first argument. <<time-series-append>> pass `DateTime.Today` as the value, but it is
+important to understand that RavenDB time series operate _only_ on UTC time. All values are converted to UTC when you append it.
+RavenDB offers the `offest` option when querying the time series, to allow you to match your time zone offeset if needed.
+
+.The value of a time series - array of `double` values  
+****
+We can append up to 32 values to a time series at a particular point in time. Those values are of type `double`, more preciesely, 
+double precision floating point IEEE 754 numbers. We recommend that you'll always pass the same number of values on each call, but it 
+isn't _required_. If you pass 3 values in one call and 1 in the next call, it will just work for RavenDB. It is often a pitfall for 
+clients that process the data and expect each entry in the time series to have the same number of values.
+
+You cannot pass `NaN` as a value to the time series, RavenDB will reject such values. 
+****
+
+What happens if we `Append` _another_ value with an already existing date? <<time-series-overwrite>> explores RavenDB's behavior in
+this case.
+
+[[time-series-overwrite]]
+.Overwriting an existing value
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    session.TimeSeriesFor("pages/1-A","DailyUsers")                     <1>
+        .Append(DateTime.Today, [4381], tag: "google/analytics");
+    session.SaveChanges();
+}
+
+using (var session = store.OpenSession())
+{
+    var series = session.TimeSeriesFor("pages/1-A", "DailyUsers")
+        .Get(DateTime.Today.AddDays(-1), DateTime.Today.AddDays(1));    <2>
+    foreach (var item in series)
+    {
+        // prints: 9/30/2025 9:00:00 PM - 4381
+        Console.WriteLine(item.Timestamp + " - " + item.Value);
+    }
+}
+----
+<1> Overwrite an existing value by sending new values for existing date in the time series
+<2> Reading a range of values from the time series and printing it
+
+In <<time-series-append>> we overwrote the value from <<time-series-append>> by sending new values for an existing time. Note that 
+this time needs to be _exactly_ the same time value (down to the millisecond). <<time-series-append>> also shows how we can read 
+a range of values from a time series and print it out.
+
+The `include` feature of RavenDB also support time series, as you can see in <<including-time-series>>.
+
+[[including-time-series]]
+.Loading a document and a time series range in a single remote call
+[source,csharp]
+----
+var page = session.Load<Page>("pages/1-A", include =>
+    include.IncludeTimeSeries("DailyUsers", 
+        DateTime.Today.AddDays(-1), 
+        DateTime.Today.AddDays(1)));
+var series = session.TimeSeriesFor(page, "DailyUsers")
+        .Get(DateTime.Today.AddDays(-1), DateTime.Today.AddDays(1));
+----
+
+When we read from a time series, we always need to pass a start & end markers. This is because time series in RavenDB are design
+to hold a _large_ number of values. We have tested RavenDB with billions of entries in the time series, see more about the storage
+aspects of time series later in this chapter.
+
+.Date values in time series
+****
+The date value in time series is _always_ in UTC and is using millisecond granularity. 
+The `DateTime` type in C# can actually go to lower granularity than millisecond, but RavenDB will truncate all dates to 
+millisecond granularity.
+****
+
+Like attachments and counters, you can see in <<time-series-metadata>> how RavenDB records the existence of a time series in a document.
+
+[[time-series-metadata]]
+.Metadata section of the `pages/1-A` document, with both counters and timeseries
+[source,json]
+----
+{
+    "@metadata": {
+        "@collection": "Pages",
+        "@counters": [
+            "Visits"
+        ],
+        "@timeseries": [                                        <1>
+            "DailyUsers"
+        ],
+        "Raven-Clr-Type": "Tryouts.Page, Tryouts",
+        "@change-vector": "A:37-woIsp5F3M0m00sjsTKlJ0g",
+        "@flags": "HasCounters, HasTimeSeries",                 <2>
+        "@id": "pages/1-A",
+        "@last-modified": "2025-09-30T22:26:42.7164247Z"
+    }
+}
+----
+<1> The names of the time series of this document
+<2> RavenDB flags indiciating that this document has both counters and time series
+
+#### Deleting time series data
+
+You can delete data from a time series by specifying a specific time series entry to remove by its date or by specifying a range
+and removing all the entires included in it. If you removed all the entries in the time series, RavenDB will delete the time series
+from the document. You can see how this looks like in <<deleting-time-series>>.
+
+[[deleting-time-series]]
+.Deleting data from a time series
+[source,csharp]
+----
+session.TimeSeriesFor("pages/1-B", "DailyUsers")
+    .Delete();                                          <1>
+
+session.TimeSeriesFor("pages/1-B", "DailyUsers")
+    .Delete(DateTime.Today);                            <2>
+
+session.TimeSeriesFor("pages/1-B", "DailyUsers")
+    .Delete(                                            <3>
+        DateTime.Today.AddDays(-7), 
+        DateTime.Today.AddDays(-1));                     
+----
+<1> Deleting the entire time series (by deleting all its values).
+<2> Deleting a specific time series entry at the given date.
+<3> Deleting all the time series entries from a week ago to yesterday.
+
+In a similar fashion to the counters, mixing `Delete` and `Append` is likely to produce unexpected results. If you `Delete` an entire
+time series (or even just a range) and you have concurrent `Append` to the time series (or the range being deleted), the `Append` will
+take precendance, but some of the values may be lost. It is the user responsability to ensure that this is handled properly.
+
+.How Time Series are stored internally
+****
+All the entries inside a time series are compressed using Gorilla compression.footnote:[Gorilla compression is a time series compression
+method from Facebook.]
+
+The reason this matters enough to cover in this book is that the compression format benefits greatly from predictability. Let's assume
+you wish to record your heart rate every minute. In practice, one value will be recorded in `12:22:00.8027074` and the next will be in 
+`12:23:01.3754696`, etc. It is more efficient for RavenDB if you'll truncate those values to `12:22:00` and `12:23:00`.
+That way, it can more easily predict the values and use less bits to store them. 
+
+In the same sense, if the values you are storing are mostly the same, we can compress them more efficeintly. Consider what level of
+accuracy you need from your values. For example, for heart rate, you can truncate to a single decimal digit. 
+
+In general, if you need to store large amount of information in a time series, those considerations can save you a _lot_ of space.
+****
+
+### Time Series rollups
+
+### Incremental Time Series
+
+### Revisions
+
+### Summary
