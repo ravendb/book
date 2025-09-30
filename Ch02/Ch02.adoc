@@ -1768,6 +1768,23 @@ The query in <<querying-compare-exchange>> will find a document whose ID is loca
 this feature again in <<ravendb-clusters>>. This feature relies on some of the low-level details of RavenDB distributed flow, and it 
 will make more sense once we have gone over that. 
 
+### Document extensions: beyond JSON documents
+
+RavenDB is primarily a document database, storing JSON documents and letting you query and operate on them. That isn't the sum total
+of its capabilities. In this section, we'll briefly touch on those additional capabilites. As this section name suggest, RavenDB groups
+those additional options under the document's extension moniker. Let's explore what options RavenDB offers beyond JSON documents:
+
+* **Attachments** - raw binary data that is being stored by RavenDB as-is, also known as BLOB (binary large objects). 
+  The easiest way to think about those is as attachments to email. RavenDB stores the attachemnts and allow you to download them
+  afterward and index their contents. Examples: profile picture on a user profile, invoice PDF on an order form, etc.
+* **Counters** - an 64 bits integer that counts (up or down). The reason this exists is that the counter allows concurrent and 
+  distributed operations to seamlessly merge without conflicts. Examples: visits counter on a page, current occupancy in a building, etc.
+* **Time Series** - allows to track a value (or set of values) that changes over time. For example, tracking your heartrate throughout
+  the day, a car's GPS location, etc. You not only track the current value, but also all the historical ones and are able to efficeintly
+  execute aggregation operations on the values (what is my average heartrate on an hourly basis for the past week).
+
+We'll cover all of those in depth in <<documents-extensions>>.
+
 ### Cluster-wide transactions
 
 RavenDB is always transactional. But there are two types of transactions that you can use, single-node transacctions and cluster-wide transactions.

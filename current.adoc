@@ -1,0 +1,13 @@
+:doctype: book
+:media: prepress
+:sectnums:
+:partnums:
+:pdf-footnotes:
+:icons: font
+:source-highlighter: coderay
+:source-language: csharp
+:xrefstyle: short
+
+:figure-caption: Figure 3.
+:listing-caption: Listing 3.
+include::./Ch03/Ch03.adoc[]
