@@ -11,6 +11,6 @@ Topics to cover:
 * Cloud
 
 Cluster-wide transactions
+* discuss document size limits
 
-
-Part I - @refresh, @expires
+indexing attachments

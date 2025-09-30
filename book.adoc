@@ -30,6 +30,10 @@ include::./Ch01/Ch01.adoc[]
 :listing-caption: Listing 2.
 include::./Ch02/Ch02.adoc[]
 
+:figure-caption: Figure 3.
+:listing-caption: Listing 3.
+include::./Ch03/Ch03.adoc[]
+
 [[document-modeling]]
 ## Document Modeling
 
@@ -46,6 +50,9 @@ include::./Ch02/Ch02.adoc[]
 
 [[querying-in-ravendb]]
 ## Querying in RavenDB
+
+[[indexing-in-ravendb]]
+## Indexing in RavenDB
 
 [[ai-llm]]
 ## Large Language Models & AI Integration
