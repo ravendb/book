@@ -1208,11 +1208,6 @@ Incremental time series combine the benefits of counters and time series, allowi
 specific points in time. RavenDB will then take care of dealing with both concurrency handling and dealing with distributed
 state so you'll end up with the right final tally without needing to concern yourselves with the details.
 
-All four of these document extensions are meant to provide direct solutions to specific problems. Unlike JSON's ability to store
-almost any type of data and inherenet flexiblity, document extensions in RavenDB are here to address scenario where JSON would be
-a poor fit for the purpose at hand. Using document extensions to deal with the scenarios that they are meant for can dramatically
-speed your development time to marker and massively reduce your execution costs.
-
 Finally, Revisions allow you to create immutable record of changes to your documents. This helps great when you _must_ have a proper
 audit log of changes in your system, including proper verification that the data cannot be modified behind your back. Revisions are
 also useful to expose "looking back" features to your users, as well as implementing revert feature in your application.
