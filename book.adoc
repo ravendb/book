@@ -48,6 +48,9 @@ include::./Ch03/Ch03.adoc[]
 [[ravendb-clusters]]
 ## RavenDB Clusters
 
+[[sharding-in-ravendb]]
+## Sharding in RavenDB
+
 [[querying-in-ravendb]]
 ## Querying in RavenDB
 

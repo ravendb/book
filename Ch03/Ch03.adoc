@@ -515,7 +515,8 @@ var series = session.TimeSeriesFor(page, "DailyUsers")
 
 When we read from a time series, we always need to pass a start & end markers. This is because time series in RavenDB are design
 to hold a _large_ number of values. We have tested RavenDB with billions of entries in the time series, see more about the storage
-aspects of time series later in this chapter.
+aspects of time series later in this chapter. You can usually not read the entire time series (nor does it make sense), so the ability
+to request all values within a range allow you to fetch a reasonable chunk for processing or viewing.
 
 .Date values in time series
 ****
@@ -550,6 +551,129 @@ Like attachments and counters, you can see in <<time-series-metadata>> how Raven
 <1> The names of the time series of this document
 <2> RavenDB flags indiciating that this document has both counters and time series
 
+
+#### Querying time series
+
+We saw in <<time-series-query>> previously how we can query time series. We'll cover queries in far more depth in <<querying-in-ravendb>>
+but I want to cover some of the basics of what you can do with time series before we get any further.
+
+All time series queries start by first finding the relevant document and then querying over the appropriate time series and range.
+<<simple-time-series-query>> shows how you can query a time series and gets it raw values. You can copy the query in the RavenDB
+Studio Query page (in the `Northwind` database) to execute it and see the results.
+
+[[simple-time-series-query]]
+.Get raw time series results in a date range from `HeartRates` on `employees/1-A`.
+[source,sql]
+----
+$start  = '2020-05-16'              <1>
+$end    = '2020-05-18'
+
+from 'Employees'                    <2>
+where id() == 'employees/1-A'       <3>
+select timeseries(                  <4>
+    from 'HeartRates'               <5>
+        between $start and $end     <6>
+    where Tag = 'watches/fitbit'    <7>
+)
+----
+<1> The parameters for the query.
+<2> Which collection we are targeting.
+<3> Filtering the documents to find.
+<4> The actual time series query expression to run for each document.
+<5> Which time series to select from.
+<6> Defining the range that we scan in the time series
+<7> Filtering the raw results from the time series in the selected range.
+
+<<simple-time-series-query>> shows off quite a few features in a concise form, see the comments immediately following it. I'm
+not going to cover everything about time series queries. If you are interested in the full details, check the online documentation.
+Note that we are filtering the time series results by tag, so we'll only get entries that came from `watches/fitbit`. You can also
+filter on the raw values (using `where Values[0] > 70`). 
+
+Note that filtering on the time series results, you'll be _scanning_ through the results. If you are going through a large range, 
+that can take a while. 
+
+When querying on time series, <<simple-time-series-query>> shows querying by id. You can also use a query that would return 
+multiple results, such as `where Address.city = 'London'`. In this case, you'll get a separate time series result for each of the 
+match documents of the top query.
+
+Usually when querying over a time series, you aren't interested in the raw values, but aggregated to a given time period. We 
+saw that in <<simple-time-series-query>>, where we grouped the results on 15 minutes boundary. Let's see another such
+query and discuss that in detail. In this case, we are querying over the `StockPrice` time series in the `Companies` collection.
+
+[[aggregate-time-series-query]]
+.Get aggregated stock price details for the first half of 2020, on a monthly basis, for `companies/88-A`.
+[source,sql]
+----
+$start = '2020-01-01'
+$end = '2020-06-01'
+
+from 'Companies'
+where id() == 'companies/88-A'
+select timeseries(
+    from 'StockPrices' between $start and $end
+    group by '1 month'                                  <1>
+    select avg(), min(), max(),                         <2>
+           first(), last(), sum()
+)
+----
+<1> Grouping the results by 1 month.
+<2> Selecting which aggregation functions to perform on the results.
+
+<<aggregate-time-series-query>> shows off a few interesting details. When you run this query in the studio, you'll see the results
+in <<aggregate-time-series-query-output>>. You can see that we select multiple aggregation options for the data, and that the query
+grouped the data on a monthly basis. 
+
+[[aggregate-time-series-query-output]]
+.Chart view of the <<aggregate-time-series-query>> query.
+image::./Ch03/img07.png[]
+
+You can group by milliseconds, seconds, minutes, hours, days, months, quarters and years. For example, you can group by `6 hours` or
+`30 seconds`. The interesting thing about how RavenDB deals with aggergations and `group by` for time series is when you need to 
+aggregate over large amounts of data with coarse granularity.
+
+Consider a use case where we record heartrate on a per second basis, and needing to visualize that to the user as
+average, highest and lowest heart rate on an hourly basis for the past week. Let's compute the number of results we have to go through. 
+A week has a total of 604,800 seconds, so that is the number of results we have. Because we output on an hourly basis, we have
+a total of 168 hours in a week. You can see the query in <<aggregate-time-series-week>>.
+
+[[aggregate-time-series-week]]
+.Aggreggate heart rates in hour granularity for the past week.
+[source,sql]
+----
+from 'Employees'                    
+where id() == 'employees/1-A'       
+select timeseries(                  
+    from 'HeartRates'               
+        between $weekAgo and $now
+    group by 1h                     <1>
+    select avg(), min(), max()      
+)
+----
+<1> Grouping in 1 hour granularity.
+
+How does RavenDB processes the query in <<aggregate-time-series-week>>. It isn't going to run through the 604,800 entries we have. 
+Internally, RavenDB stores the time series entires in segments, and it is able to condense the results of many entries into a 
+single segment. The actual compression ratio depends on the exact data you have. In this case, I was able to fit 608,400 time 
+series entries in 378 segements. With about 1,600 entries per segment. In terms of raw size, that is under 4MB in size. 
+
+RavenDB aggregations are able to take advantage of these low level storage details. Each segment already stores the aggregated values
+for each segment and the aggregation process can skip going through 604,800 entries and deal with aggregation on the 378 segments. 
+In other words, you can do _fast_ aggregations without paying the cost for them.
+
+#### Naming time series values
+
+In <<aggregate-time-series-query-output>> you can see the legend on the right side, with names such as `Open`, `Close`, etc. Those
+are the names of the values we record for the `StockPrice` time series on the `Companies` collection. RavenDB doesn't usually care
+for the names of the values, it is just an array of values (and you refer to them by position). For humans, it is much nicer to
+be able to name the value positions properly. 
+
+In the RavenDB Studio, you can go to `Settings` and then `Time Series` to define the naming of the values in the time series. 
+You can see how that looks like in <<time-series-naming>>.
+
+[[time-series-naming]]
+.Configuring the names for the values of the `StockPrice` time series for `Companies`.
+image::./Ch03/img08.png[]
+
 #### Deleting time series data
 
 You can delete data from a time series by specifying a specific time series entry to remove by its date or by specifying a range
@@ -579,7 +703,7 @@ In a similar fashion to the counters, mixing `Delete` and `Append` is likely to 
 time series (or even just a range) and you have concurrent `Append` to the time series (or the range being deleted), the `Append` will
 take precendance, but some of the values may be lost. It is the user responsability to ensure that this is handled properly.
 
-.How Time Series are stored internally
+.Optimizing time series storage requirements
 ****
 All the entries inside a time series are compressed using Gorilla compression.footnote:[Gorilla compression is a time series compression
 method from Facebook.]
@@ -595,10 +719,504 @@ accuracy you need from your values. For example, for heart rate, you can truncat
 In general, if you need to store large amount of information in a time series, those considerations can save you a _lot_ of space.
 ****
 
-### Time Series rollups
+### Time Series rollup & retention policies
+
+RavenDB time series are meant to store _large_ amount of data. We have tested the implementation with billions of data points in 
+a single time series. It is easy to get to big sizes with a time series. Consider a simple scenario of keeping track of a user's
+heartrate on a per second basis. That means that you'll record 31,536,000 entries per year. Assuming a good compression ratio, 
+that should take about 250MB or so.
+
+250MB is a reasonable size to keep, but what happens if I have a million users, and each one of them has a time series
+like that? Now we are talking about 238 _terrabytes_ of data. And that is a horse of a different order of magnitude indeed.
+You can store data of this size in RavenDB, but you'll need to go with sharded approach. See <<sharding-in-ravendb>> for more details
+on that approach. 
+
+Often enough, you don't need to keep the full data at the original granularity forever. In our heartrate example, we want to keep
+the data at a second granularity for two weeks, then we need the data at per-minute granularity for another 6 months, then we can 
+drop to per-hour level. RavenDB supports this using rollups and retention policies, as you can see in <<time-series-policies>>.
+
+[[time-series-policies]]
+.Defining rollup & retention policies for time series on the `Employees` collection.
+image::./Ch03/img09.png[]
+
+<<time-series-policies>> shows how we define the policies to do rollups (aggregate on a minute and hourly level) automatically as
+well as the retention policies (when RavenDB will delete the data). The space savings this entails are quite huge. Going from per second
+to per minute level, we reeuce the cost by an order of magnitude. And going to hourly basis reduce us by another order of magnitude. 
+Storing a full year of data for a million users will now cost us tens of gigabytes, and not hundreds of terrabytes.
+
+RavenDB allows you to define rollup and retention policy at the collection level only. All the time series on the collection share the same
+rollup and retention policy.
+
+#### How time series rollups work?
+
+When executing a rollup, RavenDB create _another_ time series. In the case of the rollup policies we defined in <<time-series-policies>> 
+and the `HeartRates` time series, we'll have: `HeartRates@Min` and `HeartRates@Hour` rollup time series. Those time series will store
+the aggregated results for each of the values in the the source time series. 
+
+In the case of the `HeartRates` time series, the `HeartRates@Min` rollup will contain the `Count`, `Min`, `Max`, `First`, `Last`, `Sum`
+values each each minute. In other words, the rollup time series will have 6 "columns" for each of the values in the source time series. 
+The `HeartRates@Hour` rollup will aggregate the values from the previous rollup, but here it will have teh same 6 aggregated values per
+source value in the original time series.
+
+Time series in RavenDB are limited to a maximum of 32 values per entry. Rollup time series also share this limitation, but because they
+hold 6 aggregated values for each value in the source time series, RavenDB is unable to do rollups if you have more than 5 values in the
+source time series.
+
+.Time series have a lot of depths to explore
+****
+Time series in RavenDB have a lot of capabilities. I touched most of the core concepts in this chapter, but there is more depth
+to explore. I would recommend looking into the online documentation to see what other options and capabilities you have avaialble.
+****
+
+#### Working with multiple values in a time series
+
+Up to this point, we look into time series that mostly worked with a single value. RavenDB time series can hold up to 32 values for
+a single point in time. Consider the case where we have a `Vehicle` document and we want to track its location over time. The code
+in <<time-series-gps>> shows how we can do that.
+
+[[time-series-gps]]
+.Recording the current location of a vehicle using a time series with two values (lat/lng)
+[source,csharp]
+----
+void RecordCurrentLocation(string vehicleId, float lat, float lng)
+{
+    using var session = store.OpenSession();
+    session.TimeSeriesFor(vehicleId, "Location")
+        .Append(DateTime.UtcNow, [lat, lng]);
+    session.SaveChanges();
+}
+----
+
+<<time-series-gps>> shows the natural extension of what we have done so far, simply passing an array of values to the `Append`
+method. This will create a time series with the recorded locations of the car over time. You can then read the data and draw
+the vehicle location over time.
+
+One important thing to note about the code in <<time-series-gps>> is a very subtle detail. Typically, GPS coordinate are provided
+to you as `float`. However, RavenDB time series values are always `double`. That _usually_ doesn't cause a problem, but there are
+some cases where converstion from `float` to `double` result in a meaningful change in your domain. That is _very_ unlikely, but 
+worth calling out explicitly. 
 
 ### Incremental Time Series
 
+We previously used a RavenDB Counter to track the total number of visits on a page. It would be nice if we could also show the visits
+on a time line. At first glance, it looks easy enough to do so usine time series. <<tracking-page-visits-time-series>> shows one such
+attempt to use time series to track page visits over time.
+
+[[tracking-page-visits-time-series]]
+.Trying to track the number of page visits using time series - wrong approach
+[source,csharp]
+----
+// Note: this is the _wrong_ way to do this, see the explanation below
+session.TimeSeriesFor("pages/1-A", "Visits")
+    .Append(DateTime.UtcNow, 1); 
+----
+
+The code in <<tracking-page-visits-time-series>> will record a count of one on every visit to the page. We can then get the total
+visits per hour for the past week using the code in <<reporting-page-visits>>.
+
+[[reporting-page-visits]]
+.Reporting the hourly page visits for the past week using time series.
+[source,sql]
+----
+from 'Pages'                    
+where id() == 'pages/1-A'       
+select timeseries(                  
+    from 'Visits' between $weekAgo and $now
+    group by 1h
+    select sum()
+)
+----
+
+The output we get from <<reporting-page-visits>> is _exactly_ what we want from this feature. It sums the number of visits from
+the individual entries we appended to the time series. It also plays very well with the rollups faeture, allowing RavenDB to tally 
+the visits to the right granularity that you want.
+
+The problem with the code in <<tracking-page-visits-time-series>> is that is is *wrong*. It is wrong in a pretty subtle way, the
+problem is what happens when you have two visits on the _same_ millisecond. In this case, calling `Append` on the same time will
+be treated as an updated value, rather than incrementing the already existing value. If you'll use the approach in 
+<<tracking-page-visits-time-series>>, you'll lose some visits when they happen on the same millisecond. That isn't what we want.
+An ideal option would be to have the same behavior we have in counters, where we can increment a value concurrently and safely,
+even when running in a distributed manner.
+
+That is what _incremental time series_ are for. An incremental time series is a normal time series, whose name starts with: `"INC:"`.
+You cannot `Append` to an incremental time series, but must always use `Increment`. On the client API, you'll also use 
+`IncrementalTimeSeriesFor` instead of `TimeSeriesFor`. <<propertly-tracking-page-visits-time-series>> shows how this is done.
+
+[[properly-tracking-page-visits-time-series]]
+.Track the number of page visits using time series - properly
+[source,csharp]
+----
+session.IncrementalTimeSeriesFor("pages/1-A", "Visits")
+    .Increment(DateTime.UtcNow, 1);
+----
+
+In <<propertly-tracking-page-visits-time-series>>, if this is called concurrently on the same exact time (and even if the requests
+are handled by different nodes), RavenDB will properly tally up all the values. In the sample dataset (in the `Norhtwind` database)
+we use an incrmental time series to track the number of views in the `Products` collection using the `INC:Views` incremental time 
+series.
+<<querying-product-views>> shows how you can get daily view counts for a product for two months. And <<view-product-views>> shows
+the output of the query.
+
+[[querying-product-views]]
+.Reporting daily product views from the sample dataset.
+[source,sql]
+----
+$start = '2021-12-01'               <1>
+$end = '2022-01-31'
+
+from 'Products'
+where Category = 'categories/1-A'   <2>
+select timeseries(
+    from 'INC:Views'                <3>
+        between $start and $end     <4>
+    group by 1d                     <5>
+    select sum()                    <6>
+)
+----
+<1> The date range we'll query each of the time series on.
+<2> Return results for all the products in `categories/1-A` (Beverages).
+<3> Selecting which time series we'll use - there is no difference here between incremental and standard time series
+<4> Specifying the date range for the time series that we'll operate on.
+<5> The grouping granularity (1 day, in this case).
+<6> The aggregation to perform. For incremental time series, it is almost always `sum()`. 
+
+[[view-product-views]]
+.Query results for <<querying-product-views>>, both the full results and the chart for a single result
+image::./Ch03/img10.png[]
+
+In <<view-product-views>> you can see the output of a time series query that returns multiple results. For each result in the 
+top level query, RavenDB executes the time series query and returns the results back to the caller. In this case, the result
+of <<querying-product-views>> has 12 matching products, and each time series in it has 61 results.
+
+.Incremental Time Series at the right granularity
+****
+In <<properly-tracking-page-visits-time-series>>, we used `DateTime.UtcNow` to record a visit to the page. That gives us
+millisecond level precision on the number of visits to the page. It is almost _never_ useful to record stuff like page visits
+with millisecond precision. We'll usually operate on those at maximum granularity of an hour, or maybe a minute. 
+
+That being the case, it makes sense to call `Increment` using the minimal granularity that you will ever work with the data. 
+In the case of page visits, that is probably a minute. So we'll use the following approach instead:
+
+    var now = DateTime.UtcNow;
+    var nowTrimmed = new DateTime(now.Year, now.Month, now.Day, 
+                                  now.Hour, now.Minute, 0);
+    session.IncrementalTimeSeriesFor("pages/1-A", "Visits")
+        .Increment(nowTrimmed, 1);
+
+This will record the values at the right granularity from the start, savings us more space and computation costs down
+the line. Remember that you can always aggregate at a higher value (per hour, for example, if you recorded at a minute
+granularity) at query time. 
+
+Reducing the total number of entries is highly recommended.
+****
+
+Incremental time series are meant to solve a very specific problem, how to count values over time. In the same sense, counters
+in RavenDB solves the same problem, for cases where you don't care about the time aspect. Like counters, you can also decrement
+values by using a negative number when you call `Increment`. 
+
+There is a a major difference between the incremental time series and counters that you should be aware of. Counters are using
+signed 64 bits integer number as their code data type, while incremental time series are built on top of regular time series. 
+As such, their core data type is an array of `double` values.
+We haven't shown a code example of that, but you can absolutely send multiple values to incremental time series. 
+
+Incremental time series also differs from standard time series in that they do not have a `tag` that you can use. 
+What would be the `tag` for the same entry if two calls passed two different values? Instaed, RavenDB is using the `tag` internally
+to manage the concurrent handling of incremental time series.
+
 ### Revisions
 
+Certain classes of applications have very strict change control requirements for their data. For example, most medical, banking, 
+payroll and insurance applications have strict “never delete since we need to be able to see all changes on the system” rules. 
+One particular system I worked with had the requirement to keep all changes for a minimum of seven years.
+
+With RavenDB, this kind of system is much easier. That’s because RavenDB has built-in support for handling revisions. 
+Revisions are an immutable snapshot of a document, created either manually or using automatically by RavendB. That allows us 
+to go back in time and look at the previous states of a document.
+
+We'll start looking at manual handling of revisions. In the RavenDB Studio, open the `employees/1-A` document, and then click on
+the `Revisions` tab on the right, shown in <<create-revision-pane>>.
+
+[[create-revision-pane]]
+.The revisions tab in the docuemnts properties and the `Create Revision` button
+image::./Ch03/img11.png[]
+
+Clicking on `Create Revision` will create a revision with the current time. You can click on the revision to see its state, which 
+would be identical to the current document. Go back to `employees/1-A`, update the first name from "Nancy" to "Max? and 
+save the document. Now click on `Create Revision` again. You now have two revisions for the `employees/1-A` document.
+You can click on either of them to see how the older revisions is named "Nancy" and the newer one is "Max". You can also click on the
+`Compare` button to see the actuall difference between them, shown in <<revision-diff>>.
+
+[[revision-diff]]
+.Showing the difference between two revisions in RavenDB Studio
+image::./Ch03/img12.png[]
+
+RavenDB does not offer any option to modify revisions, they are intentionally immutable. You can create a revision yourself, using
+the Studio or the client API, as shown in <<creating-revision-manually>>.
+
+[[creating-revision-manually]]
+.Creating a revision of a document using the client API
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    session.Advanced.Revisions
+        .ForceRevisionCreationFor("pages/1-A");
+    session.SaveChanges();
+}
+----
+
+In <<creating-revision-manually>> we are effectively doing the same as `Create Revision`. RavenDB will create an immutable snapshot
+of the document's current state (see more below on attachments, counters and time series interaction with revisions, though).
+
+The client API also allows to do more interesting things, such as creating a revision and modifying the document as part of the 
+same transaction, as you can see in <<creating-revision-and-modifying-doc>>.
+
+[[creating-revision-and-modifying-doc]]
+.Modifying a document and creating a revision of its _previous_ state in a single atomic transaction
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    var page = session.Load<Page>("pages/1-A");
+    page.Title = "Hello World";
+    session.Advanced.Revisions
+        .ForceRevisionCreationFor(page);
+    session.SaveChanges();
+}
+----
+
+In <<creating-revision-and-modifying-doc>>, it doesn't matter whether we first update the document or called `ForceRevisionCreationFor`,
+in both cases, we'll first create the revision (capture the _before_ state of the document) and then modify it.
+
+Using `ForceRevisionCreationFor` to manually create revisions is viable for some use cases, where there are specific stages in which we
+want to create revisions. For example, you may have a page in draft mode and not care about tracking revisions in that stage. But once it 
+moved to published state, you want to keep a record of all changes.
+
+It is far more common to want RavenDB to handle that for you, and you can configure RavenDB to autoamtically manage revisions for you. 
+In the Studio go into the `Northwind` database, and on the left side menu, click `Settings` and then `Document Revisions`. 
+<<revision-config>> shows the revision configuration for the database.
+
+[[revision-config]]
+.Revision configuration for the `Northwind` database
+image::./Ch03/img13.png[]
+
+For now, we'll ignore the `Conflicting Document Defaults` configuration in <<revision-config>>, we'll discuss that in <<ravendb-clusters>>.
+You can see that in the `Northwind` database, there is revision configuration for the `Orders` collection. You can click on the pencil icon
+to see more details on that. The revision configuration is mostly about when we can expire revisions (dicussed later). The most important
+aspect is that if we have a revision configuration for a collection, RavenDB will create a revision for the document automatically whenever
+the document changes.
+
+In the case of the `Northwind` database, we have revisions configured for the `Orders` collection, and if you'll look at the document 
+`orders/830-A` you can see all the revisions that were created for the document.
+
+[[orders-revisions]]
+.Revisions view for the `orders/830-A` 
+image::./Ch03/img14.png[]
+
+If you'll modify the `orders/830-A` document and save it, you'll see a new revision created automatically by RavenDB for you. 
+
+RavenDB's revisions are immutable record of changes to the document. RavenDB offers no way to modify or delete a revision. That is
+great from the perspective of creating an audit trail, but it isn't always desirable in terms of used disk space. RavenDB does offers
+the ability to expire revisions based on time or number of revisions. See <<revision-expiry-configuration>> for the details.
+
+[[revision-expiry-configuration]]
+.Configuration options for revisions on the `Orders` collection
+image::./Ch03/img15.png[]
+
+<<revision-expiry-configuration>> shows how we can limit the number of revisons for a document based on age (delete revisions that
+are older than 60 days, for exmaple) or number of revisions (keep maximum of 100 revisions). If you define both, both conditions
+needs to match for the revisions to be removed.
+
+Pay attention to the `Purge revisions on document delete` option. When configuring revisions, by default we'll _keep_ the revisions 
+even after the document itself has been deleted. You can access the revisions for deleted documnets in the `Revision Bin`. You can 
+see that in <<revision-bin>>.
+
+[[revision-bin]]
+.The revision bin allows you to access the revisions of deleted documents.
+image::./Ch03/img16.png[]
+
+You can also work with revisions in a programatic manner, as you can see in the following snippet:
+
+    List<Page> revisions = session.Advanced.Revisions
+        .GetFor<Page>("pages/1-A", 0, 10);
+
+This snippet get the last 10 revisions on the `pages/1-A` document. You can also use this API to page through revisions and use
+`GetCountFor("pages/1-A")` to get the total count of revisions for a document. A common use case for this is to allow a user
+to browse through the past versions of a document in your system.
+
+A really interesting option you have with revision is to fetch the first revision before a particular point in time, as you
+can see here:
+
+    var pageBefore2020 = session.Advanced.Revisions
+        .Get<Page>("pages/1-A", new DateTime(2020,1,1));
+
+This will get you the first revision of the page whose date is earlier than `2020-01-01`. 
+
+.Revisions are compressed
+****
+When using revisions, you are likely to end up with a _lot_ of revisions. To reduce the storage cost of revisions, RavenDB compress
+all revisions automatically for you. That is an internal detail, not externally exposed, but important for operations to know when 
+using revisions.
+
+RavenDB optimize the compression format based on the actual documents been compressed, generating the appropriate compression dictionary 
+to get good compression ratio across many documents.
+****
+
+#### Revisions allow for time travel
+
+A really nice capability that you get from having revisions is the ability to go back in time to a previous revision.
+<<api-revert-doc>> shows how you can revert a page to its status in `2020-01-01`.
+
+[[api-revert-doc]]
+.Reverting a document to a past revision
+[source,csharp]
+----
+using (var session = store.OpenSession())
+{
+    var pastPage = session.Advanced.Revisions
+        .Get<Page>("page/1-A", new DateTime(2020,1,1)); <1>
+    session.Advanced.Evict(pastPage);                   <2>
+    session.Store(pastPage);                            <3>
+    session.SaveChanges();                              <4>
+}
+----
+<1> Fetch the page version as it was in `2020-01-01`.
+<2> Force the session to evict (forget about) the revision instance.
+<3> Store the `pastPage` as a _document_, so it will be saved back to the database.
+<4> Actually save the old version of the revision as the new value of the document.
+
+You can also perform a mass revert of documents from the RavenDB Studio. Go to `Settings` and then to `Document Revisions` and check
+the `Revert Revisions` option as shown in <<revert-revision-btn>>.
+
+[[revert-revision-btn]]
+.The `Revert Revisions` button allows to mass revert documents to a previous state
+image::./Ch03/img17.png[]
+
+Clicking on the `Revert Revisions` button shown on <<revert-revision-btn>> will show the dialog in <<revert-revision-dlg>>.
+
+[[revert-revision-dlg]]
+.`Revert Revisions` allows you to select to what time to revert documents to, on all documents or for specific collections
+image::./Ch03/img18.png[]
+
+<<revert-revision-dlg>> shows the options to do mass revert of docuemnts to a previous state, based on their revisions. You can specify
+the time to revert the documents to and whether it applies to all documents or just to specific collections.
+
+The `Time Window` option in <<revert-revision-dlg>> is interesting, from an implementation perspective. The use case for mass revert 
+revision is that you'll want to go back to a previous time _recently_. The way `Revert Revisions` is implemented is that we scan through 
+all the revisions in RavenDB and apply the first revision before the given date. The `Time Window` option determine how far back we should
+look for matching revisions. The longer the `Time Window`, the deeper RavenDB will scan through all the revisions in the database to find
+candidates to revert. 
+
+As you can imagine, if you specify a very large `Time Window` or `Point in Time` that is in the far past, RavenDB may have to scan 
+through a _lot_ of revisions. 
+
+.Oppsies & point in time reverts
+****
+A key use case for the `Revert Revisions` is when you made an oppsie. You pushed a bad version to production and want to revert all 
+changes made in the past day, or you run an update query on the wrong database, etc. `Revert Revisions` allows you to avoid a full
+restore-from-backup scenario and revert the database state back to its previous state.
+
+It does require that you'll have revisions already configured, of course, but it can be a true saver when the bell tolls for you.
+****
+
+#### Interactions of revisions with attachments, counters and time series
+
+Revisions create an immutable snapshot of a document. Attachments, counters and time series are document extensions that are 
+stored _separately_ from the document itself. That means that when you use those features in conjunction with revisions, there 
+are a few things to keep in mind.
+
+Revisions handle attachments seamlessly. Remember that attachments are stored internally in RavenDB based on
+their cryptographic hash, for de-duplication purposes. Revisions are able to take advantage of that and simple create another
+reference to the attachments' content in question. In other words, if you create a revision for a document with an attachment
+and then update the attachment on the document, the revision's attachment will keep the _same_ attachment it had when it was 
+created.
+
+For counters and attachments, revisions handle things a bit differently. <<revisions-counters-time-series>> will make it easier
+to explain what exactly is going on.
+
+[[revisions-counters-time-series]]
+.Metadata for a revision on the `products/75-A` document that has both counters and timeseries
+[source,json]
+----
+{
+    "@metadata": {
+        "@collection": "Products",
+        "@counters-snapshot": {                 <1>
+            "⭐": 3832,
+            "⭐⭐": 47,
+            "⭐⭐⭐": 2488,
+            "⭐⭐⭐⭐": 34989,
+            "⭐⭐⭐⭐⭐": 48077
+        },
+        "@timeseries-snapshot": {               <2>
+            "INC:Views": {
+                "Count": 536,
+                "Start": "2021-11-30T22:00:00.0000000Z",
+                "End": "2022-02-17T06:31:30.0000000Z"
+            }
+        },
+        "@change-vector": "A:8896-BdphfhgaDUaCc4sSTDq2Qw",
+        "@flags": "HasRevisions, Revision, HasCounters, HasTimeSeries, ForceCreated",
+        "@id": "products/75-A",
+        "@last-modified": "2025-10-02T09:22:59.3194788Z"
+    }
+}
+----
+<1> Snapshot of the counter _values_ at the time of the revision creation.
+<2> Snapshot of the timeseries _metadata_ at the time of the revision creation.
+
+<<revisions-counters-time-series>> shows two different behaviors for revisions with counters and time series. For counters, we
+record the _current values_ of the counters at the time the revision was created. This is simple to do because we can capture
+the entire state of the counter in a single 64 bits number. We use the `@counters-snapshot` in the metadata to let you access
+the counters stored state explicitly.
+
+For time series, we face a far different problem. RavenDB's time series are meant to be _large_. It is common to have hundred of
+thousands or millions of values in a single time series. If we were to duplicate all of that on each revision, we'll very quickly
+run out of disk space. Instead of trying to duplicate the time series, we record in the time series snapshot the range of values
+that existed in the time series at the time the revision was created.
+
+In most cases, time series are added to in a time based manner. So new values in the time series will be outside the range you
+have in the snapshot. In practice, it is fairly rare to want to deal with revisions on time series, and just being able to tell
+what the range at the revision creation time is sufficent. Having said that, it is important to understand that the time series
+data itself is _not_ maintained in the revision, unlike counters and revisions.
+
 ### Summary
+
+In this chapter we went over some of the more interesting capabilties of RavenDB, beyond dealing with JSON documents. As much
+as I like JSON, it isn't always the best option to store your data, and RavenDB isn't limited just to dealing with documents.
+
+The idea is that we can provide dedicated support for storing binary data, time series and distributed counters. Instead of you
+having to cobble together a solution, RavenDB has full fledged native support for them.
+
+Attachments allows you to attach binary files to documents. RavenDB will store the data internally, managed de-duplication for 
+the attachments so you'll only have a single copy of the data. You can also define retirement policy to move attachments from 
+RavenDB out to object storage (S3 compatible) to reduce storage costs. Even after retiring the attachments to object storage,
+RavenDB will allow you to keep using the RavenDB API to access them. Trasnparently hiding the actual storage location of the
+attachment data and ensuring that you can have proper transactions composed of both files and documents.
+
+Counters deal with the narrow task of counting values. They provide a cheap way to count values at high scale 
+without worrying about concurrency or distributed state. Unlike document properties that require loading before updating, counters can 
+be incremented directly through client API methods. This eliminates read-modify-write requirement and make it cheaper to work
+with counters.
+
+Time series allow you to efficiently record changes to values over time. RavenDB can handle time series with billions of entries 
+and once stored, you can query, aggregate and filter the time series data easily. You can also define rollup and retentions policies
+to reduce the amount of data that you need to hold on to. Time series are a great fit for a number of domains, such as medical, 
+finance and spatial. 
+
+Incremental time series combine the benefits of counters and time series, allowing you to concurrently increment values at 
+specific points in time. RavenDB will then take care of dealing with both concurrency handling and dealing with distributed
+state so you'll end up with the right final tally without needing to concern yourselves with the details.
+
+All four of these document extensions are meant to provide direct solutions to specific problems. Unlike JSON's ability to store
+almost any type of data and inherenet flexiblity, document extensions in RavenDB are here to address scenario where JSON would be
+a poor fit for the purpose at hand. Using document extensions to deal with the scenarios that they are meant for can dramatically
+speed your development time to marker and massively reduce your execution costs.
+
+Finally, Revisions allow you to create immutable record of changes to your documents. This helps great when you _must_ have a proper
+audit log of changes in your system, including proper verification that the data cannot be modified behind your back. Revisions are
+also useful to expose "looking back" features to your users, as well as implementing revert feature in your application.
+
+In this chapter, we explored the more esoteric types of data that you can work with in RavenDB. The reasons we call RavenDB a multi
+model database, rather than just a document database. In the next chapter, we are going to move back to JSON documents and all the
+ways you can use RavenDB's advance features in your application to make your system better.
