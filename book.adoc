@@ -34,10 +34,10 @@ include::./Ch02/Ch02.adoc[]
 :listing-caption: Listing 3.
 include::./Ch03/Ch03.adoc[]
 
-[[document-modeling]]
-## Document Modeling
+:figure-caption: Figure 4.
+:listing-caption: Listing 4.
+include::./Ch04/Ch04.adoc[]
 
-	
 [[ravnedb-client-api]]
 ## Deep Dive Into the RavenDB Client API
 

@@ -9,8 +9,11 @@ Topics to cover:
 * Hub & Filtered replication
 * Sharding
 * Cloud
+* revisions
 
 Cluster-wide transactions
 * discuss document size limits
 
 indexing attachments
+
+Chapter 3 - gorilla compression - reference

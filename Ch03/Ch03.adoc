@@ -1213,5 +1213,5 @@ audit log of changes in your system, including proper verification that the data
 also useful to expose "looking back" features to your users, as well as implementing revert feature in your application.
 
 In this chapter, we explored the more esoteric types of data that you can work with in RavenDB. The reasons we call RavenDB a multi
-model database, rather than just a document database. In the next chapter, we are going to move back to JSON documents and all the
-ways you can use RavenDB's advance features in your application to make your system better.
+model database, rather than just a document database. In the next chapter, we are going to move back to JSON documents and explore
+how best to model your data within RavenDB.
