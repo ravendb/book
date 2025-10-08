@@ -1492,9 +1492,13 @@ Due to the way we implement server-side identifier generation, we can be sure th
 was previously generated. That allows us to skip some checks in the save process (avoid a B+Tree lookup). Since server-side
 generation is typically used for large batch jobs, this can have a significant impact on performance. 
 
-What this means is that if you manually generate a document ID with a pattern that matches the server-side generated IDs, 
-RavenDB will not check for that and may _overwrite_ the existing document. That's partly why we're putting all those
-zeros in the ID — to make sure that we aren't conflicting with any existing document by accident.
+If you manually created a document with an ID like `tryouts/0000000000000000015-A` and RavenDB is about to create such an ID,
+RavenDB will detect the problem and move to the next number. However, given that you may also have documents with IDs like `tryouts/0000000000000000016-A`
+we don't want to burn cycles trying to find a free number. So RavenDB will handle the problem by appending a GUID to the end of the ID.
+
+The end result will look like: `tryouts/0000000000000000016-E7GEsXQbsUuDxjSxW5+l/g`. In other words, everything will _work_, but it 
+is likely to be quite surprising to see such an ID in your system. It's easier all around to just avoid creating documents with IDs that
+match the pattern of server-side generated IDs.
 ****
 
 This kind of ID plays quite nicely with how RavenDB actually stores the information on disk, which is convenient. We'll give this 
@@ -1552,6 +1556,14 @@ That means we need to go over the network and talk to the other members in the c
 value of the identity. That can increase the cost of saving a new document with identity. What's worse is that, under failure
 scenarios, we might not be able to communicate with a sufficient number of nodes in our cluster. This means we'll also be
 unable to generate the requested identity. 
+
+.Don't generate similar IDs manually - part II
+****
+Just like with server-side ID generation, you need to be careful not to create documents that match the pattern of identity
+generated IDs. If you create a document with the ID `tryouts/15` and the next identity value is `15`, RavenDB will detect the conflict
+and _abort the transaction_ with a concurrency error. Unlike server-side ID generation, we can't just move to the next number, since that would
+break the promise of consecutive IDs, so we have to fail the entire transaction.
+****
 
 Because we _guarantee_ that identities are always consecutive across the cluster, if there's a failure scenario that prevents 
 us from talking to a majority of the nodes, we'll not be able to generate the identity at all, and we'll fail to save the new 
