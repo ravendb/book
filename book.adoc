@@ -57,8 +57,14 @@ include::./Ch04/Ch04.adoc[]
 [[indexing-in-ravendb]]
 ## Indexing in RavenDB
 
+[[map-reduce]]
+## MapReduce and Aggregations in RavenDB
+
 [[ai-llm]]
 ## Large Language Models & AI Integration
+
+[[etl-integrations]]
+## Sharing data and making friends with ETL
 
 [[production-deployments]]
 ## Production Deployments
