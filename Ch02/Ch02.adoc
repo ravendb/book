@@ -1732,7 +1732,7 @@ and can decide how to handle things from that point (show an error to the user, 
 ====
 In <<using-compare-exchange>>, we create a `names/john` compare exhcnage value that is tied to `users/1-A`. What happens if we
 fail immediately after the creation of the compare exchange value, but before we saved the `users/1-A`? We may have inconsistent state.
-RavenDB offers cluster-wide transactions for this scenario, see later in this chapter for more details.
+RavenDB offers cluster-wide transactions for this scenario, see <<using-cluster-wide-tx>> for more details.
 ====
 
 The most important aspect of this feature is the fact that this is a cluster-wide, distributed operation. It is guaranteed
