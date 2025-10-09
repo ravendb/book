@@ -38,8 +38,10 @@ include::./Ch03/Ch03.adoc[]
 :listing-caption: Listing 4.
 include::./Ch04/Ch04.adoc[]
 
+:figure-caption: Figure 5.
+:listing-caption: Listing 5.
 [[ravnedb-client-api]]
-## Deep Dive Into the RavenDB Client API
+include::./Ch05/Ch05.adoc[]
 
 
 [[cloud-n-edge]]

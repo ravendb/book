@@ -11,6 +11,8 @@ Topics to cover:
 * Cloud
 * revisions
 
+pessimistic-concurrency-cmp-xng - mention where we talk about expiration
+
 Cluster-wide transactions
 * discuss document size limits
 
