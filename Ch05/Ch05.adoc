@@ -43,7 +43,7 @@ public class SupportCall
 }
 ----
 
-== Writing documents
+### Writing documents
 
 Writing documents in RavenDB is easy, as we saw in <<zero-to-ravendb>>.
 If we want to create a new support call, we can use the code in <<create-support-call-session>> to do so.
@@ -80,7 +80,7 @@ Hint: If you see an API call in the `async` session that does _not_ use the `Asy
 purely in memmory. For example, both synchronous and `async` sessions have a `void Delete(string documentId)` method. Because the `async` version does not have a `Task DeleteAsync(string documentId)` method, it simply updates the session's internal bookkeeping. The actual deletion on the server will occur as part of the `SaveChangesAsync()` call.
 ****
 
-=== Working with attachments
+### Working with attachments
 
 We already talked in depth about attachments in <<documents-extensions>>. I cover them here as well to look at them from the client API
 perspective, not just how they work on the server. You can add attachments to a RavenDB document to store binary data related to that document. 
@@ -156,7 +156,7 @@ using (var session = store.OpenSession())
 Each call to `GetAttachment` will make a separate call to the server to fetch the attachment. If you have a lot of attachments, be aware that 
 fetching all their information can be expensive due to the number of remote calls that are involved. 
 
-=== Working with the document metadata
+### Working with the document metadata
 
 In the previous section, we noted that attachment information is stored in the document metadata. RavenDB uses the metadata for a 
 lot of things. Most of them you don't generally care about (etag, change vector, etc.). But the document metadata is also available 
@@ -197,7 +197,7 @@ loading it from the server or by calling `Store`. After the document has been as
 
 Changes to the metadata count as changes to the document and will cause the document to be saved to the server when `SaveChanges` is called.
 
-=== Cross cutting concerns with session events
+### Cross cutting concerns with session events
 
 The client API exposes a number of events that you can register to in order to deal with cross cutting concerns. Those events allow you to
 effect the behavior of the RavenDB client API in a global fashion. 
@@ -320,7 +320,7 @@ because listeners can be applied globally with ease. You can do a lot with those
   to the document metadata that makes it clear that it was modified by an event handler. The `Modified-By` metadata field is a good
   example of that.
 
-=== Change tracking and `SaveChanges`
+### Change tracking and `SaveChanges`
 
 The document session implements change tracking on your documents, as you can see in <<save-changes-tracking>>.
 
@@ -352,7 +352,7 @@ The document will remain attached to the session and will be part of any identit
 
 These operations tend to be useful only in specific cases, but they are very powerful when utilized properly.
 
-=== Optimistic concurrency
+### Optimistic & pessimistic concurrency
 
 We covered optimistic concurrency in <<document-modeling>>, but only in the most general terms. Now, let's 
 take a look and see how we can use optimistic concurrency in practice. <<concurrent-modifications-last-write-wins>> 
@@ -393,7 +393,7 @@ the flag were set to true, the code in <<concurrent-modifications-last-write-win
 This ensures that you can't overwrite changes you didn't see, and if you set `UseOptimisticConcurrency`, you need to handle this 
 error in some manner.
 
-==== Pessimistic locking
+#### Pessimistic locking
 
 When changes happen behind our backs to the document we modified, optimistic locking handles it. Pessimistic locking, on the other hand, 
 prevents those changes entirely. RavenDB does _not_ support pessimistic locking. And while you really need support from the database 
@@ -547,7 +547,7 @@ call to the `Lock` method to ensure proper synchronization. It doesn't rely on a
 and will be cleaned up solely based on expiration time. That means that you can also use that in an _offline_ manner.
 We talk a bit about that in the next section.
 
-===== Offline optimistic concurrency
+#### Offline optimistic concurrency
 
 We looked at online optimistic concurrency in <<concurrent-modifications-last-write-wins>>, where we loaded a document 
 into the session, modified it and then saved. In that time frame, if there was a change, we'd get a concurrency exception.
@@ -603,7 +603,7 @@ check from the time we loaded `callOne` in the first session. In a web scenario,
 data and get it back from the client to do the check. You might also want to check out the `Changes API`, which is covered a little later in 
 this chapter. This might help you get early change notifications when you need to implement offline optimistic concurrency.
 
-=== Patching documents and concurrent modifications
+### Patching documents and concurrent modifications
 
 The typical workflow with RavenDB is to open a session, load a document, run some business logic and call `SaveChanges`. When 
 you follow those steps, the session will figure out what documents have changed and send them to the server. This model is simple 
@@ -749,7 +749,7 @@ if the document does not exist (using `patchIfMissing`). This gives you the opti
 Using this method, we can be sure that we'll never violate the rule about adding comments to a closed call. A cautionary word, 
 though: this is more complex than anything we've dealt with before, and I would only recommend doing it if you really must. 
 
-=== Deferring commands
+### Deferring commands
 
 In the previous section, we used the `Defer` method to register a `PatchCommandData` on the session, to be executed when 
 `SaveChanges` is called. But `Defer` is more generic then this. It's a general mechanism for the user to register arbitrary 
@@ -782,7 +782,7 @@ Another reason to avoid using `Defer` is that it's lower in the RavenDB client A
 entities, you'll be dealing with the direct representation RavenDB uses for JSON (the blittable format, discussed later). That format is 
 optimized for performance; developer convenience was secondary in its design.
 
-=== Bulk inserting documents to RavenDB
+### Bulk inserting documents to RavenDB
 
 RavenDB is fast, _really_ fast, but it still needs to face operational realities. The 
 https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing[fallacies of distributed computing] still apply, 
@@ -908,8 +908,8 @@ Console.WriteLine(sp.Elapsed);
 ----
 <1> Semaphore set to 128 to limit maximum concurrency.
 <2> The actual individual `async` store operation to the database.
-<4> Releasing the semaphore when we are done saving the document.
-<3> Loop 10,000 times to execute the `WriteDocument`, but limiting to the 128 concurrent tasks.
+<3> Releasing the semaphore when we are done saving the document.
+<4> Loop 10,000 times to execute the `WriteDocument`, but limiting to the 128 concurrent tasks.
 
 
 The code in <<write-10000-async>> writes 1,000 documents in just under 10 seconds, and it completes the full 10,000 writes in 
@@ -1393,7 +1393,7 @@ either using round-robin or using more sophisticated techniques. Those are fairl
 in detail.
 ****
 
-=== Changes API
+### Changes API
 
 We mentioned the `Changes API` in the previous section since the aggressive caching is using it. The `Changes API` is a way for 
 us to connect to the server and ask it to let us know when a particular event has happened, as shown in <<notify-on-document-change>>.
