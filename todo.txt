@@ -1,15 +1,16 @@
 Topics to cover:
 
 * Schema validation
-* Time Series, Incrmental, Counters
 * Documents Compression
-* Expiration & Archive
+* Expiration
+* Archive
 * Refresh
 * Corax & Lucene
 * Hub & Filtered replication
 * Sharding
 * Cloud
-* revisions
+
+* session context & round robin load balancing.
 
 pessimistic-concurrency-cmp-xng - mention where we talk about expiration
 

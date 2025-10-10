@@ -1006,6 +1006,13 @@ to see more details on that. The revision configuration is mostly about when we 
 aspect is that if we have a revision configuration for a collection, RavenDB will create a revision for the document automatically whenever
 the document changes.
 
+.Revisions in a cluster
+****
+In a cluster, revisions are going to be replicated to all the nodes in the database. Conflicts cannot occur with revisions, since each 
+revision has its own distinct signature. One of the most common usages of revisions is to store the entire document history when you 
+have automatic conflict resolution. We'll cover this behavior in depth in <<ravendb-clusters>>.
+****
+
 In the case of the `Northwind` database, we have revisions configured for the `Orders` collection, and if you'll look at the document 
 `orders/830-A` you can see all the revisions that were created for the document.
 
@@ -1061,6 +1068,16 @@ using revisions.
 RavenDB optimize the compression format based on the actual documents been compressed, generating the appropriate compression dictionary 
 to get good compression ratio across many documents.
 ****
+
+I've found that some applications, without the regulations requiring versioning, make use of revisions just because they give the 
+users an easy way to look at the changes on an entity over time. That was especially true in one example I can recall, where the user 
+in question was the business expert in charge of the whole system. This feature was very valuable to her since it allowed her to see 
+exactly what happened and who took the action. It was quite interesting to see how much value she got out of this feature.
+
+In terms of cost, revisions obviously increase the amount of disk space required. But given today's disk sizes, that isn't usually a 
+significant concern. Aside from disk space utilization, revisions don't actually have any impact on the system. Revisions are also quite 
+important for ensuring that transaction boundaries are respected when replicating changes in the cluster (discussed in <<ravendb-clusters>>), 
+handling historical subscriptions (discussed in <<batch-processing>>) and ETL processes.
 
 #### Revisions allow for time travel
 
@@ -1174,6 +1191,18 @@ For time series, we face a far different problem. RavenDB's time series are mean
 thousands or millions of values in a single time series. If we were to duplicate all of that on each revision, we'll very quickly
 run out of disk space. Instead of trying to duplicate the time series, we record in the time series snapshot the range of values
 that existed in the time series at the time the revision was created.
+
+
+.Revisions from an older version of your software
+****
+One thing you should note when using the revisions feature is that over time, as your software evolves, you might see revisions 
+from previous versions of your application. As such, the revision document might be missing properties or have properties that 
+have been removed or had their type changed.
+
+Because revisions are immutable, it isn't possible to run migration on them, and you need to take that into account. When working 
+with revisions, you might want to consider working with the raw document, rather than turning it into an instance of an 
+object in your model. 
+****
 
 In most cases, time series are added to in a time based manner. So new values in the time series will be outside the range you
 have in the snapshot. In practice, it is fairly rare to want to deal with revisions on time series, and just being able to tell
