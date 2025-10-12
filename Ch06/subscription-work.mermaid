@@ -1,0 +1,22 @@
+---
+config:
+  look: handDrawn
+  theme: neutral
+  layout: dagre
+---
+flowchart LR
+ subgraph A["Get a batch"]
+        A1["SupportCalls/238-B"]
+  end
+ subgraph B["Process the batch"]
+        B1["SupportCalls/238-B"]
+  end
+ subgraph C["Acknowledge the batch"]
+        C1["SupportCalls/238-B"]
+  end
+    A --> B
+    B --> C
+    C --> A
+    A1@{ shape: docs}
+    B1@{ shape: docs}
+    C1@{ shape: docs}
