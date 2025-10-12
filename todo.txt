@@ -10,6 +10,8 @@ Topics to cover:
 * Sharding
 * Cloud
 
+* concurrent subscriptions
+
 * session context & round robin load balancing.
 
 pessimistic-concurrency-cmp-xng - mention where we talk about expiration
@@ -20,3 +22,5 @@ Cluster-wide transactions
 indexing attachments
 
 Chapter 3 - gorilla compression - reference
+
+AI - combining sentiment analysis with subscriptions - see create-subscription-javascript-filtering

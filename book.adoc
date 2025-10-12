@@ -53,6 +53,13 @@ include::./Ch04/Ch04.adoc[]
 [[ravnedb-client-api]]
 include::./Ch05/Ch05.adoc[]
 
+:figure-caption: Figure 6.
+:listing-caption: Listing 6.
+:listing-number: 0
+:figure-number: 0
+[[batch-processing]]
+include::./Ch06/Ch06.adoc[]
+
 
 [[cloud-n-edge]]
 ## RavenDB on Cloud and the Edge 
