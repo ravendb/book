@@ -1,0 +1,224 @@
+## Large Language Models & AI Integration
+
+AI has conquered the world by storm. There is a high likelihood that these words are being read by an AI model so it can summarize the contents for you.
+As a developer, using AI is a core part of how you build software. Whether it is asking the model questions or using it to generate code, for developers, AI is now a first-class tool in their toolbox.
+At the same time, when it comes the time to actually build AI features for _your_ systems, developers are faced with a daunting task. You first need to understand what models can do, select the appropricate
+model, figure out how to reduce costs, secure your data and integrate that into your application in a way that make sense for your users.
+
+At the lowest rung of the ladder, you can throw your documentation into a model and get a basic chat bot that has some understanding of your system. But this is limited in scope and usually only works for
+checking the "we must have an AI feature" box. The real power of AI comes when you can deeply integrate it into your system, but that is _hard_. One of the reasons RavenDB _exists_ is to make hard things easy.
+The core philosophy of RavenDB is to take complex, difficult, and error-prone tasks and make them simple, reliable, and easy to use. That is why we started working on that in the first place. 
+
+We aim to bring this same philosophy to AI integration. RavenDB has a number of features that make it easy to build AI-powered applications. From semantic search to generative AI to AI agents, 
+RavenDB provides a comprehensive suite of tools that make it easy to build intelligent applications. We'll spend this chapter understanding how you can use these features to build smart applications and 
+integrate AI deeply into your systems.
+
+.A bit of foreshadowing
+****
+AI integration is a Big Deal, and it actually builds on a bunch of RavenDB features that we haven't touched yet. 
+I'm going to be focused specially on how you can _use_ AI in this chapter, and leave the details about how RavenDB make everything ticks to the next chapters.
+In particular, we'll talk about vector search and the HNSW algorithm - which are covered in more depth in <<indexing-in-ravendb>> and most of the actual
+AI integration capabilities we'll discsuss (Embedding Generation and Gen AI) are built on top of RavenDB's ETL capabilities, which we'll cover in <<etl-integrations>>.
+There is no need to read those chapters first, but if you want to understand the internals of how everything works, you should definitely check them out.
+****
+
+AI and Large Language Models (LLMs) is a _big_ topic, but in the context of RavenDB, it comes down to following key features:
+
+* Vector Search - allowing to search for the meaning of data, not just the words.
+* Embedding Generation - generating high-quality vector representations of your data using powerful models.
+* Generative AI Tasks - applying AI models to your documents in a structured, repeatable way.
+* AI Agents Creator - building conversational agents that can interact with your data and perform actions on your behalf.
+
+Most of these features build on top of each other and work together with other RavenDB features to provide a comprehensive AI solution. We'll see some examples of that later in the chapter.
+Vector search is the foundation, allowing you to search for the meaning of your data. Embedding generation allows you to utilize external models to generate high-quality vectors for your data, which are then used by vector search.
+Generative AI tasks allow you to apply AI models to your documents in a structured, repeatable way. That includes making use of embedding generation and vector search to provide context to the model.
+Finally, the AI Agents Creator builds on top of generative AI tasks, allowing you to build conversational agents that can interact with your data and perform actions on your behalf.
+
+### Vector search
+
+I think that the best way to explain this feature is to show, rather than tell. Take a look at the query in <<where-is-the-dessert>>. Running this query on the `Northwind` sample database,
+will give you the shown in <<where-is-the-dessert-result>>.
+
+[[where-is-the-dessert]]
+.Searching for sweets in the `Northwind` sample database using vector search
+[source,sql]
+----
+$query = 'sweets'
+from Products
+where vector.search(embedding.text(Name), $query)
+select id(), Name
+limit 2
+----
+
+[[where-is-the-dessert-result]]
+.Result of searching for sweets in using vector search query in the `Northwind` sample database.
+image::./Ch07/img01.png[]
+
+The query in <<where-is-the-dessert>> is really interesting. Even just a few years ago, this would have been impossible to do. In the results, we get products named "Chocolade" and "Teatime Chocolate Biscuits".
+How does that work? There is no word "sweets" in either of those product names, so a traditional keyword search would fail.
+This is where vector search shines, it is not just searching for keywords, but is able to dig deeper into the _meaning_ of the what you are looking for.
+
+.Seaching by intent, instead of by keywords
+****
+I want to stop for a moment and talk a bit more about <<where-is-the-dessert-result>> and what you see there. 
+We are querying on "sweets" and finding chocolate and biscuits. We elevated our search capabilities by several orders of magnitude by being able to search by _intent_, rather than by keywords.
+This is a _huge_ deal. It means that you can now search for things without needing to hit on the exact magic incantation. In terms of user experience, that is a huge leap.
+
+This is also a _big_ deal for developers, you now have access to this level of search without going through a lot of hassle. To give some context, to do the same thing without vector seach, 
+you would need to deal with synonyms, misspellings, stemming, thesauri and a lot of other things. You would have to build a complex search index, and even then, the results would be limited.
+
+With vector search, you lean _hard_ on the model itself. You want to enable multilingual search? 
+Use a model that supports that, like `cohere-embed-multilingual`, and let your users search in their native language. All you need to do is just specify which model to use,  
+RavenDB will take care of the rest and you can wow your users.
+****
+
+Let's talk first about what vector search _is_, and then we'll see how RavenDB implements it. A vector (or embedding) is a high-dimensional representation of data. 
+It is a series of numbers that represent the meaning of the data as understood by a large language model. The actual numberical meaning isn't really _that_ interesting, to be honest. 
+What matters is that the model we can check the distance betweeen two vectors. The closer the vectors are, the more similar the meaning of the data is as far as the model is concerned.
+
+<<vector-space-illustration>> shows an example of how the same set of items can be grouped in different ways depending on the model used to generate the vectors. In <<vector-space-illustration>>
+we grouped the items at the top by shape (so dice & cardboard box are close together). At the bottom, we grouped them by functionality (so the dice and the chess piece are close together).
+It is important to understand that _both_ groupings are valid, they just represent different aspects of the data. You can train the model to focus on different aspects of the data, and that 
+will change how the vectors are generated.
+
+[[vector-space-illustration]]
+.Showing two grouping of the same items using different models
+image::./Ch07/img02.png[]
+
+The reason that I am going into this much detail is that it is important to understand that vector search is not magic. It is simply finding the closest matches between your search query and the 
+data in your database. The key is that it does that using similarity search based on high dimensional vectors that capture the model's understanding on the query and the data.
+
+With a better understanding of what vector search is, let's go back to <<where-is-the-dessert>> and see what exactly is going on there.
+The key part of the query is the `vector.search(embedding.text(Name), $query)` expression. Let's dissect that for a bit. The `embedding.text(Name)` part is telling RavenDB that we are using a 
+getting text that we need to convert to a vector. We can then compare that to the vectors generated from the `Name` field.
+
+RavenDB embeds an embedding model (`bge-micro-v2`) internally. This model is a small, efficient model that can run on most systems. Since we didn't specify anything else, RavenDB is going to
+use this model for embedding generation. Then it will perform a vector search to find the nearest matches using the model's understanding of the data and the query.
+
+.The `bge-micro-v2` model and its use cases
+****
+The `bge-micro-v2` is a _small_ embeddings model. RavenDB use this model because it allows you to get started with vector search with no hassles. There is no need to setup API Keys or 
+pay for external models. You can just start using vector search right away, zero setup required. The `bge-micro-v2` model can run on the CPU, so you don't need to provision a database 
+server with a GPU. 
+
+The `bge-micro-v2` model is _great_ for demos and getting you off the ground when you start. It provides good results for many use cases. However, it is still a fairly small model and 
+you can get better results from other models. 
+
+I mention this because it is easy to think that vector search isn't that useful. If you use `bge-micro-v2`, which hass inherently limited capabilities, it may give underwhelming results.
+When evaluating the usefulness of vector search, be sure to also evaluate other models via the Embedding Generation feature, we'll cover it in depth later in this chapter.
+****
+
+The `bge-micro-v2` model outputs an embedding vector with 384 dimensions (and array with 384 `float` values).
+With OpenAI, we have text-embedding-3-small` with 1,536 dimensions and `text-embedding-3-large` with 3,072 dimensions. 
+The larger the model, the more nuanced the understanding of the data is likely to be. On the other hand, larger models are more expensive to use, so there is a trade-off between cost and quality.
+
+Another tradeoff to consider is the _size_ of the vectors. A 384 dimension vector is about 1.5KB in size (384 floats at 4 bytes each). A 1,536 dimension vector is about 6KB in size and 
+a 3,072 dimension vector is about 12KB in size. When you have millions of documents, the size of the vectors can add up quickly. That is why RavenDB supports quantization, which can reduce 
+the size of the vectors significantly, at the cost of some accuracy. 
+
+I'm not going to cover that in depth, and will leave that to the online documentation. I'll mention that RavenDB supports quantizing the data using `Int8` and `binary` quantizations. 
+`Int8` quantization can reduce the size of a 1,536 dimension vector from 6KB to about 1.5KB, while `binary` quantization can reduce it to about 192 bytes. You'll need to experiment to see what balance 
+of accuracy and performance works best for your use case. Note that you need to evaluate both different models and different quantizations.
+
+If you aren't working with a _lot_ of vectors, there is usually no need to really bother. Just use the model that gives you the best results and don't worry about the size of the vectors. I did want
+to mention that RavenDB has the inherent capability to handle quantization for you, should you need it.
+
+#### Exact and Approximate Nearest Neighbors Search
+
+So we now understand what vectors are. What are we actually doing with them? 
+<<bge-micro-v2-embedding>> shows the output of the `bge-micro-v2` model for the words "sweets" and "chocolate", and how we can compute the distance between the two vectors using cosine similarity.
+To be clear, that isn't what is actually happening inside of RavenDB, but that is a good way to understand what is going on at a conceptual level.
+The higher the similarity value, the closer the vectors are, and the more similar the meaning of the data is as far as the model is concerned. Other embedding models have different number of dimensions.
+
+[[bge-micro-v2-embedding]]
+.Showing the output of the `bge-micro-v2` model for the word "sweets" and "chocolate"
+[source,csharp]
+----
+float[] sweetsEmbedding = new float[384];
+bge_micro_v2("sweets", sweetsEmbedding);                                
+// -0.18093847,0.04937424,0.19464265,0.011313453,-0.1382206,0.518904,       <1>
+// 0.56170607,0.11258009,-0.22343214,0.11457193,0.051699474,-0.7476225,
+// 372 more numbers elided for brevity
+
+float[] chocolateEmbedding = new float[384];
+bge_micro_v2("chocolate", chocolateEmbedding);
+// -0.08718172,-0.42426482,0.20022313,0.12990747,0.053507004,0.118514456,   <2>
+// 0.4829657,0.4304149,-0.30294275,0.0854362,0.23490147,-0.55278444,
+// 372 more numbers elided for brevity
+
+var similarity = TensorPrimitives.CosineSimilarity(                         <3>
+                    sweetsEmbedding, chocolateEmbedding);
+// similarity = 0.7771348
+----
+<1> The embedding vector for the word "sweets".
+<2> The embedding vector for the word "chocolate".
+<3> Calculating the similarity between the two vectors using cosine similarity.
+
+<<bge-micro-v2-embedding>> shows how we compare the similarity between the two vectors using cosine similarity. But when we use the `vector.search()` function in RavenDB, what is actually happening?
+We need to compare the current query that we are searching for to _all_ the vectors in the database. <<exact-neighbors-search>> shows how that could work.
+
+[[exact-neighbors-search]]
+.Exact nearest neighbors search algorithm
+[source,csharp]
+----
+float[] sweetsEmbedding = new float[384];
+bge_micro_v2("sweets", sweetsEmbedding); 
+var topMatchesQueue = new PriorityQueue<EmbeddingResult, float>();
+foreach(var embedding in AllEmbeddingsFor("Name"))               
+{
+    var similarity = TensorPrimitives.CosineSimilarity(          
+                        sweetsEmbedding, embedding);
+    var result = new EmbeddingResult(embedding, similarity)
+    if (topMatchesQueue.Count < N)
+    {
+        topMatchesQueue.Enqueue(result, -similarity);
+    }
+    else if (similarity > topMatchesQueue.Peek().Similarity)
+    {
+        topMatchesQueue.EnqueueDequeue(result, -similarity);
+    }
+}
+// topMatchesQueue now contains the N most similar embeddings
+----
+
+The code in <<exact-neighbors-search>> is doing an exact nearest neighbors search. It is comparing the embedding for "sweets" to _all_ the embeddings in the database, and keeping track of the top N matches.
+Note that there is some fancy footwork to keep the priority queue sorted by max similarity while the underlying priority queue is a min-heap. The details aren't that important, the key point is that 
+we are doing a linear scan of all the embeddings in the database.
+
+RavenDB _can_ do something like that, but you need to tell it to do so very explicitly. If you want to use exact nearest neighbors search, you can use: `exact(vector.search(...))`. In the case of 
+<<where-is-the-dessert>>, you would write the query like this: `where exact(vector.search(embedding.text(Name), $query))`. This will force RavenDB to do an exact nearest neighbors search, in a very
+similar manner to the code in <<exact-neighbors-search>>. You have to force RavenDB to go this route because it is _slow_.
+
+RavenDB typically uses a much more efficient algorithm called HNSW (Hierarchical Navigable Small World) for vector search. 
+HNSW is an approximate nearest neighbors search algorithm that is much faster than exact nearest neighbors search. The details on the HNSW algorithm are beyond the scope of this book, 
+but you can read more about it in the online documentation. 
+
+HNSW is an approximate algorithm. You can see the code in <<exact-neighbors-search>>, it will scan all the embeddings in the database and will find us the best matches. HNSW, on the other hand, will
+use a graph-based approach to find the nearest neighbors. This makes it _much_ faster, but also means that it is not guaranteed to find the exact nearest neighbors. In practice, it usually does and
+when it doesn't, the results are usually still very good, but it is something to be aware of.
+
+The key problem is that you usually simply _cannot_ do a full scan of the data, there is too much of it. If you have a million documents, and each embedding is 1,536 dimensions (6KB), that is 6GB of 
+data to scan through for a single query when using exact nearest neighbors search. At the same time, HNSW can find good matches in milliseconds, even with tens millions of embeddings.
+
+.The HNSW algorithm
+****
+The HNSW algorithm is based on building a layer graph, where each layer in the graph is a subset of the layer below it. The bottom layer contains all the embeddings, while the top layer contains only a few.
+When searching for the nearest neighbors, HNSW starts at the top layer and works its way down to the bottom layer. At each layer, it uses a greedy algorithm to find the nearest neighbors.
+This allows HNSW to quickly narrow down the search space and find the nearest neighbors in a fraction of the time it would take to do an exact nearest neighbors search.
+
+If you are interested in the details of the HNSW algorithm, you can find a lot of paper, talks and sample code implemeneting it. I like reading through code to understand how things work, 
+so I recommend checking out the https://github.com/deepfates/hnsw[deepfates/hnsw project on GitHub]. It is a simple, clean implementation of the HNSW algorithm in TypeScript, which is a great
+way to explore how this algorithm works.
+
+The HNSW algorithm that is implemented in RavenDB is a lot more complex. Primarily because we are using a persistent storage engine, rather than an in-memory data structure and that we optimize
+to run on all sorts of hardware, including pretty modest machines. If you are interested, I wrote a blog post on the details on 
+https://ravendb.net/articles/scaling-hnsw-in-ravendb-optimizing-for-inadequate-hardware[optimizing HNSW in RavenDB for low end hardware].
+****
+
+With proper understanding of vector search, we now need to understand how to get the vectors in the first place. That is where Embedding Generation comes into play.
+
+### Embedding Generation
+
+### Generative AI & Subscriptions
+
+Subscriptions to handle output from generative AI to evaluate support calls.
