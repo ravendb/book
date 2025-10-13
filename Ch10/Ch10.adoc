@@ -1,0 +1,10 @@
+## RavenDB on Cloud and the Edge 
+
+The smallest machine we ever run RavenDB on was a Raspberry PI Zero. It had a single core CPU and 512MB of RAM running a 32-bit OS.
+RavenDB works on that kind of machine, and users have deployed production machines on that kind of hardware. 
+RavenDB Cloud largest instance size (at this point of time) is a 3 nodes cluster with 48 cores and 384GB of RAM per node. You can go larger,
+but that is the largest pre-defined instance size.
+RavenDB is designed to run in a wide variety of environments, from the smallest edge devices to the largest cloud deployments.
+
+In this chapter, we are going to look at how RavenDB works in these different environments, and what are the things that you need to consider when deploying
+RavenDB in these scenarios.

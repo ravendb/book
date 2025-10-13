@@ -60,12 +60,25 @@ include::./Ch05/Ch05.adoc[]
 [[batch-processing]]
 include::./Ch06/Ch06.adoc[]
 
+:figure-caption: Figure 7.
+:listing-caption: Listing 7.
+:listing-number: 0
+:figure-number: 0
+[[ai-llm]]
+include::./Ch07/Ch07.adoc[]
 
-[[cloud-n-edge]]
-## RavenDB on Cloud and the Edge 
+
+
 
 [[ravendb-clusters]]
 ## RavenDB Clusters
+
+:figure-caption: Figure 10.
+:listing-caption: Listing 10.
+:listing-number: 0
+:figure-number: 0
+[[cloud-n-edge]]
+include::./Ch10/Ch10.adoc[]
 
 [[sharding-in-ravendb]]
 ## Sharding in RavenDB
@@ -79,8 +92,7 @@ include::./Ch06/Ch06.adoc[]
 [[map-reduce]]
 ## MapReduce and Aggregations in RavenDB
 
-[[ai-llm]]
-## Large Language Models & AI Integration
+
 
 [[etl-integrations]]
 ## Sharing data and making friends with ETL

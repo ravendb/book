@@ -9,6 +9,7 @@ Topics to cover:
 * Hub & Filtered replication
 * Sharding
 * Cloud
+* Vector search & HNSW in indexing-in-ravendb
 
 * concurrent subscriptions
 
