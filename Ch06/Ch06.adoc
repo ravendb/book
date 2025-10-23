@@ -880,7 +880,7 @@ be sent to the client and be part of the batch.
 When the client accesses the `item.Result` property on _that particular document_, the exception will be raised on the client side. In this way, you can 
 select how to handle such errors. You can handle this on the client side in some manner and continue forward normally, or you can let it bubble up as
 an error in the subscription, which should trigger your error-handling policy, as we saw in <<retry-subscription-error>>.
-***
+****
 
 All other exceptions would typically be raised from within the batch processing code. A very simple error handling strategy can be to just try an error
 backoff for retries. So on the first error, you'll retry immediately, if there is still an error, wait for 5 seconds and try again. Keep adding 5 seconds
@@ -922,7 +922,7 @@ using (var subscription = store
         // that match the subscription
     });
 }
-```
+----
 
 The `CloseWhenNoDocsLeft` option will cause RavenDB to abort the subscription if there are no documents to send. This is useful for processes that start, run
 through everything that happened since their last run and then shut down again.
@@ -1012,7 +1012,7 @@ using (var subscription = store.Subscriptions
         }
     });
 }
-```
+----
 <1> If we failed to send the email, we _ignore_ the failure. We'll not process the `EmailToSend` document again (we "successfully" processed it by having it in
     a batch that didn't throw an error). But we'll also not delete it.
 <2> Successfully sending the email means that we'll delete this document entirely.
@@ -1140,7 +1140,7 @@ using (var subscription = store.Subscriptions
         }
     });
 }
-```
+----
 <1> Run over the items in the batch and spawn a separate `SendEmailAsync` for each of them.
 <2> Wait for all the tasks to complete (we don't care if they completed successfully or not).
 <3> Scan through the completed tasks and check their successful status.
@@ -1221,7 +1221,7 @@ var sub1 = subscriptionWorker1.Run(batch => { /* process batch */ });       <3>
 var sub1 = subscriptionWorker2.Run(batch => { /* process batch */ });       <4>
 ----
 <1> Create the first subscription worker with `Concurrent` strategy.
-<1> Create the second subscription worker with `Concurrent` strategy.
+<2> Create the second subscription worker with `Concurrent` strategy.
 <3> Start processing batches from the first worker.
 <4> Start processing batches from the second worker concurrently with the first.
 
@@ -1287,7 +1287,7 @@ using (var subscription = store.Subscriptions
         }
     });
 }
-```
+----
 
 The key parts to the code in <<subscribe-versioned-customers>> is the use of `Revision<Customer>` as the type that we're subscribing on. 
 RavenDB recognizes that as a versioned subscription and will feed us each and every revision for the `Customer` collection.
@@ -1335,7 +1335,7 @@ store.Subscriptions.Create(
             where Prervious.Name != Current.Name"
     }
 );
-```
+----
 
 The code in <<set-filters-versioned-subscription>> will only send you the `Customer` documents whose names have been changed. 
 The rest of the code in <<subscribe-versioned-customers>> can remain the same, but we now don't need to check if the names have changed on the client side. 
@@ -1364,7 +1364,7 @@ store.Subscriptions.Create(
             }"
     }
 );
-```
+----
 
 The code in <<get-changed-names-versioned-subscription>> isn't that interesting except for what it's actually doing. It's filtering the data on the server 
 side and only sending us the old and new names. The subscription handling code on the client side just needs to take the old name and new name and 
@@ -1430,7 +1430,7 @@ with store.subscriptions.get_subscription_worker_by_name(
             session.save_changes()
 
     subscription.run(handle_batch).join()
-``` 
+---- 
 
 The code in <<send-welcome-emails-python>> is quite similar to the way we would do things in C#. We open a document store, open the subscription and 
 pass a method to process the document batches. The use of Python typically means shorter development time and more freedom for the 
@@ -1477,18 +1477,38 @@ somewhere and will continue to do so until a reboot is done, where stuff breaks 
 
 ### Subscription and the RavenDB Cluster
 
+We'll deal more with RavenDB clusters in <<ravendb-clusters>>, but since subscriptions are operating in a clustered environment, I wanted to touch on the topic 
+briefly. We'll assume that we are running on a three node RavenDB cluster, and processing documents in a database that is replicated to all those nodes.
+The RavenDB client will direct read & writes from the session to one of the nodes automatically (we'll discuss that in a lot more depth in <<ravendb-clusters>>).
+How do subscriptions work when your database is running on multiple nodes? 
 
+The RavenDB cluster will assign one of the nodes hosting the database to be the owner of this subscription. All the work for this subscription will be
+coordinated through that node. Of course, if that node goes down, RavenDB will automatically failover the ownership of the subscription to another node in the cluster.
+This is important, because the owning node of a subscription doesn't have to be the same node that the client is consider the primary node.
 
+.RavenDB spreads the subscription ownership load across all nodes
+****
+It makes sense to make the subscription owner and the client's primary node the same node, no? Why would we want to have them be different?
+The primary reason is that you are likely to have _multiple_ subscriptions, and RavenDB can spread their load across multiple nodes. 
+A more complete answer is that there isn't really a pr  imary node in RavenDB. The default model uses a primary node, but that is just _a_ default.
+You can use round-robin, you can use a designated node per client, etc. 
 
+Note that in practice, this doesn't matter. A write to any node will be replicated to all the other nodes of the database, and then the 
+subscription will process that. Which node the subscription is connected to is not really something that you'll likely care about.
+****
 
+You can see in <<connected-subscription>> that we the owning node of the subscription is `A` and that there is a single connected subscription worker
+that has subscribed to this subscription.
 
+[[connected-subscription]]
+.RavenDB Studio showing a client connected to the `london-employees` subscription
+image::./Ch06/img06.png[]
 
+If you have multiple subscriptions, each will have a separate owning node, so we split the workload across all the nodes in the cluster. Of course,
+you can also override that decision by RavenDB and explicitly designate a node as the owning node of a subscription.
 
-
-
-
-
-
+For concurrent subscriptions, the same rules apply. There is a single owner node, regardless of how many concurrent subscription workers you have. That
+node is 
 
 
 
@@ -1496,6 +1516,11 @@ somewhere and will continue to do so until a reboot is done, where stuff breaks 
 
 
 TODO
+
+### Subscribing to documents in the future
+
+from "Employees" 
+where '@metadata'.'@refresh' == null
 
 ### Summary
 
@@ -1509,7 +1534,8 @@ email-sending example, including how to handle failures and partial failures bot
 
 > **Using subscription for ETL work**
 >
-> It's tempting to use subscriptions to handle ETL[^8] tasks, such as writing to a reporting database. While it _is_ possible, RavenDB has better options to handle ETL. See the discussion on this 
+> It's tempting to use subscriptions to handle ETL tasks,footnote:[Extract, transform, load: the process of moving data around between different data storage systems.] 
+> such as writing to a reporting database. While it _is_ possible, RavenDB has better options to handle ETL. See the discussion on this 
 > topic in Chapter 8.
 
 We spent a lot of time discussing how to handle errors in subscriptions, how to deploy subscriptions into production and how we can ensure failover and load balancing
@@ -1527,7 +1553,3 @@ from both old and new revisions of the document to the client side.
 
 The next part of the book is going to be exciting. We're going to learn how RavenDB is working in a distributed environment, and we can finally figure out what
 all those cryptic references to working in a cluster _mean_.
-
-
-[^7]: 
-[^8]: Extract, transform, load &mdash; the process of moving data around between different data storage systems.
