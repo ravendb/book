@@ -1486,7 +1486,7 @@ The RavenDB cluster will assign one of the nodes hosting the database to be the 
 coordinated through that node. Of course, if that node goes down, RavenDB will automatically failover the ownership of the subscription to another node in the cluster.
 This is important, because the owning node of a subscription doesn't have to be the same node that the client is consider the primary node.
 
-.RavenDB spreads the subscription ownership load across all nodes
+.RavenDB spreads the subscription load across all nodes
 ****
 It makes sense to make the subscription owner and the client's primary node the same node, no? Why would we want to have them be different?
 The primary reason is that you are likely to have _multiple_ subscriptions, and RavenDB can spread their load across multiple nodes. 
@@ -1508,40 +1508,134 @@ If you have multiple subscriptions, each will have a separate owning node, so we
 you can also override that decision by RavenDB and explicitly designate a node as the owning node of a subscription.
 
 For concurrent subscriptions, the same rules apply. There is a single owner node, regardless of how many concurrent subscription workers you have. That
-node is 
+node is responsible for sending out batches of documents to all the concurrent workers.
 
+### Subscriptions behind the scenes
 
+When you create a subscription, you specify a query that defines the documents you want to subscribe to. Internally, a subscription is composed of two pieces:
 
+* The query to run to find the documents to send to the worker.
+* The last processed position for the subscription.
 
+There is a bunch of other book-keeping involves, of course, but those are the two main pieces. When a subscription connects to RavenDB, we _scan_ through the
+documents in the database in modification order. The query goes through each document since the last processed position and check if it matches the subscription
+query. If it does, we can add that to the batch and send it to the worker.
 
+.The internal etag queue
+****
+When RavenDB stores documents on disk, it assigns each document an etag, which is a strictly increasing number that represents the order in which the documents were modified.
+That etag is a _single node_ representation of when a document was modified. Note that in a cluster, does doesn't _quite_ work. Consider nodes `A` and `B` in a cluster. 
+I modify `users/1-A` on node `A` and `users/2-B` on node `B`. Each node will then replicate the changes to the other node. However, the etags on each node may not reflect the 
+same order of modifications. On node `A`, `users/1-A` may have etag `100` and `users/2-B` may have etag `101`, while on node `B`, `users/2-B` may have etag `150` and 
+`users/1-A` may have etag `153`. At the cluster level, RavenDB uses change vectors, discussed in depth in <<ravendb-clusters>>.
 
-TODO
+The key is that whenever a document is modified, we'll update its etag. So updating `users/1-A` will give it a new etag, say `103` and the order of documents in node A
+will be `users/2-B` (`101`), `users/1-A` (`103`).
+
+Subscriptions operate on the internal etag queue, remembering the last etag position that was successfully acknowledged by the worker. That means that whenever a document 
+is modified, the subscription will process it _again_. That is either desirable, or something that we want to avoid, so we'll add that as a filter to the subscription
+query, as we did in <<subscriptions-with-include>> when we checked the `call.Survey = false` at the query and marked the document with `Survey = true` when we processed them.
+
+The reason RavenDB operates in this manner is that it means that it needs to keep track of a single value to keep the last processed position. That makes it very easy to
+handle the subscription state and recover from failures.
+****
+
+When the worker acknowledge that the batch has been processed successfully, we update the last processed position to the last document in the batch and start
+scanning through the remaining documents to gather enough items to send in the _next_ batch. For concurrent subscription, we need to keep track of multiple concurrent
+batches being "checked-out" simultaneously. That is required so we won't send an update document to a worker while another worker instance is already processing an
+older version of the document.
+
+Batch processing can fail if the subscription worker explicitly indicates a failure back to the RavenDB server, or if the subscription connection has dropped. 
+In that case, we don't update the last processed position, and the next time a worker connects, we resend the same batch of documents again. For concurrent subscriptions,
+we may need to scan through the "checked-out" documents that failed to process and send them to the next available worker.
+
+The biggest cost subscription has on the server side is the need to scan through all the documents in the collection. RavenDB translates the subscription query into a 
+JavaScript function that it applies to each document. A subscription that is connected but isn't currently processing documents require the server to just send a 
+ping every few seconds (to verify that the client on the other side is indeed connected). A subscription that is _not_ connected has no cost at all on the server side.
+
+In other words, subscriptions are very cheap to maintain on the server side. The main cost is when you have a subscription worker needs a new batch of documents to process.
+Assuming that the client does _any_ processing at all, that means that most of the time, the server isn't actually doing much. Having a lot of subscriptions operate at once
+is fine, since they aren't going to be putting a lot of load on the servers. At the same time, you can close subscriptions that are running to reduce overall system load and 
+resume them (from where they left off) if you need to provide extra breathing room for your system.
+
+While the subscription itself is cheap on the server side, there is the worker process that handle batches of documents. That work can be expensive, depending on what you're doing.
+And being able to delay background work to less busy times is a great way to ensure that your system remains responsive to user requests.
 
 ### Subscribing to documents in the future
 
-from "Employees" 
+Subscriptions operate on documents as they are _now_. The subscription query is applied to the current state of the document, and whenever a document is modified, we re-apply 
+the subscription query to see if it matches. When happens if I want to subscribe a document that was modified now, but I want to be called in 3 days? A good example is dealing
+with timeouts. We send a survey to the user, and we want to follow up if they haven't responded in 3 days. Essentially, we want to subscribe to documents in the future.
+
+The problem is that the subscriptions don't work like that. In the previous section, we discussed how subscription operate purely on the modification order of documents. 
+We cannot "schedule" a document to be processed in the future. However, we can use a small trick to achieve the same effect. RavenDB has the notion of `@refresh` metadata, you
+can see how we use that in <<set-refresh-metadata>>. 
+
+[[set-refresh-metadata]]
+.Creating a survey document with `@refresh` metadata three days for now
+[source,csharp]
+----
+using (var session = store.OpenAsyncSession())
+{
+    Survey survey = CreateSurvey(call);
+    session.Store(survey);
+    var metadata = session.Advanced.GetMetadataFor(survey);
+    metadata["@refresh"] = DateTime.Today.AddDays(3);
+    session.SaveChanges();
+}
+----
+
+The code in <<set-refresh-metadata>> creates a `Survey` document and sets the `@refresh` metadata to three days in the future. You can see what this looks in in the RavenDB Studio 
+in <<refresh-metadata-studio>>. The idea of `@refresh` is really simple, at the specified time, RavenDB will simply remove the `@refresh` metadata from the document, that is all. 
+That doesn't look like something particularly useful, isn't it? 
+
+When RavenDB removes the `@refresh` metadata from the document, it is _modifying_ the document. That in turn means that anything that processes documents as they are updated 
+will reprocess them. That includes indexes, ETL processes and most relevant for our current discussion, subscriptions.
+
+[[refresh-metadata-studio]]
+.Showing the `@refresh` metadata set on a document
+image::./Ch06/img07.png[]
+
+We can take advantage of this behavior to implement "subscriptions in the future". We create a subscription that looks for `Survey` documents that don't have the 
+`@refresh` metadata set, as shown in <<subscription-future-surveys>>. The key here is that the query will filter based on `where '@metadata'.'@refresh' == null`.
+
+[[subscription-future-surveys]]
+.Subscription query for `Survey` documents without `@refresh` metadata
+[source,sql]
+----
+from "Surveys"
 where '@metadata'.'@refresh' == null
+----
+
+In other words, we expect each `Survey` document to be processed _twice_ by the subscription. First, we'll check if when it is created (as shown in <<set-refresh-metadata>>),
+and we'll filter it out since it _has_ a `@refresh` value in its metadata. Then, three days later, RavenDB will remove the `@refresh` metadata, modifying the document.
+At that point, the subscription will see the document again, and this time it will match the query, and the subscription worker will be able to process it.
+In effect, we've created a "subscription in the future" by using the `@refresh` metadata as a delay mechanism.
+
+This `@refresh` technique to delay the processing of documents with subscriptions is a common pattern for implementing timeouts, delayed processing, etc. We'll talk more about
+`@refresh` in <<advanced-documents-capabilities>>, where we'll introduce a few more advanced capabilities of RavenDB documents.
 
 ### Summary
 
 When RavenDB implemented subscriptions for the first time, it was just a small section: a minor feature that was meant to handle an esoteric scenario that only a 
 single customer had run into. From that modest beginning, this feature has blown up to completely replace most batch processing handling in RavenDB. It's 
-not the first thing you'll use in every situation, but for anything that isn't about responding to a user request, it's usually a match.
+not the first thing you'll use in every situation, but for anything that _isn't_ about responding to a user request, it's usually a match.
 
 In this chapter, we looked into what subscriptions are, how to do batch processes with RavenDB and subscriptions, how to filter and modify the data on the server and how to 
 accept and process the data on the client side and write it back to RavenDB in an optimal fashion. We looked at integrating with external systems via the 
-email-sending example, including how to handle failures and partial failures both in RavenDB and in the external systems.
+email-sending example, including how to handle failures and partial failures both in RavenDB and in the external systems. 
 
-> **Using subscription for ETL work**
->
-> It's tempting to use subscriptions to handle ETL tasks,footnote:[Extract, transform, load: the process of moving data around between different data storage systems.] 
-> such as writing to a reporting database. While it _is_ possible, RavenDB has better options to handle ETL. See the discussion on this 
-> topic in Chapter 8.
+.Using subscription for ETL work
+****
+It's tempting to use subscriptions to handle ETL tasks,footnote:[Extract, transform, load: the process of moving data around between different data storage systems.] 
+such as writing to a reporting database. While it _is_ possible, RavenDB has better options to handle ETL. See the discussion on this 
+topic in <<etl-integrations>>.
+****
 
 We spent a lot of time discussing how to handle errors in subscriptions, how to deploy subscriptions into production and how we can ensure failover and load balancing
 of the work among both client and server using subscriptions. The subscription open strategies allow us to have a hot standby client for a subscription, ready
-to take over from a failed node and continue processing. On the server side, RavenDB will automatically failover subscriptions from a failed database node to
-a healthy one in a completely transparent manner.
+to take over from a failed node and continue processing or multiple concurrent workers that subscribe to same subscription. On the server side, RavenDB will automatically 
+failover subscriptions from a failed database node to a healthy one in a completely transparent manner.
 
 Another great use case for subscriptions is implementing task queues. And we looked at that, including error handling and recovery. We also discussed the ability to fix an 
 issue with a document that failed and have it automatically reprocessed by the subscription. 
@@ -1551,5 +1645,5 @@ about. This is a great help when producing timelines, tracking changes and handl
 database and exposes it directly for batch processing needs. We can even write a subscription script that would filter and send just the relevant details
 from both old and new revisions of the document to the client side.
 
-The next part of the book is going to be exciting. We're going to learn how RavenDB is working in a distributed environment, and we can finally figure out what
-all those cryptic references to working in a cluster _mean_.
+Finally, we looked at how we can subscribe to documents in the future using `@refresh`, allowing us to implement timeouts and delayed processing in a simple manner.
+Coming up next, we'll cover more advanced capabilities in RavenDB (like `@refresh`), and then move to RavenDB clusters and how to run RavenDB in a highly available manner.

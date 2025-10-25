@@ -60,12 +60,16 @@ include::./Ch05/Ch05.adoc[]
 [[batch-processing]]
 include::./Ch06/Ch06.adoc[]
 
-:figure-caption: Figure 7.
-:listing-caption: Listing 7.
+
+[[advanced-documents-capabilities]]
+## Advanced Documents Capabilities
+
+:figure-caption: Figure 8.
+:listing-caption: Listing 8.
 :listing-number: 0
 :figure-number: 0
 [[ai-llm]]
-include::./Ch07/Ch07.adoc[]
+include::./Ch08/Ch08.adoc[]
 
 
 
