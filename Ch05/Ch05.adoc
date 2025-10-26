@@ -550,7 +550,8 @@ async Task UnlockAsync(IDocumentStore store, string key, long index)
 
 <<pessimistic-concurrency-cmp-xng>> is relying on the nature of the compare exchange feature in RavenDB, to allow us to 
 have an atomic operation in a distributed cluster. We also use the `@expires` option to let RavenDB handle the cleanup
-and expiry of the lock on its own. We'll discuss this feature in more detail later.
+and expiry of the lock on its own. We'll discuss this feature in more detail later. We'll discuss more about `@expires` 
+and documents expiration in <<advanced-documents-capabilities>>.
 
 The sort of pessimistic lock that is shown in <<pessimistic-concurrency-cmp-xng>> is a cooperative one. All users must
 call to the `Lock` method to ensure proper synchronization. It doesn't rely on an existing connection to be kept alive

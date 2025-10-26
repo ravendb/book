@@ -57,12 +57,15 @@ include::./Ch05/Ch05.adoc[]
 :listing-caption: Listing 6.
 :listing-number: 0
 :figure-number: 0
-[[batch-processing]]
+[[advanced-documents-capabilities]]
 include::./Ch06/Ch06.adoc[]
 
-
-[[advanced-documents-capabilities]]
-## Advanced Documents Capabilities
+:figure-caption: Figure 7.
+:listing-caption: Listing 7.
+:listing-number: 0
+:figure-number: 0
+[[batch-processing]]
+include::./Ch07/Ch07.adoc[]
 
 :figure-caption: Figure 8.
 :listing-caption: Listing 8.

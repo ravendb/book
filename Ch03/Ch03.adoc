@@ -706,7 +706,8 @@ take precendance, but some of the values may be lost. It is the user responsabil
 .Optimizing time series storage requirements
 ****
 All the entries inside a time series are compressed using Gorilla compression.footnote:[Gorilla compression is a time series compression
-method from Facebook.]
+method from Facebook. See https://www.vldb.org/pvldb/vol8/p1816-teller.pdf(Gorilla: A Fast, Scalable, In-Memory Time Series Database
+paper) for more details.] This allows RavenDB to store large amounts of time series data in a very efficient manner.
 
 The reason this matters enough to cover in this book is that the compression format benefits greatly from predictability. Let's assume
 you wish to record your heart rate every minute. In practice, one value will be recorded in `12:22:00.8027074` and the next will be in 

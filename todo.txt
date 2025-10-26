@@ -1,27 +1,16 @@
 Topics to cover:
 
-* Schema validation
-* Documents Compression
-* Expiration
-* Archive
-* Refresh
 * Corax & Lucene
 * Hub & Filtered replication
 * Sharding
 * Cloud
 * Vector search & HNSW in indexing-in-ravendb
-
-* concurrent subscriptions
-
 * session context & round robin load balancing.
-
-pessimistic-concurrency-cmp-xng - mention where we talk about expiration
+* PatchByQueryOperation
 
 Cluster-wide transactions
 * discuss document size limits
 
 indexing attachments
-
-Chapter 3 - gorilla compression - reference
 
 AI - combining sentiment analysis with subscriptions - see create-subscription-javascript-filtering
