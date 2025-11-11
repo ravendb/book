@@ -135,15 +135,81 @@ set the `@refresh` field again. There is no way to set a recurring refresh in Ra
 ****
 
 In almost all respects, the `@refresh` mechanism is similar to the `@expires` mechanism. The `@refresh` feature also needs to be explicitly  enabled on the database side, 
-and both features run on the leader node and replicate the changes to the other nodes in a cluster. You can enable the `@refresh` feature in the Studio, by going to the `Settings` 
-tab of your database and then to the `Document Refresh` section or using `ConfigureRefreshOperation` API.
+and both features run on the primary database node and replicate the changes to the other nodes in a cluster. You can enable the `@refresh` feature in the Studio, by going to 
+the `Settings` tab of your database and then to the `Document Refresh` section or using `ConfigureRefreshOperation` API.
 
 On its own, the `@refresh` feature is useless, but when combined with other RavenDB features, it becomes very powerful mechanism to schedule work to be done at a later time.
 
 ### Archiving Documents
 
+Once your database hits a certain size, you need to start thinking about what exactly you are _doing_ with all this data. In many cases, you may have documents that are no 
+longer actively used, and while RavenDB has no problems handling large datasets, you may want to move old documents out of the way, to keep your active working set smaller.
+
+An easy way to handle this is to mark document with `@expires` metadata field, so they will be automatically deleted after a certain time. But deleting data is a permanent operation, 
+and not something to do just to make the task of the database easier. After all, regardless of the size of the data in question, it is the role of the _database_ to handle that.
+RavenDB is perfectly happy with large datasets, including multi-terabyte databases. If you want to go beyond the amount of data that a single server can handle, you can use sharding
+to spread the load across multiple servers (see <<sharding-in-ravendb>> for more details).
+
+However, in many cases, you want to both keep the old data around, but it doesn't make _sense_ to keep orders data from three years ago in the same manner as your latest order. RavenDB
+allows you to define an archiving time for your documents, which lets RavenDB aggressively optimize how it deals with those documents, assuming that they are rare accessed. 
+
+Just like `@expires` and `@refresh`, you can set the archiving time using the `@archive-at` metadata field on your documents. And just like the other two features, you need to enable archiving
+explicitly. You can do that in the RavenDB Studio by going to the `Settings` tab of your database, and then to the `Data Archival` section. Given that you just read about `@expires` and `@refresh`,
+this should be very familiar to you by now and I'm going to skip the details here. Check the previous sections to get the full picture, since `@expires`, `@refresh` and `@archive-at` work in 
+a very similiar manner.
+
+When you store a document with the `@archive-at` metadata field set, RavenDB will automatically move that document to the archived mode when the time comes. What exactly does that mean? 
+An archived document is still fully accessible, you can read it and modify it normally. However, there are a number of very important differences in how RavenDB handles archived documents:
+
+* Indexes exclude archived documents by default, when a document is marked as archived, RavenDB will remove it from the index (as if it was deleted). This lets RavenDB keeps its indexes 
+  smaller and more efficient. If an archived document is modified later on, it will be ignored by the index. You can also configure an index to exclude archive documents (the default), 
+  include archive documents, or _only_ index archive documents.
+* Subscriptions (discussed in <<batch-processing>>) also exclude archived documents by default. Just like with indexes, you can configure this behavior on a per subscription basis.
+* Archived documents are stored on the disk in a compressed format, which reduces their disk usage significantly, at the cost of some CPU usage when reading them. We'll talk about the 
+  compression mechanism in the next section.
+
+The end result is the that archived documents are stored in a compressed form, aren't touched by indexes or subscriptions. That lets RavenDB discard it from the working set of the database,
+so it will not take any memory from the server. They are stored in "cold storage" on the disk, and only touched when requested directly by id. This allows you to keep large amounts of old data 
+around, without impacting the performance of your day to day operations.
+
+Note that those three behaviors (ignoring during indexes, skipping in subscriptions and compressing on the disk) are the only differences in how RavenDB handles archived documents. In particular,
+ETL processes or replication are _not_ impacted by the archived state of documents, they will be replicated or take part of ETL processes normally.
+
+A typical use case for document archiving in an e-commerce system would be to archive orders documents that are over two years old. Those documents are rarely accessed, but you may need to get 
+to them once in a while for auditing or other purposes. When you create an order document, you can set the `@archive-at` metadata field to the last day of the year, two years in the future. 
+For example, `"@archive-at": "2028-01-01T00:00:00.0000000Z"` for an order created today (November 2025). That way, at the start of 2028, RavenDB will automatically archive all the documents, 
+removing it from indexes.
+
+.Selecting the archive date has an impact on your system
+****
+You can simply set the archive date to be two years from the creation date of the document. That would mean that the archiving process will be spread evenly over time. In practice, that isn't
+usually how businesses operate. Most businesses have a yearly cycle. It is very common to need to want to search over data for the last year or the previous one.
+For that reason, it is often better to set the archive date to be the same for all documents in a given year. For example, for all orders created in 2025, set the archive date to be 
+`2028-01-01T00:00:00.0000000Z`. 
+
+That is something that you want from a business perspective, but it also has technical advantages. When the new year rolls by, RavenDB now needs to archive all the documents from two years ago.
+That can be a significant amount of data, and RavenDB will handle that in the background. Note that archiving, just like `@expires` and `@refresh`, happens on the primary node in a cluster, 
+and the changes are replicated to the other nodes. And like expiration and refresh, RavenDB is going to _start_ archiving the documents at the specified time, but it may take some time to 
+complete the process. 
+****
+
+Following the archiving in Jan 2028, queries on orders for a customer, will only consider the documents from 2026 and 2027. If you need to read an archived order, you can do that directly by id.
+Alternatively, you can create a dedicated index that includes archived documents, to be able to query them as well. The `"Orders/Archived"` index is configured to only index archived documents,
+and it is queried only on very specific scenarios, such as auditing or generating reports over old data.
+
+Using the example above, with the archive date set to the start of the year, that index for archiving documents will only need to index documents once a year, when the archiving process runs.
+I'm jumping ahead a bit, since we'll cover indexing in depth in <<indexing-in-ravendb>>, but I wanted to explain how archiving and indexing interacts. This `"Orders/Archived"` index will run 
+once a year, and if (as expected) there are no queries on this index, RavenDB is able to idle the index completely. In other wrods, the archive index will consume no resources from the system
+while there are no queries on it.
+
 ### Documents Compression
 
+
+
 ### Schema validation
+
+!!!TODO!!!
+
+### Remote attachments
 
 !!!TODO!!!

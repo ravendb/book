@@ -1,5 +1,6 @@
 Topics to cover:
 
+* New setup UI
 * Corax & Lucene
 * Hub & Filtered replication
 * Sharding
