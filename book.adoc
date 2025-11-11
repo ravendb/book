@@ -115,3 +115,6 @@ include::./Ch10/Ch10.adoc[]
 
 [[inside-corax]]
 ## Inside the Corax indexing engine
+
+[[operational-recipes]]
+## Operational Recipes

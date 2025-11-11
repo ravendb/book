@@ -204,7 +204,132 @@ while there are no queries on it.
 
 ### Documents Compression
 
+Documents in RavenDB are stored on the disk in a binary format. This can be a surprise to some, since RavenDB uses JSON as its document format. However, for internal storage, RavenDB uses a binary 
+format that is much more efficient to store and process. The primary reason why RavenDB uses a binary format is performance. Parsing JSON is a costly operation, and RavenDB needs to be able to read and write 
+documents very quickly. The binary format used internally is designed to allow to process documents in a zero copy manner, without the need to parse or allocate memory for the documents.
 
+The details of the binary format are not relevant for this book, primarily because it is an internal implementation detail. It is worth to understand the implications of this format. In particular, how
+this format deals with strings, and especially large strings. If you have a document with a large string property (HTML content, large text, etc), RavenDB natively applies compression to the value.
+
+There are actually _several_ layers of compression that RavenDB applies to documents. If we are dealing with a string that is less than 128 characters, RavenDB uses an internal compression mechanism
+for small string compression. If you are interested in the details, the following https://ayende.com/blog/172865/reverse-engineering-the-smaz-compression-library[blog post] goes into the details of how 
+that works.
+
+When the string in question is larger than 128 characters, RavenDB uses the `LZ4` compression algorithm to compress the string value. `LZ4` is a very fast compression algorithm that provides good 
+compression ratios at high speed. This compression is done transparently by RavenDB, so you don't have to do anything special to take advantage of it. A good example of the impact that this can have
+on large string properties is when you have HTML content. For example, consider the `posts/203141-A` document in <<large-blog-post-doc>>. You can find the actual
+https://ayende.com/blog/203141-A/a-deep-dive-into-ravendbs-ai-agents[blog post] directly, by the way.
+
+[[large-blog-post-doc]]
+.A BlogPost document with large HTML content
+image::./Ch06/img05.png[]
+
+You can see in line 4 in <<large-blog-post-doc>> that the `Body` property contains a large HTML content. In this case, it is 39,939 characters long. And the total document size, as JSON, it is 40.78 KB.
+RavenDB is able to compress that down to 22.82 KB. You can see those details in the RavenDB Studio, in the document properties, as you can see in <<large-doc-properties>>.
+
+[[large-doc-properties]]
+.Showing the size of a large document in the Studio, as JSON and on disk
+image::./Ch06/img06.png[]
+
+This behavior means that there are actually three separate sizes for a document inside of RavenDB. Using the `posts/203141-A` shown in <<large-blog-post-doc>> and <<large-doc-properties>>, we have:
+
+* The size of the document using JSON, which is 41.35 KB. This is relevant when transferring the document over the network, since RavenDB uses JSON as its wire format.
+* The compressed size of the document on the disk, which is 22.82 KB. 
+* The allocated size of the document on disk, which is 24.00 KB. Internally, RavenDB allocates disk space in 8KB increments (called pages), so the actual size on the disk is rounded up to the next page size.
+  Documents that are smaller than 4KB will be stored in a more compact manner, to avoid wasting an entire 8KB page for a single small document.
+
+Technically speaking, the maximum size of a document inside of RavenDB is 2GB. In practice, automatic large string compression means that you can store larger documents, since we care about the size
+of the document on disk, not its size as JSON. That is not an endorsement for large documents, just an explanation of how things looks like from the inside.
+
+Compressing a single string property is often suprising effective, but it has limits. If the document contains an array of complex objects, for example, a large part of the actual document size is the 
+overhead of JSON itself. For example, the repeated property names for each item in the array. RavenDB deals with that as well, and will store only a single copy of the property name for each unique property
+name in a document. Again, this is part of the internal binary format, not something that you should be aware of. I mention it here to explain how RavenDB is able to store documents efficiently on the disk.
+
+.RavenDB does not apply compression for attachments
+****
+It is worth laying it out expclicitly: RavenDB does _not_ apply any compression to attachments. Attachments are stored as-is on the disk, without any modification. This is because attachments can be of 
+any type, and RavenDB has no way to know if the attachment is already compressed. Most modern file types are already natively compressed (JPEG, PNG, PDF, DOCX, XLSX, ZIP, etc), so applying 
+additional compression  would be a waste of CPU cycles with little to no gain.
+
+If you store attachments in RavenDB, make sure that it is either in an already compressed format or compress it yourself before storing it in RavenDB.
+****
+
+Having explained all the internal details about how RavenDB stores JSON documents, I want to talk about the next step. Compressing documents, beyond just avoiding repeatitive property names and 
+compressing large strings. The simplest way to go about compressing documents is to simply use a general purpose compression algorithm, such as `LZ4` or `ZSTD`, to compress the entire document.
+That would be simplest option, but it isn't the most effective one. To understand exactly why, we need to understand exactly what compression does. 
+
+Compression algorithms work by finding repeatitive patterns in the data and replacing them with shorter representations. The problem is that you need to have enough data to be able to find those patterns.
+If most of your documents are small, there is not enough repetitions inside the document itself to be able to compress it effectively. The best way to deal with that is to compress multiple documents together, 
+so the compression algorithm can find patterns across documents.
+However, if we compress multiple documents together, we need to decompress all of them when we want to read a single document. That makes reading a single document a _lot_ more expensive, since we need to
+decompress multiple documents just to get to the one we want.
+
+RavenDB deals with this problem in quite an interesting manner. RavenDB allows you to enable document compression for specific collections and for revisions, as you can see in <<enable-doc-compression>>,
+where we specified that the `Orders` collection should have be compressed, as well as revisions for all collections.
+
+[[enable-doc-compression]]
+.Enabling document compression for a collection in the Studio
+image::./Ch06/img07.png[]
+
+At the bottom of <<enable-doc-compression>>, you can see that enabling compression will only impact new documents. Existing documents will remain uncompressed until they are modified. Now, let's talk 
+about how RavenDB actualy compresses those documents. 
+
+To get efficent compression for documents, including being able to take advantage of patterns across documents, RavenDB uses a technique called dictionary compression. The idea is that it scans a bunch
+of documents together, and builds a dictionary of common patterns across those documents. Then, when storing each document, RavenDB uses that dictionary to compress the document individually. In other words,
+using the example of `posts/203141-A`, RavenDB will detect that the string `Body` or `ContentType` appears in many documents, and will store a single copy of that string in the dictionary. 
+When compressing the document using the dictionary, RavenDB can detect that the string `Body` appears in the document, and replace that with a reference to the dictionary entry. In other words, instead of
+storing 11 bytes for `ContentType`, RavenDB can store a lot less.
+
+RavenDB isn't limited to just compressing property names. It can also detect common values across documents. For example, if you have a date value and many of your documents share the same `2026-01-` because
+they were all created in January 2026, RavenDB can store that common prefix in the dictionary as well. The same applies to other common values, such as status codes, common strings, etc.
+
+I'm giving the example about dates intentionally, because it is obvious that as soon as the month or year roll by, we'll lose that common prefix. RavenDB assumes that the repetitive patterns that it 
+takes advantage of will change over time. For that reason, RavenDB monitors the compression rate of the current compression dictionary for each collection. If the compression rate goes below a certain 
+threshold, RavenDB will rebuild the compression dictionary for that collection and test to see if we can find better patterns to take advantage of. If the new dictionary provides better compression, 
+it will start using that one instead.
+
+At any given point, RavenDB will have (for each collection) a set of compression dictionaries that is used, as well as a single active dictionary that it will use for new or modified documents. That 
+is exposed in the RavenDB Studio under `Stats > Storage Report`, and then under `Database > Documents > Datafile > Trees > CompressionDictionaries`.  You can see how this looks like in 
+<<compression-dictionaries>>, where the last entry shows the number of compression dictionaries that were generated.
+
+[[compression-dictionaries]]
+.Compression dictionaries in the Studio
+image::./Ch06/img08.png[]
+
+Each dictionary uses about 8KB in size, and once created, can never be deleted. This is because existing documents may still be using that dictionary for compression, so RavenDB needs to keep it around.
+In practice, however, the number of dictionaries per collection is usually small, so this isn't a significant overhead. RavenDB will only create a new dictionary when the current one is no longer effective, 
+so in many cases, you will use the same dictionary untill your data patterns change significantly.
+
+.The costs of document compression
+****
+Compression is a trade off. On the one hand, you reduce the amount of disk space that documents take. On the other hand, you need to spend CPU cycles to compress and decompress documents.
+When we built the documents compression feature, we assumed that you'll want to use it primarily for collections that are not frequently modified or read, especially if you have a lot of them.
+A good example of that are log entries, where you may have millions of documents that are rarely accessed. In that case, the savings in disk space are worth the extra CPU cycles needed to read.
+Archived documents are also another example of when we want to spend CPU cycles to reduce your costs. Indeed, archived documents are compressed using this exact technique.
+
+That was the plan, at least. In practice, we found that even for frequently accessed collections, overall perfomance improved when using document compression. The reason for that is that 
+by compressing the document data on the disk, we also reduce the amount of I/O operations that we required for both reads & writes. The I/O costs are often the bottleneck in database operations, so
+the reduction in I/O more than makes up for the extra CPU cycles needed for compression.
+
+This is especially true on the cloud, where you are rarely burning through all your CPU cycles, but are often starved for I/O. Document compression can significantly improve the overall perforamcne 
+as well as reduce your cloud costs.
+****
+
+By default, documents compression is enabled for revisions, but not for collections. You need to explicitly enable it for each collection that you want to compress. You can also enable that globally
+for all collections. It isn't a panacea, but it _is_ something that you should at least look at in terms of reducing disk usage and improving performance as part of your initial testing.
+Note that you can also _disable_ document compression after you enabled that. However, that will not decompress existing documents. Instead, RavenDB will simply stop compressing modified documents 
+going forward.
+
+An easy way to see the impact of document compression is to enable or disable compression and then ask RavenDB to compact the database, as shown in <<compact-db-studio>>.
+
+[[compact-db-studio]]
+.Starting database compaction for the database in the Studio
+image::./Ch06/img09.png[]
+
+Clicking on the `Compact database` shown in <<compact-db-studio>> will start the compaction process for the database. This forces RavenDB to rebuild the database file from scratch, along the way it 
+will compress or decompress documents as needed. After the compaction is done, you can check the size of the database file on the disk to see the impact of document compression. Note that compaction
+is an offline operation, so the database wouldn't be available while it is running, and that it may take a significant amount of time, depending on the size of your database. We'lld discuss database 
+compaction in more detail in <<operational-recipes>>. 
 
 ### Schema validation
 

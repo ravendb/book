@@ -1,10 +1,13 @@
 Topics to cover:
 
 * New setup UI
+* Schema validation
+* Remove attachments
 * Corax & Lucene
 * Hub & Filtered replication
 * Sharding
 * Cloud
+* Database compaction
 * Vector search & HNSW in indexing-in-ravendb
 * session context & round robin load balancing.
 * PatchByQueryOperation
