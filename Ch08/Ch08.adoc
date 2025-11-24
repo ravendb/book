@@ -109,7 +109,7 @@ I mention this because it is easy to think that vector search isn't that useful.
 When evaluating the usefulness of vector search, be sure to also evaluate other models via the Embedding Generation feature, we'll cover it in depth later in this chapter.
 ****
 
-The `bge-micro-v2` model outputs an embedding vector with 384 dimensions (and array with 384 `float` values).
+The `bge-micro-v2` model outputs an embedding vector with 384 dimensions (an array with 384 `float` values).
 With OpenAI, we have text-embedding-3-small` with 1,536 dimensions and `text-embedding-3-large` with 3,072 dimensions. 
 The larger the model, the more nuanced the understanding of the data is likely to be. On the other hand, larger models are more expensive to use, so there is a trade-off between cost and quality.
 
@@ -188,7 +188,7 @@ we are doing a linear scan of all the embeddings in the database.
 
 RavenDB _can_ do something like that, but you need to tell it to do so very explicitly. If you want to use exact nearest neighbors search, you can use: `exact(vector.search(...))`. In the case of 
 <<where-is-the-dessert>>, you would write the query like this: `where exact(vector.search(embedding.text(Name), $query))`. This will force RavenDB to do an exact nearest neighbors search, in a very
-similar manner to the code in <<exact-neighbors-search>>. You have to force RavenDB to go this route because it is _slow_.
+similar manner to the code in <<exact-neighbors-search>>. You have to force RavenDB to go this route because it is _slow_ when you have a lot of vectors.
 
 RavenDB typically uses a much more efficient algorithm called HNSW (Hierarchical Navigable Small World) for vector search. 
 HNSW is an approximate nearest neighbors search algorithm that is much faster than exact nearest neighbors search. The details on the HNSW algorithm are beyond the scope of this book, 
@@ -218,7 +218,147 @@ https://ravendb.net/articles/scaling-hnsw-in-ravendb-optimizing-for-inadequate-h
 
 With proper understanding of vector search, we now need to understand how to get the vectors in the first place. That is where Embedding Generation comes into play.
 
+### Connecting RavenDB to AI Models
+
+Before we get to actually working with models, we need to setup RavenDB to be able to connect to them. Aside from `bge-micro-v2`, which is meant to get 
+you started quickly, all other models are external. That means that you need to tell RavenDB about the model you want to use and how to connect to it.
+There are two types of models that RavenDB can connect to: embedding models and generative models. Embedding models are used to generate vectors 
+for vector search, while generative models are used to process and generate data. 
+
+RavenDB has no preferred model, you can use OpenAI, Open Router, Ollama, Cohere, or any other model that you want. RavenDB uses the OpenAI AI 
+(the defacto standard for AI models) to communicate with the model, so any model that is compatible with the OpenAI API will work just fine.
+For embedding, RavenDB natively supports (at the time of this writing) OpenAI, Open Router, Ollama, Hugging Face, Google AI, Vergex, Mistral and 
+Azure OpenAI. Note that supporting OpenAI for embbedding means that any model that offers the `v1/embeddings` endpoint will work just fine. That includes a lot of 
+models that are not explicitly listed here. 
+
+For generative models, RavenDB natively supports OpenAI, Ollama and Azure OpenAI. Again, any model that offers the `v1/chat/completions` endpoint 
+will work just fine. Here RavenDB requires a bit more, since generative models are more complex than embedding models. In particular, RavenDB need the model
+in question to be able to support tool usage and structured output. Most models support that out of the box, but it is something to be aware of.
+
+For simplicity, we'll focus on OpenAI and Ollama as the models we'll be using in the examples. The process is similar for other models, check the online 
+documentation for the full details. I'm assuming that you have an OpenAI account and has the OpenAI API key ready to go. For Ollama, you can run the 
+code shown in <<running-ollama>> to get started.
+
+[[running-ollama]]
+.Running Ollama locally using Docker
+[source,powershell]
+----
+docker run -d -v ollama:/root/.ollama -p 11434:11434 -name ollama ollama/ollama
+curl --retry-max-time 30 -s http://localhost:11434/
+docker exec ollama ollama pull llama3.2:3b
+docker exec ollama ollama pull nomic-embed-text
+----
+
+The script in <<running-ollama>> will run Ollama in a Docker container, and will pull the `llama3.2:3b` model for generative tasks and the `nomic-embed-text` 
+model for embedding tasks. You can use any model that Ollama supports, of course. Those are just here to get you started. 
+Once you have Ollama running, you can connect to it using RavenDB.
+
+#### Connecting RavendB to Ollama
+
+Connecting RavenDB to an AI model is simple. Go to the RavenDB Studio and go to the `Northwind` database, then the `AI Hub` section and the 
+`AI Connection Strings` option. Click on `Add New`, give the connection string a name (we'll use `Ollama Embedding` for now). You can then select an 
+identifier for the connection string (we'll use `ollama-embedding`). 
+
+.Identifiers in RavenDB AI Integration
+****
+You'll find a lot of identifiers in RavenDB's AI integration. Those are simply unique identifiers (without spaces) that RavenDB uses to refer to
+connection strings, tasks, agents, etc. The idea is that you can have a human friendly name (like `Ollama Embedding`) and a machine friendly identifier 
+(like `ollama-embedding`). For references, you'll always use the identifier, while for display purposes, you'll use the name.
+****
+
+Next, you need to select the model type. We'll use `Text Generation` for now. 
+Finally, you need to specify `Ollama` as the connector and `http://localhost:11434/` as the URL. Clicking on the `Model` drop down should list the 
+models that Ollama has available (we pulled `llama3.2:3b` and `nomic-embed-text` earlier, so they should be listed there). Select `nomic-embed-text` 
+as the model and click on `Save connection string`. You can see the full process in <<ollama-connection-string>>.
+
+[[ollama-connection-string]]
+.Creating an Ollama connection string in RavenDB Studio
+image::./Ch08/img03.png[]
+
+You can repeat the same process as in <<ollama-connection-string>> to create a connection string for generative tasks. We'll call it `Ollama Generative`, 
+with the identifier `ollama-generative`, use `Chat` as the model type, `Ollama` as the connector type, `http://localhost:11434/` as the URL and select 
+the `llama3.2:3b` model .
+
+#### Connecting RavenDB to OpenAI and OpenAI compatible models
+
+Connecting RavenDB to OpenAI is similar to connecting to Ollama. Go to the `AI Hub` section in RavenDB Studio, then the `AI Connection Strings` option.
+Click on `Add New`, give the connection string a name (we'll use `OpenAI Embedding` for now). You can then select an identifier for the connection string 
+(we'll use `openai-embedding`). Next, you need to select `Text Generation` for the model type then specify `OpenAI` as the connector.
+
+You now need to provide your OpenAI API key. You can do that by setting the `API Key` field to your OpenAI API key. Finally, you need to select the URL to use.
+For OpenAI, you can use the default URL (`https://api.openai.com/v1/`). If you are using Grok, on the other hand, you'll use `https://api.x.ai/v1` and using
+OpenRouter you'll use `https://openrouter.ai/api/v1`. 
+
+You can now selet the model to use. For embedding, you can select either `text-embedding-3-small`. Click on `Save connection string` to finish. You can see the full process in <<openai-embedding-connection-string>>.
+
+[[openai-embedding-connection-string]]
+.Creating an OpenAI connection string in RavenDB Studio
+image::./Ch08/img04.png[]
+
+You can repeat the same process as in <<openai-embedding-connection-string>> to create a connection string for generative tasks. We'll call it `OpenAI Generative`,
+with the identifier `openai-generative`, use `Chat` as the model type, `OpenAI` as the connector type, provide your OpenAI API key and the model URL then 
+select the `gpt-4.1-mini` model.
+
+We'll discuss more about model selection later in the chapter, but for now, this is enough to get you started. Withh those logistics out of the way, let's see 
+how we can use those features in practice.
+
 ### Embedding Generation
+
+Until now, we didn't need to consider how the vectors were generated. RavenDB used the embedded model (`bge-micro-v2`) to handle that for us automatically.
+That is great to get started, but you'll usually want to graduate to using more powerful models. That is where Embedding Generation comes into play. Before we
+get to the details of how this works, I want to explain a bit about the constraints in which embedding generation operates.
+
+Models usually operate best using a GPU, and _most_ database servers don't have a powerful GPU (or cost way too much if they do).
+Embedding is computationally expensive, so it is important to reduce both the amount of data you want to embed and the number of time you need to do so.
+
+You'll usually run the embedding model exteranlly. Whether as a cloud service (like OpenAI, Cohere, etc) or your own hosted model (using something like
+Ollama or LlamaIndex). In other words, embedding generation is _not_ done directly inside of RavenDB, but exteranally using remote calls.
+Furthermore, in most external models, you have to consider rate limits. You cannot just blast the model with embedding requests, you need to throttle 
+your requests. When running on your own hardware, you need to avoid overloading the GPU, so you have effective rate limits there as well.
+
+All of that means that embedding generation is not something that we _can_ do in a synchronous manner, not at scale. Using the Product's `Name` as 
+an example, we cannot just expect RavenDB to compute the embedding for the `Name` field when we update a document. We _can_, but that would have an
+unacceptable performance penalty. Instead, we need to do that asynchronously, in the background, and in a batched manner (since that is more efficient 
+for the model).
+
+RavenDB's Embedding Generation feature is built to handle exactly that for you. Taking complete ownership of the entire process of embedding generation,
+from tracking which documents need to be embedded, batching requests to the model, and storing the resulting vectors. RavenDB also
+handles all the logistics around that. If you updated the `Product` document and did _not_ changed the `Name` field, RavenDB will not re-embed the document. 
+If the embedding model is temporarily unavailable (beacuse of an error or exceeding the rate limits), RavenDB will back off and retry later. 
+
+Embedding Generation in RavenDB is built on top of RavenDB's ETL (Extract, Transform, Load) capabilities, which we'll cover in depth in <<etl-integrations>>.
+
+To create an embedding generation task, go to the `AI Hub` section in RavenDB Studio, then to `AI Tasks` and then on `Add AI Task`. Select `Embedding Generation`
+as the task type. You can then give the task a name (we'll use `Product Name Embedding (Ollama)`), and an identifier (we'll use `product-name-embedding-ollama`).
+In the connection string, we'll select `Ollama Embedding` (the one we created earlier). You can see what the initial configuration looks like in <<embedding-generation-initial-configuration>>.
+
+[[embedding-generation-initial-configuration]]
+.Creating an Embedding Generation task in RavenDB Studio
+image::./Ch08/img05.png[]
+
+Next, we need to specify the collection to operate on. You can select `Products` from the drop down. Finally, we need to specify the field `Name` to embed and 
+then click on `Add Path Configuration`. You can see the full configuration in <<embedding-generation-full-configuration>>. You can click on `Save` to finish 
+creating the task and getting RavenDB started on embedding your products' names. 
+
+[[embedding-generation-full-configuration]]
+.Full Embedding Generation task configuration in RavenDB Studio
+image::./Ch08/img06.png[]
+
+In <<embedding-generation-full-configuration>>, you can see that there are a _lot_ of options that we didn't touch. We'll explain what they mean shortly, 
+but for now, you should be able to see that RavenDB is already working in the background on generating the embeddings for your data. You should be able to 
+see two new document collections in the database: `@embeddings/Products` and `@embeddings-cache`. Those are used by RavenDB to manage the state of the 
+embedding generation and store the resulting vectors.
+
+#### Turning text into embeddings
+
+Conceptually, embedding generation is fairly simple. You take some text, send it to the model, and get back a vector. It is as easy as running: 
+`embed(text, model: "nomic-embed-text")` and getting back the resulting vector. However, there are a quite a few details to consider. To start with,
+you cannot just throw text at the model and expect it to be fine with it. Most models have a limit on the amount of text they can handle in a single request.
+That means that you need to consider how much text you are sending to the model.
+
+
+
+
 
 ### Generative AI & Subscriptions
 
