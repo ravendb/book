@@ -24,30 +24,35 @@ To Shahar, who would always fall asleep when I talked about the book, hopefully 
 
 :figure-caption: Figure 1.
 :listing-caption: Listing 1.
+:table-caption: Table 1.
 :listing-number: 0
 :figure-number: 0
 include::./Ch01/Ch01.adoc[]
 
 :figure-caption: Figure 2.
 :listing-caption: Listing 2.
+:table-caption: Table 2.
 :listing-number: 0
 :figure-number: 0
 include::./Ch02/Ch02.adoc[]
 
 :figure-caption: Figure 3.
 :listing-caption: Listing 3.
+:table-caption: Table 3.
 :listing-number: 0
 :figure-number: 0
 include::./Ch03/Ch03.adoc[]
 
 :figure-caption: Figure 4.
 :listing-caption: Listing 4.
+:table-caption: Table 4.
 :listing-number: 0
 :figure-number: 0
 include::./Ch04/Ch04.adoc[]
 
 :figure-caption: Figure 5.
 :listing-caption: Listing 5.
+:table-caption: Table 5.
 :listing-number: 0
 :figure-number: 0
 [[ravnedb-client-api]]
@@ -55,6 +60,7 @@ include::./Ch05/Ch05.adoc[]
 
 :figure-caption: Figure 6.
 :listing-caption: Listing 6.
+:table-caption: Table 6.
 :listing-number: 0
 :figure-number: 0
 [[advanced-documents-capabilities]]
@@ -62,6 +68,7 @@ include::./Ch06/Ch06.adoc[]
 
 :figure-caption: Figure 7.
 :listing-caption: Listing 7.
+:table-caption: Table 7.
 :listing-number: 0
 :figure-number: 0
 [[batch-processing]]
@@ -69,6 +76,7 @@ include::./Ch07/Ch07.adoc[]
 
 :figure-caption: Figure 8.
 :listing-caption: Listing 8.
+:table-caption: Table 8.
 :listing-number: 0
 :figure-number: 0
 [[ai-llm]]
@@ -82,6 +90,7 @@ include::./Ch08/Ch08.adoc[]
 
 :figure-caption: Figure 10.
 :listing-caption: Listing 10.
+:table-caption: Table 10.
 :listing-number: 0
 :figure-number: 0
 [[cloud-n-edge]]
