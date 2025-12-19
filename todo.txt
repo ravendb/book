@@ -11,6 +11,8 @@ Topics to cover:
 * Vector search & HNSW in indexing-in-ravendb
 * session context & round robin load balancing.
 * PatchByQueryOperation
+* discuss quantization when talking about vector indexes
+
 
 Cluster-wide transactions
 * discuss document size limits

@@ -564,16 +564,77 @@ In the case of OpenAI's `text-embedding-3-small` model, the embedding is 1536 di
 
 RavenDB uses attachments to store the actual embedding vectors. This is done for efficiency reasons, we can store the embeddings vectors as raw array of `float`, instead of
 serializing them through JSON, base64 or the like. RavenDB's attachments also handle de-duplication for us, so an identical vector across multiple documents will use a 
-single attachment under the hood. This saves both space and I/O when working with embeddings.
-
+single attachment under the hood. This saves both disk space and I/O when working with embeddings.
 
 #### Embedding Quantization
 
+Looking at <<embedding-document-example>>, you can see that we have a `@quantization` property for each embedding generation task. That property tells us how the 
+embedding vector is stored. The `bge-micro-v2` generates embeddings of 384 dimensions, `nomic-embed-text` uses 768 dimensions, OpenAI's `text-embedding-3-small`
+has 1,536 dimensions and the `text-embedding-3-large` model has 3,072 dimensions. A _single_ embedding from the latter model would take 
+12,288 bytes (12KB) to store as an array of floats. You can see the sizes of the embeddings stored in <<embedding-attachment-example>>, each attachment is quite large.
 
+If you have a large number of embeddings, that can add up quickly. Just a million embeddings from the `text-embedding-3-small` model would cost about 6GB of disk space. 
+Rembmer that you may have chunking in place, so a single document will likely have multiple embeddings. And you may have multiple embedding generation tasks defined, 
+each generating its own set of embeddings. In short, embeddings can _very_ quickly consume a lot of disk space. This is made worst by the fact that you also need to 
+go through those embeddings when queries, so it isn't just the size of the disk, but also how many IOPS you need for queries.
+Disk space this days is pretty cheap, but IOPS are not. That is especially true in cloud environments, where getting good rate of IOPS can be quite expensive.
+
+Compression doesn't really work well for embeddings. The vectors are pretty random in nature, so there isn't much redundancy to exploit. 
+But it turns out that you can trade off accuracy for size.
+In <<embedding-quantization>>, you can see the "sweets" embedding using `bge-micro-v2` that we saw earlier in <<bge-micro-v2-embedding>>. 
+
+[[embedding-quantization]]
+.Showing the size and values of an embedding vector using different quantization methods (model: `bge-micro-v2`, text: "sweets")
+[options="header"]
+|===
+| Type | Vector | Size (Bytes)
+| Full (Single) | [-0.18093847, 0.04937424, 0.19464265, ...] | 1,536
+| Quantized  (`int8`) | [-118, 32, 127, ...], scale = 0.001532619 | 384
+| Restructured | [-0.180849042, 0.049043808, 0.194642613, ...] | N/A
+| Quantized (Binary) | [0, 1, 1, ...] | 48
+|===
+
+<<embedding-quantization>> shows how we can take advantage of quantization to reduce the size of the embedding vector. 
+The first row shows the full embedding vector, using single precision floats (4 bytes each). This is the default way that embeddings are stored in RavenDB.
+The second row shows the embedding vector using `int8` quantization. In this case, each float is converted to an 8-bit integer, along with a scale factor to 
+reconstruct the original value. This reduces the size of the embedding vector by a factor of 4, at the cost of some accuracy.
+
+You can actually see the difference between full precision and the reconstructed vector in the third row of <<embedding-quantization>>. The values are pretty close, 
+but not identical. We saved 75% of the size, but we lost some accuracy in the process. The interesting part is that, in practice, the loss of accuracy is not meaningful.
+The nearest neighbors search results are usually very similar to using full precision.
+
+When talking about `int8` quantization, the loss in accurancy ranges between statistically insignificant to about 2% loss in quality, depending on the model 
+and the dataset. Many models are explicitly trained to work well with `int8` quantization, so the loss in accuracy is negligible. 
+
+The last row in <<embedding-quantization>> shows binary quantization. In this case, each float is converted to a single bit, based on whether it is positive or negative.
+This reduces the size of the embedding vector by a factor of 64, at the cost of more accuracy loss. However, in practice, binary quantization make sense when your 
+embeddings vector contains a _lot_ of dimensions (1,024 or higher). In those cases, the loss in accuracy is still acceptable, given the significant reduction in size.
+
+The reason binary quantization works well with large embeddings is that, in high dimensional spaces, the exact values of the dimensions become less important. With 
+large number of dimensions, you'll likely see a drop of accuracy in the range of 5% to 10%, which is acceptable in many scenarios. However, with smaller embeddings 
+(under 1,024 dimensions), the loss in accuracy can be significant, so binary quantization is not recommended in those cases.
+
+.Quantization applies to both embedding generation and for indexing
+****
+In this chapter, we are looking at the quantization options in the context of Embedding Generation. However, the same quantization options are also available when 
+defining vector indexes. That means that you can use embedding generation to store full embeddings, and then use `int8` quantization when indexing those embeddings 
+for vector search. This allows you to balance between accuracy and performance based on your specific needs.
+
+We'll discuss those options in more detail in <<indexing-in-ravendb>>.
+****
+
+RavenDB supports full, `int8` and binary quantization for embeddings. You can select the quantization method to use when creating the Embedding Generation task, 
+as shown in <<embedding-generation-full-configuration>>. The rule of thumb is that you want to use `int8` quantization for most scenarios, unless your tests shows 
+any significant loss in accuracy. Binary quantization is useful when you have large embeddings (1,024 dimensions or higher) and need to save on disk space and IOPS.
+
+RavenDB gives you plenty of choices, so you can get the right balance for you. Having said that, we found that `int8` quantization is a great default choice for 
+most scenarios.
 
 #### Caching Embeddings
 
 also for queries
+
+impact on deletion / recreation of tasks
 
 ### Generative AI & Subscriptions
 
