@@ -358,13 +358,14 @@ Once RavenDB has generated the embeddings for your data, you can use them in you
 but this time, we'll specify the model to use. We'll use the `text-embedding-3-small` model from OpenAI that we set up earlier. You can see how we can use these
 generated embedding for queries in <<where-is-the-dessert-openai>>.
 
-[source,sql]
-.Searching for sweets in the `Northwind` sample database using vector search with OpenAI embeddings
 [[where-is-the-dessert-openai]]
+.Searching for sweets in the `Northwind` sample database using vector search with OpenAI embeddings
+[source,sql]
 ----
 $query = 'sweets'
 from Products
-where vector.search(embedding.text(Name, ai.task("product-name-embedding-openai")), $query)
+where vector.search(embedding.text(Name, 
+    ai.task("product-name-embedding-openai")), $query)
 select id(), Name
 limit 5
 ----
@@ -509,6 +510,12 @@ If your intent is to mostly get summary / analytics information, you can use chu
 unless your model is specifically designed to handle larger contexts.
 For overlap, a common recommendation is to use about 10% of the chunk size. So for a chunk size of 256 tokens, you can use an overlap of about 25 tokens.
 
+.Running Embedding Generation in a cluster
+****
+When running RavenDB in a cluster, the database will chose _a_ node to run the Embedding Generation task on. That means that only that node will be responsible for generating the embeddings. If that node goes down, another node will take over the task. This is done to avoid multiple nodes trying to generate embeddings for 
+the same documents at the same time. You'll learn more about these sorts of behavior of RavenDB in <<etl-integrations>>.
+****
+
 Using those capabilties, RavenDB is able to extract the plain text from your documents, chunk it properly, and send it to the model for embedding generation. Those
 embeddings are then stored inside RavenDB and are ready to be used for vector search.
 
@@ -632,9 +639,214 @@ most scenarios.
 
 #### Caching Embeddings
 
-also for queries
+In <<embedding-generation-initial-configuration>>, we defined a simple Embedding Generation task that would generate embeddings for the `Name` field of 
+the `Products` collection. That raises the question of what happens when the product name changes? What actions do we need to take to ensure that the 
+embeddings are up to date?
 
-impact on deletion / recreation of tasks
+With RavenDB's Embedding Generation feature, the answer is: nothing. RavenDB will automatically track changes to the documents in the target collection,
+and will re-generate the embeddings as needed. If you update a product's name, RavenDB will detect that change and will schedule the document for re-embedding. 
+Of course, that automatically leads to the _next_ question, what happens if I make a change to a `Product` document that does _not_ affect the `Name` field?
+Will RavenDB re-embed the document anyway (causing unnecessary work and costs)?
+
+The answer is: no. RavenDB is smart enough to detect that the `Name` field was not changed, and will skip re-embedding the document. If I modified the `PricePerUnit`
+field of a product, RavenDB will not re-embed the document, since the `Name` didn't change since the last time that we run the embedding. Let's explore how this
+works under the hood.
+
+When RavenDB generates embeddings for a document, it starts from figuring out the transformation and filtering that needs to run. The end result is the text that
+we want to generate embeddings for. RavenDB then computes a hash of that text, and check if that hash is already in the `@embeddings-cache` collection. If that is the
+case, we don't _need_ to generate the embedding again, we can just reuse the existing embedding. 
+
+RavenDB uses a cryptographic hash function (`BLAKE2b`) to ensure that the hash is unique and collision resistant. You can see an example of that in 
+<<embedding-cache-documents>>. The document ID in `@embeddings-cache` is the name of the embedding generation task and the hash of the text that we embedded. 
+
+[[embedding-cache-documents]]
+.Screen shot of the `@embeddings-cache` collection in RavenDB Studio
+image::./Ch08/img08.png[]
+
+The association between the embedding and its source document is maintained in the `@embeddings/[Collection Name]` collection, with documents named after 
+the source document ID (`embedding/[Source Document ID]`). In our case, we'll have `@embeddings/Products` collection and the `embedding/products/48-A` for 
+the `Chocolade` product. You saw an example of that in <<embedding-document-example>>.
+
+If you'll look inside the the actual documents in the `@embeddings-cache` collection, such as the one in <<embedding-cache-document-example>>
+you'll find that they have no actual content, and are simply to hold the attachment with the actual embedding vector. Note that there is no actual 
+relation between the `@embeddings-cache` document and its source. The same text, coming from different sources and even different collections, 
+will yield the same hash and the same embedding.
+
+[[embedding-cache-document-example]]
+.An embedding cache document example
+image::./Ch08/img09.png[]
+
+In <<embedding-cache-document-example>>, you can see that the metadata contains an `@expires` property. RavenDB use the Embedding Cache
+Expiration setting (shown in <<embedding-generation-full-configuration>>) to determine when to delete old entries from the `@embeddings-cache` 
+collection. That has the effect of removing the the embedding cache that wasn't used for a long time, pontentially saving disk space.
+
+I'm writing potentially, because Embedding Generation is doing some fancy footworks behind the scenes. Consider `products/48-A` (the `Chocolade` product).
+An Embedding Generation task processed the document, and then generated the following output as a result:
+
+* `embeddings-cache/openai-embedding/ChhqkEbD5UbSliV7lWARTTlDj9dFK9MFhNxNpjXbBB0=` - holding the embedding for the `Chocolade` name using  
+  the Open AI embedding model. This holds the resulting embedding vector as an attachment.
+* `embeddings/products/48-A` - where we have a `Name` property with the name of the attachment(s) for this property for this embedding task.
+  Note that this document _also_ has the attachment with the actual embedding vector.
+
+The Embedding Generation task takes advantage of the fact that RavenDB handles attachment de-duplication for us. Both the cache document and the 
+embedding document has the _same_ attachment, but only a single copy of that attachment exists on disk. At the same time, if we change the `Name` property
+of the `products/48-A` document, we'll drop the old embedding reference from the `embeddings/products/48-A` document, and add the new one.
+
+The _old_ value (the previous embedding) is still referenced by the `embeddings-cache/openai-embedding/ChhqkEbD5UbSliV7lWARTTlDj9dFK9MFhNxNpjXbBB0=` document,
+and will be cached until it expires. Once it expires, RavenDB will delete the cache document, and the attachment will be removed from disk. On the other hand,
+if we never see another update to the `products/48-A` document, the embedding reference in the `embeddings/products/48-A` document will remain valid, but after
+the expiration time, the cache document will be removed (without updating the `embeddings/products/48-A`, which still points to the attachment).
+
+Whenever RavenDB encounters a value that needs to be embed that is already in the cache, we'll update the expiration time on the `@embeddings-cache` document,
+to ensure that it remains available. This way, frequently used embeddings remain in the cache, while infrequently used ones are cleaned up over time. You can also
+control that behavior by adjusting the Embedding Cache Expiration setting in the Embedding Generation task configuration.
+
+.So many hashes
+****
+Using `Chocolade` as our example value, we have the hash `ChhqkEbD5UbSliV7lWARTTlDj9dFK9MFhNxNpjXbBB0=` used in the `@embeddings-cache` document ID. That hash is 
+computed using the `BLAKE2b` hash function on the text `CHOCOLADE`. We process the text so it is in upper case (and trim it), because for embedding purposes, we
+found that case sensitive embeddings are not useful. In other words, the embedding for `Chocolade` and `chocolade` are identical in RavenDB, since we normalize the 
+text we use as the cache key.
+
+We use `utf16`` encoding for the hashing (for internal implementation details in RavenDB) I mention that only for completeness' sake. If you'll try to compute the hash 
+using `blake2b`, you'll likely use `utf8`` encoding and be confused why it doesn't match. You'll need to ensure you use `utf16`` encoding to get the same result.
+
+The names of the _attachments_, on the other hand, are _also_ hashes. But those are the `blake2b` hash of the actual embedding vector bytes. There is no meaningful way
+to reference those values outside of RavenDB, so we just use the hash as the attachment name. (Note that the attachment's name has no bearing on RavenDB's ability to
+de-duplicate attachments, that is done based on the content of the attachment itself.)
+
+All of the above are strictly implementation details, and may change over time (in a compatible way, of course). I wanted to share them with you so you can 
+understand how RavenDB is actually handling things behind the scenes.
+****
+
+The cache is explicitly held as documents so it will be shared across all Embedding Generation tasks, rather than being state that is specific to a single
+Embedding Generation task. This caching behavior has several important implications:
+
+* It minimizes the number of calls made to the embedding model, reducing costs and improving performance.
+* It ensures that embeddings are only re-generated when necessary, letting RavenDB easily and predictably detect when we need to re-embed values.
+* This caching mechanism works across documents, across collections and will work even if you have multiple Embedding Generation tasks defined for the same model.
+  As long as they use the same AI connection string, they will share the same cache and benefits.
+* Deleting or re-creating the Embedding Generation task is safe, since the cache will still be valid and used as needed. 
+
+
+#### Generating Embeddings for Queries
+
+You can use Embedding Generation tasks in queries as we saw, as you can see in <<vector-search-query>>.
+
+[[vector-search-query]]  
+.An example of using Embedding Generation in a vector search query
+[[source,sql]]
+----
+vector.search(embedding.text(Name, 
+    ai.task("product-name-embedding-openai")), $query)
+----
+
+In order to run a `vector.search()` query, RavenDB needs to have the embedding for the `$query` value. RavenDB will use the same Embedding Generation task to 
+generate the embedding for the query value, including the caching behavior. The caching behavior is actually much more significant impact for queries than for
+documents. Generating embeddings for documents is an async background operation, we prefer to optimize for throughput there. Queries, on the other hand, 
+are latency sensitive operations, there is a _user_ twiddling their thumbs on the other side.
+
+When you run a query that requires embedding generation, RavenDB will first check the `@embeddings-cache` collection to see if the embedding for the query value
+is already available. If it is, we can use that embedding directly, and avoid the overhead of calling the external model. Note that this is the same exact cache
+that is used for documents, so if you query over a value that already exists in the documents, you'll get a guaranteed cache hit.
+
+If you are querying over values that are not in the documents, RavenDB will need to call the external model to generate the embedding. This happens transparently
+during query time, and also generates an `@embeddings-cache` entry for future use. The next time that you'll run the same query, RavenDB will find the embedding in 
+the cache, and avoid the external call.
+
+.Rate limits and queries
+****
+Most external models you'll use have some form of rate limit that you have to take into account. That can be a maximum number of tokens per minutes (or even day) or
+maximum number of requests per minute. RavenDB's Embedding Generation feature is built to handle those limits transparently for you. If you hit a rate limit, RavenDB
+will back off and retry the request after some time. 
+
+That works quite nicely when we generating embeddings for documents, indeed, that where the async & background nature of the Embedding Generation feature shines. However,
+when generating embeddings for queries, we run into a problem. We cannot arbitrarily delay a query indefinitely, since that would lead to a poor user experience.
+To handle that, RavenDB will immeidately raise an error for such queries. This is done to ensure that your application can handle such scenarios gracefully, rather than 
+being stuck waiting for a long time.
+
+This is one of those cases where a cache is likely to both be really helpful and quite confusing. If you manage to burn through all your rate limits, you need to 
+consider that _some_ queries will continue to work properly (using the already generated embeddings from the cache) but some will fail (since there is no cached 
+embedding for them). This is a partial failure mode that is worth noting, since it is much less obvious than complete failure.
+
+When deploying features that rely on automatic embedding of users' input to work, you need to ensure that your rate limits are set high enough to handle your expected
+workload as well as monitor their usage. 
+****
+
+Embedding Generation task allows you to define different cache durations for values coming for documents and values that were cached because of queries. This is
+required because you'll likely have a lot more variance in the texts you'll embed for queries, over the usually more stable set of texts that you have in your 
+documents. This matters because embeddings can be pretty large, especially if you have a lot of them.
+
+By default, RavenDB will cache embeddings from documents for 90 days, while embeddings from queries will be cached for 14 days. You can adjust those settings in the Embedding Generation task configuration, as shown in <<embedding-generation-full-configuration>>.
+
+#### Using Embedding Generation Scripts
+
+In <<embedding-generation-full-configuration>>, we defined a simple Embedding Generation task that would generate embeddings for the `Name` 
+field of the `Products` collection. You aren't limited to simply specifying the fields to embed, however. RavenDB allows you to define a
+custom script that will be used to generate the text to embed. A simple example of that is shown in <<embedding-generation-script-example>>.
+
+[[embedding-generation-script-example]] 
+.An Embedding Generation script that adds additional context to the product name
+[source,js]
+----
+const category = load(this.Category);
+embeddings.generate({ 
+    Query: `
+        Product Name: ${this.Name}
+        Category: ${category.Name}
+        `,
+});
+----
+
+<<embedding-generation-script-example>> shows how we can add additional context to the product name by including the product category in the 
+text to embed. Consider product such as "Monitor" which can belong to the "Babies" category or the "Computers" category. Or "Pump" which 
+can refer to "Shoes" or "Plumbing". 
+
+Note that the script in <<embedding-generation-script-example>> is going beyond merging the name of the product and the name of the category together.
+It is actually adding some structure to the text, by labeling each part. This helps the embedding model to understand the context better, leading to
+more accurate embeddings. Note that we are also _loading_ the related `Category` and using its `Name` property, not just the `Name` of the product.
+
+.Loading related documents in Embedding Generation scripts
+****
+You'll learn more about `load` and its capabilities in <<indexing-in-ravendb>>, but for now, it is useful to understand that you can load related documents
+in Embedding Generation scripts. That allows you to enrich the text that is being embedded with additional context from related documents. However, you need
+to be aware that RavenDB will _not_ re-run the embedding generation if the _related_ document changes. In other words, if you change the `Name` of a `Category`, 
+RavenDB will not re-embed all the products in that category, since their own document didn't change.
+****
+
+The script also generated a _new_ field name: `Query`. That field name is relevant only for queries, you can run queries over that field, as you can
+see in <<embedding-generation-query-script-example>>.
+
+[[embedding-generation-query-script-example]]
+.Using generated field name `Query` in vector search
+[source,sql]
+----
+from "Products" 
+where vector.search(embedding.text(Query, 
+    ai.task("product-name-embedding-openai")), $query)
+----
+
+You can also do much more complex processing, such as combining multiple fields, applying transformations, and more. The script is a full JavaScript environment,
+so you can use any JavaScript features you need to generate the text to embed. Note that `embeddings.generate()` can be called multiple times in the script, allowing 
+you to generate embeddings for array values or from multiple fields.
+
+`embeddings.generate()` accepts an object, where each property is a field name, and the value is the text to embed for that field. You can also control the transformation
+behavior of each individual field as shown in <<embedding-generation-script-with-options>>.
+
+[[embedding-generation-script-with-options]]
+.An Embedding Generation script with per-field options
+[source,js]
+----
+embeddings.generate({ 
+    Body: html.strip(this.HtmlBody, 2048),
+    Description: markdown.splitLines(this.MarkdownDescription, 1024),
+});
+----
+
+<<embedding-generation-script-with-options>> shows how we can use different transformation methods for different fields. The `Body` field is processed as HTML from the `HtmlBody` field, stripping the tags and extracting the plain text, as well as chunking the data on 2,048 tokens. The `Description` field is processed as Markdown from
+the `MarkdownDescription` field, splitting the text into lines of up to 1,024 tokens each.
+
+
 
 ### Generative AI & Subscriptions
 
