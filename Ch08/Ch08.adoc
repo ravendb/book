@@ -53,7 +53,7 @@ limit 2
 
 [[where-is-the-dessert-result]]
 .Result of searching for sweets in using vector search query in the `Northwind` sample database.
-image::./Ch07/img01.png[]
+image::./Ch08/img01.png[]
 
 The query in <<where-is-the-dessert>> is really interesting. Even just a few years ago, this would have been impossible to do. In the results, we get products named "Chocolade" and "Teatime Chocolate Biscuits".
 How does that work? There is no word "sweets" in either of those product names, so a traditional keyword search would fail.
@@ -84,7 +84,7 @@ will change how the vectors are generated.
 
 [[vector-space-illustration]]
 .Showing two grouping of the same items using different models
-image::./Ch07/img02.png[]
+image::./Ch08/img02.png[]
 
 The reason that I am going into this much detail is that it is important to understand that vector search is not magic. It is simply finding the closest matches between your search query and the 
 data in your database. The key is that it does that using similarity search based on high dimensional vectors that capture the model's understanding on the query and the data.
@@ -117,9 +117,9 @@ Another tradeoff to consider is the _size_ of the vectors. A 384 dimension vecto
 a 3,072 dimension vector is about 12KB in size. When you have millions of documents, the size of the vectors can add up quickly. That is why RavenDB supports quantization, which can reduce 
 the size of the vectors significantly, at the cost of some accuracy. 
 
-I'm not going to cover that in depth, and will leave that to the online documentation. I'll mention that RavenDB supports quantizing the data using `Int8` and `binary` quantizations. 
-`Int8` quantization can reduce the size of a 1,536 dimension vector from 6KB to about 1.5KB, while `binary` quantization can reduce it to about 192 bytes. You'll need to experiment to see what balance 
-of accuracy and performance works best for your use case. Note that you need to evaluate both different models and different quantizations.
+RavenDB supports quantizing the data using `Int8` and `binary` quantizations. `Int8` quantization can reduce the size of a 1,536 dimension vector from 6KB to about 
+1.5KB, while `binary` quantization can reduce it to about 192 bytes. You'll need to experiment to see what balance of accuracy and performance works best for your use 
+case. Note that you need to evaluate both different models and different quantizations.
 
 If you aren't working with a _lot_ of vectors, there is usually no need to really bother. Just use the model that gives you the best results and don't worry about the size of the vectors. I did want
 to mention that RavenDB has the inherent capability to handle quantization for you, should you need it.
@@ -129,7 +129,7 @@ to mention that RavenDB has the inherent capability to handle quantization for y
 So we now understand what vectors are. What are we actually doing with them? 
 <<bge-micro-v2-embedding>> shows the output of the `bge-micro-v2` model for the words "sweets" and "chocolate", and how we can compute the distance between the two vectors using cosine similarity.
 To be clear, that isn't what is actually happening inside of RavenDB, but that is a good way to understand what is going on at a conceptual level.
-The higher the similarity value, the closer the vectors are, and the more similar the meaning of the data is as far as the model is concerned. Other embedding models have different number of dimensions.
+The higher the similarity value, the closer the vectors are, and the more similar the meaning of the data is as far as the model is concerned. 
 
 [[bge-micro-v2-embedding]]
 .Showing the output of the `bge-micro-v2` model for the word "sweets" and "chocolate"
@@ -194,12 +194,12 @@ RavenDB typically uses a much more efficient algorithm called HNSW (Hierarchical
 HNSW is an approximate nearest neighbors search algorithm that is much faster than exact nearest neighbors search. The details on the HNSW algorithm are beyond the scope of this book, 
 but you can read more about it in the online documentation. 
 
-HNSW is an approximate algorithm. You can see the code in <<exact-neighbors-search>>, it will scan all the embeddings in the database and will find us the best matches. HNSW, on the other hand, will
-use a graph-based approach to find the nearest neighbors. This makes it _much_ faster, but also means that it is not guaranteed to find the exact nearest neighbors. In practice, it usually does and
+HNSW is an approximate algorithm. You can see that the code in <<exact-neighbors-search>> will scan all the embeddings in the database and will find us the best matches. HNSW, on the other hand, will
+use a graph-based approach to find the nearest neighbors. This makes it _much_ faster, but also means that it is not guaranteed to find the _exact_ nearest neighbors. In practice, it usually does and
 when it doesn't, the results are usually still very good, but it is something to be aware of.
 
 The key problem is that you usually simply _cannot_ do a full scan of the data, there is too much of it. If you have a million documents, and each embedding is 1,536 dimensions (6KB), that is 6GB of 
-data to scan through for a single query when using exact nearest neighbors search. At the same time, HNSW can find good matches in milliseconds, even with tens millions of embeddings.
+data to scan through for a single query when using exact nearest neighbors search. At the same time, HNSW can find good matches in milliseconds, even with tens of millions of embeddings.
 
 .The HNSW algorithm
 ****
@@ -208,7 +208,7 @@ When searching for the nearest neighbors, HNSW starts at the top layer and works
 This allows HNSW to quickly narrow down the search space and find the nearest neighbors in a fraction of the time it would take to do an exact nearest neighbors search.
 
 If you are interested in the details of the HNSW algorithm, you can find a lot of paper, talks and sample code implemeneting it. I like reading through code to understand how things work, 
-so I recommend checking out the https://github.com/deepfates/hnsw[deepfates/hnsw project on GitHub]. It is a simple, clean implementation of the HNSW algorithm in TypeScript, which is a great
+so I recommend checking out the https://github.com/deepfates/hnsw[`deepfates/hnsw` project on GitHub]. It is a simple, clean implementation of the HNSW algorithm in TypeScript, which is a great
 way to explore how this algorithm works.
 
 The HNSW algorithm that is implemented in RavenDB is a lot more complex. Primarily because we are using a persistent storage engine, rather than an in-memory data structure and that we optimize
@@ -225,8 +225,6 @@ you started quickly, all other models are external. That means that you need to 
 There are two types of models that RavenDB can connect to: embedding models and generative models. Embedding models are used to generate vectors 
 for vector search, while generative models are used to process and generate data. 
 
-RavenDB has no preferred model, you can use OpenAI, Open Router, Ollama, Cohere, or any other model that you want. RavenDB uses the OpenAI AI 
-(the defacto standard for AI models) to communicate with the model, so any model that is compatible with the OpenAI API will work just fine.
 For embedding, RavenDB natively supports (at the time of this writing) OpenAI, Open Router, Ollama, Hugging Face, Google AI, Vergex, Mistral and 
 Azure OpenAI. Note that supporting OpenAI for embbedding means that any model that offers the `v1/embeddings` endpoint will work just fine. That includes a lot of 
 models that are not explicitly listed here. 
@@ -238,6 +236,9 @@ in question to be able to support tool usage and structured output. Most models 
 For simplicity, we'll focus on OpenAI and Ollama as the models we'll be using in the examples. The process is similar for other models, check the online 
 documentation for the full details. I'm assuming that you have an OpenAI account and has the OpenAI API key ready to go. For Ollama, you can run the 
 code shown in <<running-ollama>> to get started.
+
+I'm using Ollama as a way to run the models completely on your own hardware, and OpenAI as a way to use a hosted model. That way, you can see how to use both hosted 
+and self-hosted models with RavenDB.
 
 [[running-ollama]]
 .Running Ollama locally using Docker
@@ -326,7 +327,9 @@ from tracking which documents need to be embedded, batching requests to the mode
 handles all the logistics around that. If you updated the `Product` document and did _not_ changed the `Name` field, RavenDB will not re-embed the document. 
 If the embedding model is temporarily unavailable (beacuse of an error or exceeding the rate limits), RavenDB will back off and retry later. 
 
-Embedding Generation in RavenDB is built on top of RavenDB's ETL (Extract, Transform, Load) capabilities, which we'll cover in depth in <<etl-integrations>>.
+****
+TIP: Embedding Generation in RavenDB is built on top of RavenDB's ETL (Extract, Transform, Load) capabilities, which we'll cover in depth in <<etl-integrations>>.
+****
 
 To create an embedding generation task, go to the `AI Hub` section in RavenDB Studio, then to `AI Tasks` and then on `Add AI Task`. Select `Embedding Generation`
 as the task type. You can then give the task a name (we'll use `Product Name Embedding (Ollama)`), and an identifier (we'll use `product-name-embedding-ollama`).
@@ -708,8 +711,8 @@ computed using the `BLAKE2b` hash function on the text `CHOCOLADE`. We process t
 found that case sensitive embeddings are not useful. In other words, the embedding for `Chocolade` and `chocolade` are identical in RavenDB, since we normalize the 
 text we use as the cache key.
 
-We use `utf16`` encoding for the hashing (for internal implementation details in RavenDB) I mention that only for completeness' sake. If you'll try to compute the hash 
-using `blake2b`, you'll likely use `utf8`` encoding and be confused why it doesn't match. You'll need to ensure you use `utf16`` encoding to get the same result.
+We use `utf16` encoding for the hashing (for internal implementation details in RavenDB) I mention that only for completeness' sake. If youll try to compute the hash 
+using `blake2b`, you'll likely use `utf8` encoding and be confused why it doesn't match. You'll need to ensure you use `utf16` encoding to get the same result.
 
 The names of the _attachments_, on the other hand, are _also_ hashes. But those are the `blake2b` hash of the actual embedding vector bytes. There is no meaningful way
 to reference those values outside of RavenDB, so we just use the hash as the attachment name. (Note that the attachment's name has no bearing on RavenDB's ability to
@@ -843,10 +846,11 @@ embeddings.generate({
 });
 ----
 
-<<embedding-generation-script-with-options>> shows how we can use different transformation methods for different fields. The `Body` field is processed as HTML from the `HtmlBody` field, stripping the tags and extracting the plain text, as well as chunking the data on 2,048 tokens. The `Description` field is processed as Markdown from
+<<embedding-generation-script-with-options>> shows how we can use different transformation methods for different fields. The `Body` field is processed as HTML from the 
+`HtmlBody` field, stripping the tags and extracting the plain text, as well as chunking the data on 2,048 tokens. The `Description` field is processed as Markdown from
 the `MarkdownDescription` field, splitting the text into lines of up to 1,024 tokens each.
 
-
+### Generative AI inside your database
 
 ### Generative AI & Subscriptions
 
