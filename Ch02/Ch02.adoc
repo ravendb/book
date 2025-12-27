@@ -1745,7 +1745,7 @@ You can see how this is exposed in the Studio in <<viewing-compare-exchnage-valu
 
 [[viewing-compare-exchnage-values]]
 .Viewing the compare exchange values in the Studio
-image::./Ch02/img15.PNG[]
+image::./Ch02/img15.png[]
 
 We'll talk more about compare-exchange values in <<ravendb-clusters>>. For now, it's good to remember that they're there and can help
 you make distributed decisions in a reliable manner. A compare-exchange value isn't limited to just a string. You can also
