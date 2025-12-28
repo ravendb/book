@@ -617,7 +617,7 @@ When talking about `int8` quantization, the loss in accurancy ranges between sta
 and the dataset. Many models are explicitly trained to work well with `int8` quantization, so the loss in accuracy is negligible. 
 
 The last row in <<embedding-quantization>> shows binary quantization. In this case, each float is converted to a single bit, based on whether it is positive or negative.
-This reduces the size of the embedding vector by a factor of 64, at the cost of more accuracy loss. However, in practice, binary quantization make sense when your 
+This reduces the size of the embedding vector by a factor of 32, at the cost of more accuracy loss. However, in practice, binary quantization make sense when your 
 embeddings vector contains a _lot_ of dimensions (1,024 or higher). In those cases, the loss in accuracy is still acceptable, given the significant reduction in size.
 
 The reason binary quantization works well with large embeddings is that, in high dimensional spaces, the exact values of the dimensions become less important. With 
@@ -851,6 +851,144 @@ embeddings.generate({
 the `MarkdownDescription` field, splitting the text into lines of up to 1,024 tokens each.
 
 ### Generative AI inside your database
+
+"What does 'Gumbär Gummibärchen'footnote:[To save you the search, it means: "Little Gummy Bear".] means in plain English?".
+That is the sort of queries  you are probably used to just throw and your favorite Gen AI model to get 
+an answer. The same goes if you want to get the gist from a long comments thread over email or deciding how urgent is a 
+customer query going to be.
+
+Using a Gen AI model to handle such tasks is really easy, when you can copy the text to the model and get back the answer.
+When we start talking about using this in a more structured manner, such as translating an entire product catalog, things
+become a lot more complex. Like with embedding, you need to consider rate limits, transient errors, proper batching techniques, and 
+more. For GenAI, however, we also have to deal with making sense of the output of the model and what we do with it.
+
+RavenDB's Generative AI feature is built to handle all of that for you transparently, while giving you the right knobs to tune the behavior 
+to your needs. We'll start by building a simple Gen AI task to translate product names to plain English, then we'll explore how does that
+works behind the scenes.
+
+[TIP]
+====
+GenAI is composed of Prompt, Context and Output Structure. RavenDB allows you to define all of those in a structured manner, so you 
+can get consistent results from the model.
+====
+
+We already defined the `openai-generative` and `ollama-generative` AI connection strings previously in this chapter. We'll use those to define
+a Generative AI task that will translate product names to plain English. You can see the full configuration in <<generative-ai-full-configuration>>.
+I'm showing you the Gen AI configuration in code first, because this is one of the cases it is much easier to understand when you see it in text
+in a single location. Take a look at the code in <<generative-ai-full-configuration>> and then we'll explore how it works.
+
+[[generative-ai-full-configuration]]
+.Generative AI task configuration to automatically translate product names
+----
+var genAiConfiguration = new GenAiConfiguration
+{
+  Name = "Translate Products",                  <1>
+  Identifier = "translate-products",
+  ConnectionStringName = "OpenAI Generative",
+  Collection = "Products",                      <2>
+  GenAiTransformation = new GenAiTransformation
+  {
+    Script =                                    <3>
+      """
+      ai.genContext({
+        Name: this.Name
+      })
+      """
+  },
+    Prompt =                                    <4>
+        "Translate the product name to the following languages",
+  SampleObject =                                <5>
+    """
+    {
+      "German": "German product name",
+      "Spanish": "Spanish product name",
+      "Hindi": "Hindi product name",
+      "Chinese": "Chinese product name",
+      "SimpleEnglish": 
+        "Short sentence describing the product like I'm five years old"
+    }
+    """,
+  UpdateScript = "this.Translation = $output;", <6>
+};
+----
+<1> The name, identifier and the connection string of the Generative AI task.
+<2> The collection this task applies to (`Products`).
+<3> The context script that sets the context for the AI model. This is how RavenDB extracts the relevant information from the 
+    documents to provide to the model.
+<4> The prompt telling the model what it is meant to do.
+<5> The sample object defining to the model what the _output_ of the model should look like.
+<6> The update script that will be applied on the document (`this) with the output from the model (`$output`).
+
+Let's explore how <<generative-ai-full-configuration>> works. The Generative AI task is named "Translate Products", and it is
+applied to the `Products` collection. The task uses the `OpenAI Generative` AI connection string to communicate with the OpenAI model.
+The key here is that this is a Generative AI task that is applied to all the documents in the `Products` collection.
+
+What happens is that RavenDB is going to process all the documents in the `Products` collection and apply the script in the 
+`GenAiTransformation.Script` to it. That script is responsible for extracting the relevant context from the document which is then is 
+combined with the prompt and sent to the model. In our case, we simply extract the `Name` field from the product document and the promot
+asks the model to translate the product name to multiple languages.
+
+The next part is quite important, we define to the model what is the expected _output_ that we want to have. In this case, we want to get
+translation to German, Spanish, Hindi, Chinese as well as simple English. Note that the sample object in this case defines both the structure
+of the reply as well as the _meaning_ for each field. 
+
+[TIP]
+====
+RavenDB actually have two ways to define the expected structure. The sample object is the "easy" way, which is turned into a JSON Schema
+that strictly outlines what the data from the model should look like. Or you can use JSON Schema directly, with full control over how the schema.
+It is important to understand that in both cases, RavenDB sends JSON Schema to the model. 
+
+The details of exactly how RavenDB transforms the sample object to JSON Schema can be found in the online documentation. In essence, it uses the
+structure of the sample object you provideded, with the values being used as the description. In general, use the sample object for the most 
+obvious cases, but when you need to have better control over what is going on, you should switch to the JSON Schema. The RavenDB Studio has a button
+that you can use to go from the sample object to the JSON Schema, so you have a good starting place.
+====
+
+Under the covers, RavenDB uses a feature called Structured Outputs when talking to the AI model, sending a JSON Schema that constrains the model 
+so it would  answer in a specific format. This is key to understanding how Generative AI tasks work in RavenDB. Because we have a well 
+known format for the data, we can also process it in a programmatic fashion. 
+
+This is the part that the `UpdateScript` handles. In <<generative-ai-full-configuration>>, we simply set the `Translations proeprty of the 
+`Product` document that we update. The key here is that `UpdateScript` actually allows far richer capabilties, including running your own
+logic to process the output of the model. The `$output` variable contains the output from the model in a format that match the scehma we defined.
+
+You can see the result of this Gen AI task in <<generative-ai-product-translation-example>>, where the `Translation` property was added to 
+the `products/26-A` document (the `Gumbär Gummibärchen` product).
+
+[[generative-ai-product-translation-example]]
+.The output of the translation Generative AI task applied to `products/26-A` docuemnt
+[source,js]
+----
+{
+  "Name": "Gumbär Gummibärchen",
+  "Supplier": "suppliers/11-A",
+  // ... other product properties ...
+  "Translation": {
+    "German": "Gumbär Gummibärchen",
+    "Spanish": "Gumbär Ositos de goma",
+    "Hindi": "गुम्बैअर गमी बेयर",
+    "Chinese": "Gumbär 软糖熊",
+    "SimpleEnglish": 
+      "Gumbär Gummibärchen are colorful gummy bear candies that are sweet and yummy."
+  },
+  "@metadata": {
+    "@collection": "Products",
+    "@flags": "HasCounters, HasTimeSeries",
+    "@gen-ai-hashes": {
+      "translate-products": [
+        "uGi9LZullR0f7ZKj8lQwJpzuAoVKntXMV/NfHjjszow="
+      ]
+    }
+  }
+}
+----
+
+
+
+
+json schema vs sample object defining the expected output structure from the model.
+
+GenAI Attachments
 
 ### Generative AI & Subscriptions
 
