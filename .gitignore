@@ -52,3 +52,4 @@ Raven.Studio/Settings.dat
 /Ch02/Code/Northwind/packages/
 /tex2pdf.*/*.*
 /Code/Northwind/packages/
+.vendor/*
