@@ -917,7 +917,8 @@ var genAiConfiguration = new GenAiConfiguration
     documents to provide to the model.
 <4> The prompt telling the model what it is meant to do.
 <5> The sample object defining to the model what the _output_ of the model should look like.
-<6> The update script that will be applied on the document (`this) with the output from the model (`$output`).
+<6> The update script that will be applied on the document (`this`) with the output from the model (`$output`).
+
 
 Let's explore how <<generative-ai-full-configuration>> works. The Generative AI task is named "Translate Products", and it is
 applied to the `Products` collection. The task uses the `OpenAI Generative` AI connection string to communicate with the OpenAI model.
@@ -948,7 +949,7 @@ Under the covers, RavenDB uses a feature called Structured Outputs when talking 
 so it would  answer in a specific format. This is key to understanding how Generative AI tasks work in RavenDB. Because we have a well 
 known format for the data, we can also process it in a programmatic fashion. 
 
-This is the part that the `UpdateScript` handles. In <<generative-ai-full-configuration>>, we simply set the `Translations proeprty of the 
+This is the part that the `UpdateScript` handles. In <<generative-ai-full-configuration>>, we simply set the `Translations` proeprty of the 
 `Product` document that we update. The key here is that `UpdateScript` actually allows far richer capabilties, including running your own
 logic to process the output of the model. The `$output` variable contains the output from the model in a format that match the scehma we defined.
 
