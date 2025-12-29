@@ -55,7 +55,7 @@ include::./Ch04/Ch04.adoc[]
 :table-caption: Table 5.
 :listing-number: 0
 :figure-number: 0
-[[ravnedb-client-api]]
+[[advanced-client-api]]
 include::./Ch05/Ch05.adoc[]
 
 :figure-caption: Figure 6.

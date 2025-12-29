@@ -819,7 +819,7 @@ remote calls you're making.
 
 The limited number of calls allowed per session also means that RavenDB has a lot of options to _reduce_ the number of
 calls. When you call `SaveChanges()`, you don't need to make a separate call per changed entity; you can go to the database
-once. In the same manner, we also allow you to batch _read_ calls. We'll discuss the `Lazy` feature in more depth in <<ravnedb-client-api>>.
+once. In the same manner, we also allow you to batch _read_ calls. We'll discuss the `Lazy` feature in more depth in <<advanced-client-api>>.
 ****
 
 The client API is pretty smart about it. If you try to load a document that was already loaded (directly or via `Include`), the 

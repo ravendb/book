@@ -294,7 +294,7 @@ a rethink on how you model the data.
 
 On the other hand, to increment the `Visits` property on the document, you must load the document first, increment the property then
 save the _entire_ document back to the database. There is also the option of using _patching_, the last example in <<increment-counter>>,
-we'll discuss patching documents in more dpeth in <<ravnedb-client-api>>. For now, just know that this allows you to do document 
+we'll discuss patching documents in more dpeth in <<advanced-client-api>>. For now, just know that this allows you to do document 
 modifications completely on the server side.
 
 Consider the scenario of two concurrent visits to the same page. How would that work? If we use the option of loading the document
@@ -841,7 +841,7 @@ even when running in a distributed manner.
 
 That is what _incremental time series_ are for. An incremental time series is a normal time series, whose name starts with: `"INC:"`.
 You cannot `Append` to an incremental time series, but must always use `Increment`. On the client API, you'll also use 
-`IncrementalTimeSeriesFor` instead of `TimeSeriesFor`. <<propertly-tracking-page-visits-time-series>> shows how this is done.
+`IncrementalTimeSeriesFor` instead of `TimeSeriesFor`. <<properly-tracking-page-visits-time-series>> shows how this is done.
 
 [[properly-tracking-page-visits-time-series]]
 .Track the number of page visits using time series - properly
@@ -851,7 +851,7 @@ session.IncrementalTimeSeriesFor("pages/1-A", "Visits")
     .Increment(DateTime.UtcNow, 1);
 ----
 
-In <<propertly-tracking-page-visits-time-series>>, if this is called concurrently on the same exact time (and even if the requests
+In <<properly-tracking-page-visits-time-series>>, if this is called concurrently on the same exact time (and even if the requests
 are handled by different nodes), RavenDB will properly tally up all the values. In the sample dataset (in the `Norhtwind` database)
 we use an incrmental time series to track the number of views in the `Products` collection using the `INC:Views` incremental time 
 series.

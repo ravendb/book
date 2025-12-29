@@ -816,7 +816,7 @@ For example, consider the `Child` document from our kindergarten model. Suppose 
 .You won't usually see this behavior in practice, though.
 ****
 Even when you run into concurrent updates, the idiomatic manner to update documents in RavenDB updates the _entire_ document, so you'll not see
-partial modification of the document. If you'll use patching to update the document (discussed in <<ravnedb-client-api>>), you might get this behavior.
+partial modification of the document. If you'll use patching to update the document (discussed in <<advanced-client-api>>), you might get this behavior.
 However, typically the only visible mark of the `last write wins` strategy is when you have revisions.
 ****
 
@@ -979,7 +979,7 @@ to have a copy of all changes on a per-document level.footnote:[Obviously, this 
 
 Auditing is a _bit_ different. While revisions tell you _what_ changed, auditing tells you by _whom_ and typically what _for_. RavenDB
 supports this kind of auditing using client-side listeners, which can provide additional context for the document whenever it's changed.
-We'll discuss listeners and their use in more depth in <<ravnedb-client-api>>.
+We'll discuss listeners and their use in more depth in <<advanced-client-api>>.
 
 #### Expiration
 
@@ -987,7 +987,7 @@ When storing documents inside RavenDB, you can specify that they will expire at 
 all the expired documents automatically. This is a relatively small feature, but it's nice to be able to implement functionality like 
 "the link in this email will expire in 12 hours." 
 
-We'll see how to use the expiration feature in <<ravnedb-client-api>>. There isn't much to say about it besides that
+We'll see how to use the expiration feature in <<advanced-client-api>>. There isn't much to say about it besides that
 it works, but it should be noted that the expiration is a soft one. In other words, if you specified an expiration time, the document might 
 still be there after that time has passed because RavenDB didn't get around to cleaning it yet. By default, RavenDB will clear expired
 documents every minute. So the document might live just a bit longer than expected, but not terribly so.
