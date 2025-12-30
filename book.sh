@@ -70,8 +70,8 @@ java -Djavax.xml.accessExternalStylesheet=all \
 if [ -f ./output/book.pdf ]; then
   echo "Created ./output/book.pdf"
   if command -v xdg-open >/dev/null 2>&1; then
-    echo "Opening ./output/book.pdf..."
-    #xdg-open ./output/book.pdf &
+    #echo "Opening ./output/book.pdf..."
+    xdg-open ./output/book.pdf &
   fi
 else
   echo "Build failed: ./output/book.pdf not found" >&2

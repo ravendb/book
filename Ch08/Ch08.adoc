@@ -738,7 +738,7 @@ You can use Embedding Generation tasks in queries as we saw, as you can see in <
 
 [[vector-search-query]]  
 .An example of using Embedding Generation in a vector search query
-[[source,sql]]
+[source,sql]
 ----
 vector.search(embedding.text(Name, 
     ai.task("product-name-embedding-openai")), $query)

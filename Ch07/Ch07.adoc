@@ -3,10 +3,10 @@
 
 RavenDB is typically used for transaction-oriented operations. In other words, we usually have a request that needs to read or write a small number of documents, we load
 the relevant documents, modify them based on our business logic and save them back to the database. In those cases, there is a user waiting for the operation to complete.
-In other words, this is RavenDB deployed as the backend data store for an applicaiton or an API. 
+In other words, this is RavenDB deployed as the backend data store for an applicaiton or an API.
 
-In most systems, beyond processing client requests, there is also non trivial amount of background work that needs to be done. A new employee in the company needs to go 
-through orientation, and an ordered marked `Ready` needs to be picked up and processed, etc. For example, we have a new requirement. All London based employees must go 
+In most systems, beyond processing client requests, there is also non trivial amount of background work that needs to be done. A new employee in the company needs to go
+through orientation, and an ordered marked `Ready` needs to be picked up and processed, etc. For example, we have a new requirement. All London based employees must go
 through online safety course. As you can see in <<send-to-course-online>>, that is very simple to do.
 
 [[send-to-course-online]]
@@ -25,19 +25,19 @@ using (var session = store.OpenSession())
 }
 ----
 
-The code in <<send-to-course-online>> is very simple. But there is a problem. It works for the _current_ employees only. What happens if we hire a new employee? 
+The code in <<send-to-course-online>> is very simple. But there is a problem. It works for the _current_ employees only. What happens if we hire a new employee?
 Or if an employee from Seattle move to London? The code in <<send-to-course-online>> won't handle that. We'll need to run the code <<send-to-course-online>>
-again, find out which employees were already sent to the course, handle the case if we have a _lot_ of employees in London, etc. 
+again, find out which employees were already sent to the course, handle the case if we have a _lot_ of employees in London, etc.
 
 You _can_ implement this sort of functionality, but it is pretty complex to do that properly. Furthermore, you'll need to implement something similar whenever
-you need to do any such background processing for any other scenario. Luckily, RavenDB provides a more elegant solution. 
-RavenDB supports a dedicated batch processing mode, using the notion of subscriptions. 
+you need to do any such background processing for any other scenario. Luckily, RavenDB provides a more elegant solution.
+RavenDB supports a dedicated batch processing mode, using the notion of subscriptions.
 
 ### Processing a batch of documents in a subscription
 
-A subscription is simply a way to register a query with the database and have the database send us all the documents that match the query. 
-So far, this sounds very much like the streaming feature, which we covered in the previous chapter. However, subscriptions are _meant_ for 
-batch processing. We'll first look at an example of using subscriptions, and then dive more deeply into exactly what is going on here. 
+A subscription is simply a way to register a query with the database and have the database send us all the documents that match the query.
+So far, this sounds very much like the streaming feature, which we covered in the previous chapter. However, subscriptions are _meant_ for
+batch processing. We'll first look at an example of using subscriptions, and then dive more deeply into exactly what is going on here.
 You can see our first example of using subscription in <<send-to-course-batch>>.
 
 [[send-to-course-batch]]
@@ -66,38 +66,38 @@ await worker.Run(async batch =>                             <3>
 <4> Process each employee in the batch.
 
 <<send-to-course-batch>> creates a new subscription, get the worker for that subscription and run it. The worker will then get a batch of matching
-employees and execute the provided lambda on the batch of employees. The key here is that this code will _handle_ all the details of keeping track 
-of which employees were already processed. New employees or employees that moved from Seattle to London will be included in the next batch, etc. 
+employees and execute the provided lambda on the batch of employees. The key here is that this code will _handle_ all the details of keeping track
+of which employees were already processed. New employees or employees that moved from Seattle to London will be included in the next batch, etc.
 You just need to provide the code that will process each batch of employees, and RavenDB takes care of everything else.
 
-Subscription gets really interesting when it's done going through all the matching documents in the database. This is where things 
+Subscription gets really interesting when it's done going through all the matching documents in the database. This is where things
 At this point, the subscription _isn't_ done. Instead, it's kept alive and waiting for new or updated documents that match
 the query. When that happens, the server will immediately send that document to the subscription. In other words, not only did we get traditional batch
-processing, but in many cases, we also have _live_ batch processes. 
+processing, but in many cases, we also have _live_ batch processes.
 
-Instead of waiting for a nightly process to run, you can keep the subscription open and handle changes as they come in. This keeps you from having to do things like 
-polling and remembering the last items that you read. RavenDB's subscription also includes error handling, high availability and on-the-fly updates. 
+Instead of waiting for a nightly process to run, you can keep the subscription open and handle changes as they come in. This keeps you from having to do things like
+polling and remembering the last items that you read. RavenDB's subscription also includes error handling, high availability and on-the-fly updates.
 
 With subscriptions, work is divided into two distinct operations. First we need to create the subscription. Then we need to open it. Subscriptions aren't like
 queries; they aren't ephemeral. A subscription is a persistent _state_ of a specific business process. It indicates what documents that particular subscription
-has processed, the query it is using, etc. 
+has processed, the query it is using, etc.
 
 You can also create the subscription through the RavenDB Studio. In the same database that we used in the previous chapter, go to `Settings` and `Manage Ongoing Tasks`,
-click on `Add a Database Task` and in the `Filter by Category` select `Subscriptions. You'll see the task selection dialog shown in <<add-db-task>>. 
+click on `Add a Database Task` and in the `Filter by Category` select `Subscriptions. You'll see the task selection dialog shown in <<add-db-task>>.
 
 [[add-db-task]]
 .Add a new database task
 image::./Ch07/img01.png[]
 
-You'll see the subscription edit form. Now, name the task "CustomersSubscription" and enter `from Customers` in the query field. That's it. You can save the subscription. 
+You'll see the subscription edit form. Now, name the task "CustomersSubscription" and enter `from Customers` in the query field. That's it. You can save the subscription.
 The result of this is shown in <<new-sub-dlg>>.
 
 [[new-sub-dlg]]
 .The new subscription dialog, matching employees in London
 image::./Ch07/img02.png[]
 
-The subscription in <<new-sub-dlg>> match the one we defined in <<send-to-course-batch>> and regardless of whether you created the subscription manually or via code, 
-the result is a named subscription. 
+The subscription in <<new-sub-dlg>> match the one we defined in <<send-to-course-batch>> and regardless of whether you created the subscription manually or via code,
+the result is a named subscription.
 At the top right of <<new-sub-dlg>>, you can see the button to test a subscription. If you click on `Test Subscription`, you'll see a result
 similar to <<testing-emps-subscription>>.
 
@@ -107,45 +107,45 @@ image::./Ch07/img03.png[]
 
 Those are the documents in the `Employees` collection that match the `where` clause we defined.
 If we were to run the same query in the `Query` window, we'll see the exact same result. On its own, a separate way to query documents isn't really
-that interesting. The point of subscriptions isn't for you to manually go to the Studio and inspect things. The point is that RavenDB will send those 
-details to your code. You can see this at the bottom of <<send-to-course-batch>>, where we open the subscription and start handling batches of documents on the client. 
+that interesting. The point of subscriptions isn't for you to manually go to the Studio and inspect things. The point is that RavenDB will send those
+details to your code. You can see this at the bottom of <<send-to-course-batch>>, where we open the subscription and start handling batches of documents on the client.
 
-<<send-to-course-batch>> shows the typical way of using a subscription. The subscription is opened with the subscription name that we created previously and then we `Run` the subscription. The actual batch processing of the documents is done by the lambda that's passed to the `Run` call on a background thread. 
+<<send-to-course-batch>> shows the typical way of using a subscription. The subscription is opened with the subscription name that we created previously and then we `Run` the subscription. The actual batch processing of the documents is done by the lambda that's passed to the `Run` call on a background thread.
 
-After calling `Run`, we wait on the returned task. Why do we do that? In general, a subscription will live for a very long time. 
-Usually the lifetime of the process that's running it. In fact, you'll often have a process dedicated just to running subscriptions (or even a process per subscription). 
+After calling `Run`, we wait on the returned task. Why do we do that? In general, a subscription will live for a very long time.
+Usually the lifetime of the process that's running it. In fact, you'll often have a process dedicated just to running subscriptions (or even a process per subscription).
 What we're doing at the end of <<send-to-course-batch>> is basically waiting until the subscription exits.
 
-A subscription will not exit on its own. It will keep running, processing documents, until we explicitly tell it to stop. Problems with the network will simply cause it to retry 
-or failover to another node. If it processed all the data that the database had to offer, it will sit there and wait until it has something more to give, rather than exiting. 
+A subscription will not exit on its own. It will keep running, processing documents, until we explicitly tell it to stop. Problems with the network will simply cause it to retry
+or failover to another node. If it processed all the data that the database had to offer, it will sit there and wait until it has something more to give, rather than exiting.
 
-There are a few cases where the subscription will actually exit. The first, of course, is if you intentionally close it by disposing the subscription. It's safe to dispose the 
-subscription while it's running, and that's how you typically do an orderly shutdown of a subscription. We might have been kicked off the subscription for some reason. 
+There are a few cases where the subscription will actually exit. The first, of course, is if you intentionally close it by disposing the subscription. It's safe to dispose the
+subscription while it's running, and that's how you typically do an orderly shutdown of a subscription. We might have been kicked off the subscription for some reason.
 The admin may have deleted the subscription or the database. Or perhaps the credentials we used were invalid. Maybe the subscription connection was taken over
-by another client. We'll cover more on this in the subscription deployment section later on in this chapter. 
+by another client. We'll cover more on this in the subscription deployment section later on in this chapter.
 
 The subscription ID should be persistent, usually stored in configuration or loaded from the database.
 It's used to get the state of the subscription and what documents have already been processed by that particular subscription.
 
-You can set your own subscription ID during the `Create` call, which gives you a well known subscription name to use, or you can ask RavenDB to choose one for 
-you. Note that even if you used your own subscription name, it still needs to be created before you can use it. 
+You can set your own subscription ID during the `Create` call, which gives you a well known subscription name to use, or you can ask RavenDB to choose one for
+you. Note that even if you used your own subscription name, it still needs to be created before you can use it.
 But why do we have all those moving parts? We create the subscription, open it, run it and wait on the resulting task, and we haven't even gotten to
-the part where we actually do something using it. 
+the part where we actually do something using it.
 
-The reason for this is that subscriptions are long-lived processes, which are resilient to failure. Once a subscription is created, a client will open it 
-and keep a connection open to the server, getting fed with all the documents that match the subscription criteria. 
+The reason for this is that subscriptions are long-lived processes, which are resilient to failure. Once a subscription is created, a client will open it
+and keep a connection open to the server, getting fed with all the documents that match the subscription criteria.
 
 Once we've gone over all the documents currently in the database, the subscription will become idle but remain connected to the server. Whenever a new
 or updated document matches the subscription query, it will be sent to the subscription. Errors during this process, either in the network, the server or the client, are
-tolerated and recoverable. The subscription will ensure that a client will receive each matching document at least once.footnote:[Although errors may cause you to receive 
+tolerated and recoverable. The subscription will ensure that a client will receive each matching document at least once.footnote:[Although errors may cause you to receive
 the same document multiple times, you're guaranteed to never miss a document.]
 
 .Subscription in a cluster
 ****
-The subscription will connect to _a_ server in the cluster, which may redirect the subscription to a more suitable server for that particular subscription. 
-Once the subscription has found the appropriate server, it will open on that server and start getting documents from it. A failure of the client 
-will result in a retry (either from the same client or another one that was waiting to take over). A failure of the server will cause the client to 
-transparently switch over to another server. 
+The subscription will connect to _a_ server in the cluster, which may redirect the subscription to a more suitable server for that particular subscription.
+Once the subscription has found the appropriate server, it will open on that server and start getting documents from it. A failure of the client
+will result in a retry (either from the same client or another one that was waiting to take over). A failure of the server will cause the client to
+transparently switch over to another server.
 
 The entire process is highly available on both client and server. The idea is that once you set up your subscriptions, you just need to make sure that the
 processes that open and process your subscriptions are running, and the entire system will hum along, automatically recovering from any failures along the way.
@@ -153,31 +153,31 @@ processes that open and process your subscriptions are running, and the entire s
 
 #### Understanding the subscription lifecycle
 
-A subscription that has already processed all existing documents in the database has a lag between a new document coming in and the subscription 
+A subscription that has already processed all existing documents in the database has a lag between a new document coming in and the subscription
 receiving it of a few milliseconds. Under load, when there are many such documents, we'll batch documents and send them to the client for processing
 as fast as it can handle them. The entire model of subscription is based on the notion of batch processing. While it's true that subscriptions can remain
-up constantly and get fed with all the changes in the database as they come, that doesn't have to be the case. If a subscription isn't opened, it isn't going to 
+up constantly and get fed with all the changes in the database as they come, that doesn't have to be the case. If a subscription isn't opened, it isn't going to
 miss anything; once it's re-opened, it will get all the documents that have changed while it was gone.
 
 This allows you to build business processes that can either run continuously or at off-peak times in your system. Your code doesn't change, nor does
-it matter to RavenDB. A subscription that isn't opened consumes no resources. In fact, a good administrator will know that he can reduce the system load by 
+it matter to RavenDB. A subscription that isn't opened consumes no resources. In fact, a good administrator will know that he can reduce the system load by
 shutting down subscriptions that are handling non-time-critical information with the knowledge that once the load has passed, starting the subscriptions up again will allow
 them to catch up from their last processed batch.
 
-This is made possible due to the following flow: on each batch that the client receives, it acknowledges the server once it has successfully completed processing that batch. 
+This is made possible due to the following flow: on each batch that the client receives, it acknowledges the server once it has successfully completed processing that batch.
 The server will not move forward and send the next batch until it receives this acknowledgment. It is this acknowledgment that makes this process reliable. Usually you'll also
 have a _single_ subscription worker running at any one time (although you can run multiple workers on the same subscription, if you want to scale out processing).
 
 Now that we know what subscriptions are, and have some idea about how to create, test and run them. Let's talk about the impact of the subscription feature on your
 overall system design. Because of the way subscriptions work, they process a full batch of documents from the server, and it is a good way to run heavy processing on them.
 We aren't limited by the data streaming over the network, and unlike streaming, we don't have to worry about timing out if we have a long computation to run.
-As long as the client remains connected, the server will be happy to keep waiting for the batch to complete. The server will ping the client every now and then to see 
+As long as the client remains connected, the server will be happy to keep waiting for the batch to complete. The server will ping the client every now and then to see
 what its state is and to detect client disconnection at the network level. If that's detected, the connection on the server will be aborted and all resources will be released.
 
 .Subscriptions are background tasks
 ****
-It may be obvious, but I wanted to state this explicitly: subscriptions are background tasks for the server. There's no requirement that a subscription 
-will be opened at any given point in time, and a subscription that wasn't opened will simply get all the documents it needs since the last 
+It may be obvious, but I wanted to state this explicitly: subscriptions are background tasks for the server. There's no requirement that a subscription
+will be opened at any given point in time, and a subscription that wasn't opened will simply get all the documents it needs since the last
 acknowledged batch. A subscription that don't have a client connected to it also consume no resources and require no work from the server.
 
 That means that if a document was modified multiple times, it's possible that the subscription will only be called upon once. See the section about
@@ -185,41 +185,41 @@ versioned subscriptions if you care about this scenario.
 ****
 
 A simple way to think about subscription is that they are meremly a cursor on the collection the subscription covers based on it's last update time. Note that this isn't
-how it works, but it is a useful mental model. 
+how it works, but it is a useful mental model.
 When a client is connected to a subscription, RavenDB will start reading from that collection from the cursor position forward. For each document, it will evaluate the
-subscription `where` clause (if any) and if the document matches the filter, it will be added to the batch that will be sent to the client. 
+subscription `where` clause (if any) and if the document matches the filter, it will be added to the batch that will be sent to the client.
 
 When the server accumulate enough documents for a batch, it send that to the client for processing. On the client side, the subscription worker will accept the batch from
 the server and invoke the lambda to process the batch. If the batch completed successfully, the client will acknowledge the server that the batch was processed.
-At that point, the cursor is moved forward past the last document in the batch. 
+At that point, the cursor is moved forward past the last document in the batch.
 
-If the client disconnects or the invoked lambda throws an error, the cursor remains where it was, and when the client reconnects, it will resume from the initial cursor 
+If the client disconnects or the invoked lambda throws an error, the cursor remains where it was, and when the client reconnects, it will resume from the initial cursor
 position. In other words, the client will get the same batch again. This is how subscriptions ensure that you won't miss any documents.
 
 .Subscriptions deal with distributed state
 ****
-The model of subscriptions as a cursor on the last update time on the collection is an oversimplification, but it is a useful one. 
+The model of subscriptions as a cursor on the last update time on the collection is an oversimplification, but it is a useful one.
 The actual implementation is more complex, because RavenDB is a distributed database, there are multiple nodes in the system which can accept writes and the server
 node that is processing the subscription doesn't have to be the node that accepted the write on a document.
 
-In general, you can assume that the subscription will accept the documents in _rough_ modification order. You can also move the "cursor" that the subscription 
-points to if needed by setting the `Use a defined starting point` in the edit subscription form or using the `ChangeVector` through the API. We'll learn more 
+In general, you can assume that the subscription will accept the documents in _rough_ modification order. You can also move the "cursor" that the subscription
+points to if needed by setting the `Use a defined starting point` in the edit subscription form or using the `ChangeVector` through the API. We'll learn more
 about change vectors in <<ravendb-clusters>>.
 ****
 
-One of the things to be aware of is that right from the subscription lambda itself we can open a new session, modify the document we got from the subscription, `Store` 
+One of the things to be aware of is that right from the subscription lambda itself we can open a new session, modify the document we got from the subscription, `Store`
 the document and call `SaveChanges` on it. That is perfectly valid, but also a bit problematic. Remember that the subscription is essentially a cursor on the last modified
 time of the documents in the collection. If we modify the document, it will get a new last modified time, which means that it will be after the cursor position.
 
-At this point, the subscription will process it again. And if it is a match to the subscription query, it will include that in the batch again. 
-You need to be aware of that and protect against such infinite loops. You can use a field to the document that indicates that it was already processed by 
-this subscription and filter based on that field in the query. There are also a few other subtle issues that we need to handle with regards to running in a 
-cluster and failover. We'll discuss those issues later in this chapter. 
+At this point, the subscription will process it again. And if it is a match to the subscription query, it will include that in the batch again.
+You need to be aware of that and protect against such infinite loops. You can use a field to the document that indicates that it was already processed by
+this subscription and filter based on that field in the query. There are also a few other subtle issues that we need to handle with regards to running in a
+cluster and failover. We'll discuss those issues later in this chapter.
 
 ### The first real subscription
 
-Subscriptions so far are useful but not really something to get excited about. But the fun part starts now. 
-Let's say that we want to send a survey to all customers with whom we had a complex support call. 
+Subscriptions so far are useful but not really something to get excited about. But the fun part starts now.
+Let's say that we want to send a survey to all customers with whom we had a complex support call.
 The first step for that is to create a subscription using the code in <<create-subscription-complex-calls>>.
 
 [[create-subscription-complex-calls]]
@@ -234,7 +234,7 @@ var subId = store.Subscriptions.Create<SupportCall>(
     );
 ----
 
-<<fig-subscription-filters-support-calls>> shows the newly created subscription on the server side. You can see that the filter we provided on the client side was turned into a server 
+<<fig-subscription-filters-support-calls>> shows the newly created subscription on the server side. You can see that the filter we provided on the client side was turned into a server
 side script that decided whatever a particular `SupportCall` is a match for this subscription.
 
 [[fig-subscription-filters-support-calls]]
@@ -243,7 +243,7 @@ image::./Ch07/img04.png[]
 
 We've registered for support calls that have more than 10 votes and over 25 comments, and we add a flag to record whether or not we've sent the
 survey. It's important to note that this filtering is happening on the _server side_, not on the client. Internally we'll transform the conditional into a
-full query (see <<fig-subscription-filters-support-calls>>) and send it to the server to be evaluated on each document in turn. 
+full query (see <<fig-subscription-filters-support-calls>>) and send it to the server to be evaluated on each document in turn.
 Any matching document will be sent to the client for processing.
 Of course, this is just part of the work. We still need to handle the subscription itself. This is done in <<take-surveys-complex-calls>>.
 
@@ -256,14 +256,14 @@ await subscription.Run(batch =>
     foreach (var item in batch.Items)                               <1>
     {
         SupportCall call = item.Result;
-        
+
         var age = DateTime.Today - call.Started;
         if (age > DateTime.FromDays(14))                            <2>
             continue; // no need to send survey for old stuff
 
-        using (var session = store.OpenSession())                   <3>          
+        using (var session = store.OpenSession())                   <3>
         {
-            var customer = session.Load<Customer>(call.CustomerId); 
+            var customer = session.Load<Customer>(call.CustomerId);
 
             call.Survey = true;                                     <4>
 
@@ -271,11 +271,11 @@ await subscription.Run(batch =>
 
             try
             {
-                session.SaveChanges();                              
+                session.SaveChanges();
             }
             catch (ConcurrenyException)                             <6>
             {
-                // will be retried by the subscription              
+                // will be retried by the subscription
                 continue;
             }
 
@@ -286,7 +286,7 @@ await subscription.Run(batch =>
 ----
 <1> Iterate over all the items in the batch.
 <2> Filter support calls that are too old to be worth sending a survey.
-<3> Open a new session from the store (_not_ tied to the current batch, see more on this later). 
+<3> Open a new session from the store (_not_ tied to the current batch, see more on this later).
 <4> Modify the current call so we won't get it again (will be filtered by the `where` clause in <<create-subscription-complex-calls>>)
 <5> Store the modified call in the session, with the change vector to ensure optimistic concurrency check.
 <6> Handle a concurrency exception by not doing anything (and letting the subscription send us the modified document again in the next batch).
@@ -299,26 +299,26 @@ this support call and mark the call as having sent the survey. Then we'll call `
 but also the change vector and ID for this document. This ensures that when we call `SaveChanges`, if the document has changed in the meantime on the server
 side, we'll get an error.
 
-In <<take-surveys-complex-calls>> we assume that we don't have to deal with failures for `SendSurveyEmailTo` for the sake of simplicity. 
-A more complete implementation would first send the email and only then set the `Survey` flag on the support call. That way, if we need to retry the batch, we'll 
+In <<take-surveys-complex-calls>> we assume that we don't have to deal with failures for `SendSurveyEmailTo` for the sake of simplicity.
+A more complete implementation would first send the email and only then set the `Survey` flag on the support call. That way, if we need to retry the batch, we'll
 resume from the current batch, instead of marking it as done. Of course, that leads to the opposite problem of getting a failure in saving the update to `Survey`
-and then sending the email twice. Typical mail systems have options to ignore duplicate emails in a certain time period, which is probably how you would solve 
-this in production. 
+and then sending the email twice. Typical mail systems have options to ignore duplicate emails in a certain time period, which is probably how you would solve
+this in production.
 
 .Subscribing to documents on the database we're writing to
-**** 
+****
 There are a few things to remember if you're using the subscription to write back to the same database you're subscribing to:
 
-* Avoid the subscription/modify loop. When you modify a document that you're subscribing to, the server will send it to 
+* Avoid the subscription/modify loop. When you modify a document that you're subscribing to, the server will send it to
   the subscription again. If you modify it every time it's processed, you'll effectively create an infinite loop, with all the costs
-  this entails. You can see in <<take-surveys-complex-calls>> that we're careful to avoid this by setting the `Survey` flag when we 
+  this entails. You can see in <<take-surveys-complex-calls>> that we're careful to avoid this by setting the `Survey` flag when we
   process a document and filter on the flag in <<create-subscription-complex-calls>>.
 
-* The document you received may have already been changed on the server. Typically, the lag time between a document being modified and the 
-  subscription processing the document is very short. That can lead you to think this happens instantaneously or, even worse, as part of 
+* The document you received may have already been changed on the server. Typically, the lag time between a document being modified and the
+  subscription processing the document is very short. That can lead you to think this happens instantaneously or, even worse, as part of
   the same operation as modifying the document.
   Nothing could be further from the truth. Assuming we process two support calls in a batch, and the first `SendSurveyEmailTo` takes 30 seconds, that gives a _huge_
-  gap of time for the second document to be modified while we're processing the first one. In <<take-surveys-complex-calls>>, we handled that explicitly 
+  gap of time for the second document to be modified while we're processing the first one. In <<take-surveys-complex-calls>>, we handled that explicitly
   using optimistic concurrency to get an error if it was changed in the meantime. In other cases, you may want to use patching to avoid having to deal with the issue.
 
 * If you're using subscriptions to integrate with other pieces of your infrastructure (such as sending emails), you have to be
@@ -329,14 +329,14 @@ There are a few things to remember if you're using the subscription to write bac
 #### Distributed transactions and RavenDB
 
 Subscription are commonly used to bridge between RavenDB and other systems. For example, in <<take-surveys-complex-calls>>, we send an email to the customer
-after marking the support call as having sent the survey. Failure handling in such a scenario is complex, because we're forced to integrate between two systems 
-that don't share a transaction boundary. In other words, theoretically speaking, if we could create a transaction covering sending the email and writing to 
-RavenDB, the problem would be solved. 
+after marking the support call as having sent the survey. Failure handling in such a scenario is complex, because we're forced to integrate between two systems
+that don't share a transaction boundary. In other words, theoretically speaking, if we could create a transaction covering sending the email and writing to
+RavenDB, the problem would be solved.
 
-In practice, RavenDB supported distributed transactions with multiple resources up until version 3.x, where we deprecated this feature.  
+In practice, RavenDB supported distributed transactions with multiple resources up until version 3.x, where we deprecated this feature.
 Version 4.0 removed it completely. Distributed transactions (also known as two-phase commit or 2PC) _sound_ wonderful. Here you have a complex
-interaction between several different components in your system, and you can use a transaction to orchestrate it all in a nice and simple 
-manner. 
+interaction between several different components in your system, and you can use a transaction to orchestrate it all in a nice and simple
+manner.
 
 But it doesn't actually work like this. Any distributed transaction system that I've worked with had issues related to failure handling and partial
 success. A distributed transaction coordinator basically requires all participants in the transaction to promise that, if it tells them to
@@ -345,29 +345,29 @@ participants have been able to make that promise, there will be a second round w
 the description of the algorithm.
 
 The problem starts when you've gotten a promise from all the participants, you've already confirmed with a few of them that the transaction
-has been committed and one of the participants fails to commit for whatever reason (hardware failure, for example). In that case, the 
-transaction is in a funny, half-committed state. 
+has been committed and one of the participants fails to commit for whatever reason (hardware failure, for example). In that case, the
+transaction is in a funny, half-committed state.
 
 The coordinator will tell you this is a bug in the participant. A participant shouldn't have made a promise it couldn't keep. And commonly,
-coordinators will retry such transactions (manually or automatically) and recover from transient errors. But the problem with the line of thinking 
-that deems this an issue with this particular participant and not the coordinator is that those kind of errors are happening in production. 
+coordinators will retry such transactions (manually or automatically) and recover from transient errors. But the problem with the line of thinking
+that deems this an issue with this particular participant and not the coordinator is that those kind of errors are happening in production.
 
-For one project, we had to restart the coordinator and manually resolve hanging transactions on a biweekly basis, and it wasn't a 
+For one project, we had to restart the coordinator and manually resolve hanging transactions on a biweekly basis, and it wasn't a
 very large or busy website. https://en.wikipedia.org/wiki/Joe_Armstrong_(programming)[Joe Armstrong], inventor of Erlang,
 described the problem far better than I could:footnote:[This particular lecture was over a decade ago, but I still vividly remember it. It was _that_ good.]
 
-> The "Two Generals' Problem" is reality, but the computer industry says it doesn't believe in mathematics: two-phase commit 
+> The "Two Generals' Problem" is reality, but the computer industry says it doesn't believe in mathematics: two-phase commit
 > always works!footnote:[There's also the _three_-phase commit, which just adds to the fun and doesn't actually solve the issue.]
 
 ### Optimizing subscription processing
 
-There's another issue with the code in <<take-surveys-complex-calls>>. It is incredibly wasteful in the number of remote calls that it is making. One of 
+There's another issue with the code in <<take-surveys-complex-calls>>. It is incredibly wasteful in the number of remote calls that it is making. One of
 the key benefits of using batch processing is the fact that we can handle things, well, in a batch. However, <<take-surveys-complex-calls>> will create a
-session per document in the batch. The default batch size (assuming we have enough documents to send to fill a batch) is 4,096 items. That 
+session per document in the batch. The default batch size (assuming we have enough documents to send to fill a batch) is 4,096 items. That
 means that if we have a full batch, the code in either one of these listings will generate 8,192 remote calls. That's a _lot_ of work to send to the
 server, all of which is handled in a serial fashion.
 
-We can take advantage of the batch nature of subscriptions to do much better. Turn your attention to <<efficiently-process-batch>>, if you would. 
+We can take advantage of the batch nature of subscriptions to do much better. Turn your attention to <<efficiently-process-batch>>, if you would.
 
 [[efficiently-process-batch]]
 [source,csharp]
@@ -384,7 +384,7 @@ await subscription.Run(batch =>
 
         // force load of all the customers in the batch
         // in a single request to the server
-        session.Load<Customer>(customerIds);                    <3> 
+        session.Load<Customer>(customerIds);                    <3>
 
         foreach (var item in batch.Items)
         {
@@ -405,12 +405,12 @@ await subscription.Run(batch =>
                 c => c.Survey,
                 true);
 
-            SendSurveyEmailTo(customer, call);                  <5>  
+            SendSurveyEmailTo(customer, call);                  <5>
         }
 
         // send a single request with all the
         // changes registered on the session
-        session.SaveChanges();                                  <6>                        
+        session.SaveChanges();                                  <6>
     }
 });
 ----
@@ -426,32 +426,32 @@ await subscription.Run(batch =>
 Note that we also changed the behavior. Previously, we would update each document `Survey` flag and then send the email. Now we send the email first, then update the `Survey` for
 all the documents in the batch in one shot. A failure on `SendSurveyEmailTo` will force us to retry the entire batch.
 
-The `batch` object has the `Items` property, which is the list of documents in the batch. Those documents are already loaded into 
-the batch (and into the `batch.OpenSession`). You can iterate them multiple time at no cost, as we do in <<efficiently-process-batch>>, once to load all the customers, and 
-the second time to process all the calls. 
+The `batch` object has the `Items` property, which is the list of documents in the batch. Those documents are already loaded into
+the batch (and into the `batch.OpenSession`). You can iterate them multiple time at no cost, as we do in <<efficiently-process-batch>>, once to load all the customers, and
+the second time to process all the calls.
 
 .Don't use the `store.OpenSession` in batch processing
 ****
-The code in <<take-surveys-complex-calls>> uses `batch.OpenSession` instead of `store.OpenSession`. Why is that? Well, this is where I need to skip 
-head a bit and explain some concepts we haven't seen yet. When running in a cluster, RavenDB divides the work between the various nodes in a database. 
-That means that a subscription may run on node `B` while the cluster as a whole will consider node `A` as the preferred node to write data to. 
+The code in <<take-surveys-complex-calls>> uses `batch.OpenSession` instead of `store.OpenSession`. Why is that? Well, this is where I need to skip
+head a bit and explain some concepts we haven't seen yet. When running in a cluster, RavenDB divides the work between the various nodes in a database.
+That means that a subscription may run on node `B` while the cluster as a whole will consider node `A` as the preferred node to write data to.
 
 RavenDB handles that transparently, by replicating the information across the nodes in the cluster, including optimistic concurrency using the document's
-change vector, as we discussed in the previous chapter. However, reading from one node and writing to another can lead to subtle concurrency issues. 
+change vector, as we discussed in the previous chapter. However, reading from one node and writing to another can lead to subtle concurrency issues.
 RavenDB can handle these issues, but they can be surprising to users. It's generally better to write back to the same node you're reading from.
 
 In order to avoid that, you should use `batch.OpenSession` (or `batch.OpenAsyncSession`) to create the session. This will ensure that the session you've
-created will operate against the same node you're reading from and thus will allow us to reason about the state of the system with fewer variables. 
+created will operate against the same node you're reading from and thus will allow us to reason about the state of the system with fewer variables.
 ****
 
 <<take-surveys-complex-calls>> relies on the `Unit of Work` nature of the session. Once we've loaded a document into it, trying to load it again will give us the already loaded
 version without going to the server. Without this feature, the amount of calls to `Load` would have probably forced us over the budget of remote calls allowed
-for the session.footnote:[Remember, that budget is configurable, but it's  mostly there to help you realize that generating so many requests is probably not healthy for 
+for the session.footnote:[Remember, that budget is configurable, but it's  mostly there to help you realize that generating so many requests is probably not healthy for
 you.]
 
-Another option to deal with the number of `Load` calls is to utilize `include`. We can modify the subscription query to the one show in <<subscription-with-include>>. 
+Another option to deal with the number of `Load` calls is to utilize `include`. We can modify the subscription query to the one show in <<subscription-with-include>>.
 
-[[subscriptions-with-include]]
+[[subscription-with-include]]
 .Subscription using string query with `include`
 [source,csharp]
 ----
@@ -459,27 +459,27 @@ store.Subscriptions.Create<SupportCall>(
                 new SubscriptionCreationOptions {
     Query = @"
     from SupportCalls as call
-    where call.Comments.Count > 25 and call.Votes > 10 
+    where call.Comments.Count > 25 and call.Votes > 10
             and call.Survey == false
     include call.Customer"
 });
 ----
 
 If we'll use the subscription defined in <<subscription-with-include>>, the customer will be automatically included in the batch that we get from the server. That is
-one of the reasons why `batch.OpenSession` is preferred over `store.OpenSession`. The session that we get from the batch is already preloaded with all the 
+one of the reasons why `batch.OpenSession` is preferred over `store.OpenSession`. The session that we get from the batch is already preloaded with all the
 documents that were included in the subscription query.
 
-With the subscription shown in <<subscription-with-include>>, we can drop the need to call `session.Load<Customer>(customerIds);` in <<efficiently-process-batch>>. 
+With the subscription shown in <<subscription-with-include>>, we can drop the need to call `session.Load<Customer>(customerIds);` in <<efficiently-process-batch>>.
 The customers will already be loaded into the batch's session from the `include`, and the rest of the code behaves the same (and exhibit the same low number of remote calls).
 
-#### Complex conditionals 
+#### Complex conditionals
 
-We already saw how we can create a subscription that filters documents on the server side: it was shown in <<create-subscription-complex-calls>>. 
+We already saw how we can create a subscription that filters documents on the server side: it was shown in <<create-subscription-complex-calls>>.
 The code there used a Linq expression, and the client API was able to turn that into a query that was sent to the server. <<create-subscription-complex-calls>>
 was a pretty simple expression, and the code that handles the translation between Linq expressions and queries is quite smart. It's able to handle much more complex conditions.
 In <<subscription-with-include>>, we also saw that we can use a string query to define the subscription.
 
-In <<create-subscription-javascript-filtering>> we are taking that to the next level and show how we can use a more complex filtering mechanism 
+In <<create-subscription-javascript-filtering>> we are taking that to the next level and show how we can use a more complex filtering mechanism
 to subscribe to all the support calls that require special attention.
 
 [[create-subscription-javascript-filtering]]
@@ -492,9 +492,9 @@ var options = new SubscriptionCreationOptions
     Query = @"
         declare function isAnnoyedCustomer(call) {
             const watchwords = ['annoy', 'hard', 'silly'];
-        
+
             const lastIndex = call['@metadata']['Last-Monitored-Index'] || 0;
-        
+
             for (let i = lastIndex; i < call.Comments.length; i++)
             {
                 let comment = call.Comments[i].toLowerCase();
@@ -513,8 +513,8 @@ var options = new SubscriptionCreationOptions
 store.Subscriptions.Create(options);
 ----
 
-The interesting code in <<create-subscription-javascript-filtering>> is in `isAnnoyedCustomer` inside the query. We're defining a few words that we'll watch for, 
-and if we see them in the comments of a support call, we want to give that call some special attention via this subscription. We do that by simply scanning through 
+The interesting code in <<create-subscription-javascript-filtering>> is in `isAnnoyedCustomer` inside the query. We're defining a few words that we'll watch for,
+and if we see them in the comments of a support call, we want to give that call some special attention via this subscription. We do that by simply scanning through
 the array of `Comments` and checking if any comment contains any of the words we're looking for.
 
 .Use the subscription test feature
@@ -524,23 +524,23 @@ and they can carry the load of significant portions of your business logic. Beca
 with them while developing.
 
 For this reason, RavenDB has the subscription test feature. This feature will apply the subscription logic on top of the database and allow you to see
-the results of your filter or transformation scripts. We've already gotten a taste of that in <<fig-subscription-filters-support-calls>>, but the more 
+the results of your filter or transformation scripts. We've already gotten a taste of that in <<fig-subscription-filters-support-calls>>, but the more
 complex your queries are, the more useful this feature will become.
 
 There's one item to consider here, though. A subscription test works just like a subscription. It matches all the documents in the particular collection
-you're operating on and applies the script to each and every one of them, giving you those documents that matched successfully. However, if your script filters 
+you're operating on and applies the script to each and every one of them, giving you those documents that matched successfully. However, if your script filters
 out many of the matches and you have a large amount of data, it may take the subscription test a while to find enough documents that match your subscription
 filter.
 
-You can reduce this time by selecting a document from which the subscription test will start the scanning process. This way it will not have to scan all the documents 
-in the collection. Selecting such a document is done in the `Send Documents From` dropdown. While you'll typically use "Beginning of Time" as the default, you can 
+You can reduce this time by selecting a document from which the subscription test will start the scanning process. This way it will not have to scan all the documents
+in the collection. Selecting such a document is done in the `Send Documents From` dropdown. While you'll typically use "Beginning of Time" as the default, you can
 save some time if you position the subscription directly on the first of the documents you want to process.
 ****
 
-The one interesting tidbit is the use of `call['@metadata']['Last-Monitored-Index']`. What's that for? Remember that a subscription will be sent all the 
+The one interesting tidbit is the use of `call['@metadata']['Last-Monitored-Index']`. What's that for? Remember that a subscription will be sent all the
 documents that match its criteria. And whenever a document is changed, it triggers a check for a match with the subscription. That means that if we didn't have
 some sort of check to stop it, our subscription would process any support call that had a comment with one of the words we watch for _every single time
-that call is processed_. 
+that call is processed_.
 
 In order to avoid that scenario, we set a metadata value named `Last-Monitored-Index` when we process the subscription. You can see how that works in
 <<escalate-problematic-calls>>.
@@ -560,7 +560,7 @@ await subscription.Run(batch =>
     {
         foreach (var item in batch.Items)
         {
-            // mark the last index that we 
+            // mark the last index that we
             // already observed using Patch
             session.Advanced.Defer(                             <2>
                 new PatchCommandData(
@@ -568,12 +568,12 @@ await subscription.Run(batch =>
                     patch: new PatchRequest
                     {
                         Script = script,
-                        Values = 
+                        Values =
                         {
                             ["idx"] = item.Result.Comments.Count
                         }
                     },
-                    patchIfMissing: null, 
+                    patchIfMissing: null,
                 ));
         }
         // actually escalate the call
@@ -585,15 +585,15 @@ await subscription.Run(batch =>
 <2> Use `Defer` to register a patch command to set the `Last-Monitored-Index` metadata value.
 <3> Call `SaveChanges` once for the entire batch, sending all the changes to the server in one remote call.
 
-We are simply setting the `Last-Monitored-Index` to the size of the `Comments` on the call and saving it back to the server. 
-This will ensure that we'll only get the support call again if there are _new_ comments with the words we're watching for. 
-The code in <<escalate-problematic-calls>> is going out of its way to be a good citizen and not go to the server any more times than it needs to. 
-This is also a good chance to demonstrate a real use case for `Defer` in production code. The use of `Defer` means two things: 
-one, we don't need to worry about the number of calls and, two, we've handled concurrency. 
+We are simply setting the `Last-Monitored-Index` to the size of the `Comments` on the call and saving it back to the server.
+This will ensure that we'll only get the support call again if there are _new_ comments with the words we're watching for.
+The code in <<escalate-problematic-calls>> is going out of its way to be a good citizen and not go to the server any more times than it needs to.
+This is also a good chance to demonstrate a real use case for `Defer` in production code. The use of `Defer` means two things:
+one, we don't need to worry about the number of calls and, two, we've handled concurrency.
 
 .Maintaining per-document subscription state
 ****
-Subscriptions often need to maintain some sort of state on a per-document basis. In the case of <<escalate-problematic-calls>>, we needed to keep track of the last 
+Subscriptions often need to maintain some sort of state on a per-document basis. In the case of <<escalate-problematic-calls>>, we needed to keep track of the last
 monitored index, but other times you'll have much more complex state to track. For example, imagine that we need to kick off a workflow that will
 escalate a call once it passes a certain threshold. We might need to keep track of the state of the workflow and have that be accounted for in the
 subscription itself.
@@ -609,12 +609,12 @@ and open up some really interesting options for processing documents. But even s
 
 #### Complex subscription queries and projections
 
-We've used conditional subscriptions to filter the documents that we want to process, and since this filtering is happening on the server side, it 
-allows us to reduce the number of documents that we have to send to the subscription. This is awesome in itself, but a really interesting feature of 
-subscriptions is that we don't actually _need_ to send the full documents to the client. We can select just the relevant details to send. 
+We've used conditional subscriptions to filter the documents that we want to process, and since this filtering is happening on the server side, it
+allows us to reduce the number of documents that we have to send to the subscription. This is awesome in itself, but a really interesting feature of
+subscriptions is that we don't actually _need_ to send the full documents to the client. We can select just the relevant details to send.
 
 Say we want to do some processing on highly voted support calls. We don't need to get the full document; we just need the actual issue and the number
-of votes for that call. Instead of sending the full document over the wire, we can use the code in <<get-relevant-details-subscription-filter>> to achieve our 
+of votes for that call. Instead of sending the full document over the wire, we can use the code in <<get-relevant-details-subscription-filter>> to achieve our
 goals more efficiently.
 
 [[get-relevant-details-subscription-filter]]
@@ -635,12 +635,12 @@ var options = new SubscriptionCreationOptions
 store.Subscriptions.Create(options);
 ----
 
-What we're doing in <<get-relevant-details-subscription-filter>> is filtering the support calls. If the call has less then 10 votes, we'll just filter it. 
-However, we aren't limited to just filtering the full document. We can also return an object of our own. That object can be built by us and contain just what we 
+What we're doing in <<get-relevant-details-subscription-filter>> is filtering the support calls. If the call has less then 10 votes, we'll just filter it.
+However, we aren't limited to just filtering the full document. We can also return an object of our own. That object can be built by us and contain just what we
 want to send directly to the client, and RavenDB will send it.
 
 But there is an issue here. In <<get-relevant-details-subscription-filter>>, we're creating a subscription on `SupportCall`. However, the value that will be sent to the client for
-the subscription to process is _not_ a `SupportCall` document. It's a projection created during the subscription run. That means that, on the client side, we need to know 
+the subscription to process is _not_ a `SupportCall` document. It's a projection created during the subscription run. That means that, on the client side, we need to know
 how to handle such a thing. This requires a bit of a change in how we open the subscription, as you can see in <<open-subscription-different-target-projection>>.
 
 [[open-subscription-different-target-projection]]
@@ -654,7 +654,8 @@ public class SupportCallSubscriptionOutput
 }
 
 var options = new SubscriptionWorkerOptions(subscriptionName);
-var subscription = store.Subscriptions .GetSubscriptionWorker<SupportCallSubscriptionOutput>(options);
+var subscription = store.Subscriptions
+    .GetSubscriptionWorker<SupportCallSubscriptionOutput>(options);
 
 await subscription.Run(batch =>
 {
@@ -667,12 +668,12 @@ await subscription.Run(batch =>
 });
 ----
 
-In order to consume the subscription in a type-safe way, we create a class that matches the output that we'll get from the subscription script, and we'll 
-use that when we open the subscription. Scenarios like the one outlined in <<get-relevant-details-subscription-filter>> 
+In order to consume the subscription in a type-safe way, we create a class that matches the output that we'll get from the subscription script, and we'll
+use that when we open the subscription. Scenarios like the one outlined in <<get-relevant-details-subscription-filter>>
 and <<open-subscription-different-target-projection>> make this flexibility very useful.
 
-If this was all we could do with the subscription script, it would have been a good way to reduce the amount of data that's sent over the wire. But 
-there are actually more options available for us that we haven't gotten around to yet. Consider <<efficiently-process-batch>> where we get the support call 
+If this was all we could do with the subscription script, it would have been a good way to reduce the amount of data that's sent over the wire. But
+there are actually more options available for us that we haven't gotten around to yet. Consider <<efficiently-process-batch>> where we get the support call
 and immediately have to load the associated customer. That can lead to a remote call per item in the batch. We've already gone over why this can be a bad idea in
 terms of overall performance. Even with the optimization we implemented in <<subscription-with-include>>, there's still a remote call to do. We can do better.
 
@@ -705,7 +706,7 @@ In <<get-relevant-details-subscription-load>>, we're using `load` as part of the
 the customer instance and send pieces of it back to the client. In order to consume it, we'll need to change the `SupportCallSubscriptionOutput` class that we introduced in
 <<get-relevant-details-subscription-filter>> to add the new fields.
 
-When processing the output of this subscription, we can directly process the results without making any other remote calls, not even to load the associated document. 
+When processing the output of this subscription, we can directly process the results without making any other remote calls, not even to load the associated document.
 In <<open-subscription-different-target-load>>, you can see how we'd process such a subscription.
 
 [[open-subscription-different-target-load]]
@@ -743,35 +744,35 @@ await subscription.Run(batch =>
 <3> Processing the subscription batch.
 
 You can see that we use an inner class to scope the meaning of the `Customer` here. This isn't required. It's merely a convention we use to bring some order
-to the client-side types. Note that unlike before, we are no longer working with documents. Using `batch.OpenSession` won't have them in the session, nor do 
+to the client-side types. Note that unlike before, we are no longer working with documents. Using `batch.OpenSession` won't have them in the session, nor do
 we benefit from the `Unit of Work` pattern. If we wanted to modify the documents in this subscription, we'll need to either use patching or to load them.
-Of course, we can combine both `load` and `include` to get the benefit of both worlds. 
+Of course, we can combine both `load` and `include` to get the benefit of both worlds.
 
 ### Error handling and recovery with subscriptions
 
-What happens when there's an error in the processing of a document? 
-Imagine that we had code inside the lambda in the `Run` method and that code threw an 
-exception. Unless you set `SubscriptionWorkerOptions.IgnoreSubscriberErrors`,footnote:[And you probably shouldn't do that.] 
-we'll abort processing of the subscription and the `Run` will raise an error. Typical handling in that scenario is to dispose 
-the subscription and immediately open it again. 
+What happens when there's an error in the processing of a document?
+Imagine that we had code inside the lambda in the `Run` method and that code threw an
+exception. Unless you set `SubscriptionWorkerOptions.IgnoreSubscriberErrors`,footnote:[And you probably shouldn't do that.]
+we'll abort processing of the subscription and the `Run` will raise an error. Typical handling in that scenario is to dispose
+the subscription and immediately open it again.
 
-Assuming the error is transient, we'll start processing from the last batch we received and continue forward from there. 
-If the error isn't transient, however, the error keep occurring over and over.  Consdier a `NullReferenceException` because 
-of a `null` where we didn't expect it. You might want to set an upper limit to the number of errors you'll try to recover from in 
-a given time period, choosing to just fail completely afterward. This depends heavily on the kind of error reporting and 
-recovery you're using in your applications. 
+Assuming the error is transient, we'll start processing from the last batch we received and continue forward from there.
+If the error isn't transient, however, the error keep occurring over and over.  Consdier a `NullReferenceException` because
+of a `null` where we didn't expect it. You might want to set an upper limit to the number of errors you'll try to recover from in
+a given time period, choosing to just fail completely afterward. This depends heavily on the kind of error reporting and
+recovery you're using in your applications.
 
-Note that this applies only to errors that come from the code processing the document. All other errors (connection to server, 
-failover between servers, etc.) are already handled by RavenDB. The reason that we abort the subscription in the case of subscriber 
+Note that this applies only to errors that come from the code processing the document. All other errors (connection to server,
+failover between servers, etc.) are already handled by RavenDB. The reason that we abort the subscription in the case of subscriber
 error is that there really isn't any good way to recover from it in a safe manner.
-We don't want to skip processing the document. And just logging the error is possible 
-(in fact, that's exactly what we do if `IgnoreSubscriberErrors` is set), but no one ever reads the log until the problem is 
-already discovered, which is typically very late in the game. 
+We don't want to skip processing the document. And just logging the error is possible
+(in fact, that's exactly what we do if `IgnoreSubscriberErrors` is set), but no one ever reads the log until the problem is
+already discovered, which is typically very late in the game.
 
 .RavenDB errors & subscription recovery
 ****
 The subscription infrastructure is going to handle all the errors related to RavenDB. It will failover between servers to recover,
-retry if there is a network hiccup, etc. An important aspect of that is that when we refer to this we refer to all the errors that 
+retry if there is a network hiccup, etc. An important aspect of that is that when we refer to this we refer to all the errors that
 come from the _infrastructure_. If the lambda that the subscription invokes raises an exception, there is no special handling there.
 
 For exmple, if the code in <<take-surveys-complex-calls>> raise a `ConcurrencyException`, even though it is a RavenDB exception, it
@@ -779,20 +780,20 @@ wasn't raised by the subscription infrastructure but by the lamda itself. That i
 types of errors that is handled for you and the kind that bubbles up.
 ****
 
-In other words, RavenDB will take care of all the issues related to talking to the database, but the error handling related to your code 
-is on you (including when your code talks to RavenDB directly, of course). In practice, you generally don't have to worry about it. 
-An error thrown during document processing will kill your subscription. We saw in <<send-to-course-batch>> that after 
-we call `Run`, we need to wait on the resulting task. If an error is raised during document processing, the subscription will close and that 
-error will be raised to the caller of the `Run` method. 
+In other words, RavenDB will take care of all the issues related to talking to the database, but the error handling related to your code
+is on you (including when your code talks to RavenDB directly, of course). In practice, you generally don't have to worry about it.
+An error thrown during document processing will kill your subscription. We saw in <<send-to-course-batch>> that after
+we call `Run`, we need to wait on the resulting task. If an error is raised during document processing, the subscription will close and that
+error will be raised to the caller of the `Run` method.
 
-The typical manner in which you'll handle errors with subscriptions is to just retry the whole subscription, as shown in 
-<<retry-subscription-error>>. There's a lot of things going on in this listing, so take the time to carefully read through the error handling. 
+The typical manner in which you'll handle errors with subscriptions is to just retry the whole subscription, as shown in
+<<retry-subscription-error>>. There's a lot of things going on in this listing, so take the time to carefully read through the error handling.
 
 [[retry-subscription-error]]
 .Retrying subscription on error
 [source,csharp]
 ----
-while (true)                                                                    <1>
+while (true)                                                                <1>
 {
     var options = new SubscriptionWorkerOptions(subscriptionName)               <2>
     {
@@ -806,13 +807,13 @@ while (true)                                                                    
     try
     {
         subscriptionWorker.OnSubscriptionConnectionRetry += exception =>        <3>
-        {                        
-            Logger.Error("Error during subscription processing: " 
-                + subscriptionName, exception);                                                
+        {
+            Logger.Error("Error during subscription processing: "
+                + subscriptionName, exception);
         };
 
         await subscriptionWorker.Run(async batch =>                             <4>
-        {                        
+        {
             foreach (var item in batch.Items)
             {
                 if (item.Result.Company == "companies/832-A")                   <5>
@@ -821,15 +822,15 @@ while (true)                                                                    
 
                 await ProcessOrder(item.Result);
             }
-        }, cancellationToken);                    
+        }, cancellationToken);
 
         // Run will complete normally if you have disposed the subscription
-        break;                    
+        break;
     }
-    catch (Exception e)                                                         
+    catch (Exception e)
     {
         if (e is SubscriberErrorException se)                                   <6>
-        { 
+        {
             if (se.InnerException is UnsupportedCompanyException)
             {
                 throw;  // an actual error that we raise to the caller
@@ -838,9 +839,9 @@ while (true)                                                                    
             continue;                                                           <7>
         }
 
-        if (e is SubscriptionClosedException)                                   
+        if (e is SubscriptionClosedException)
             return; // closed explicitly by admin, probably, not an error
-        
+
         throw; // not recoverable                                               <8>
     }
     finally
@@ -851,22 +852,23 @@ while (true)                                                                    
 ----
 <1> Inifinite loop, so if we failed processing the subscription, we'll just open it again and keep trying.
 <2> Configure that we allow a down time of up to 2 hours and before raising an error to the caller
-    if the subscription infrastructure is getting errors from the cluster nodes. It will also wait 2 minutes between retries.
+if the subscription infrastructure is getting errors from the cluster nodes.
+It will also wait 2 minutes between retries.
 <3> Register to get the errors raised by the subscription infrastructure (which are usually handled internally).
 <4> The actual processing of the subscription, as we normally do.
 <5> Add an exceptional state that will cause the subscription to throw an error.
-<6> Handling exception thrown from the subscription's lambda invocation. 
+<6> Handling exception thrown from the subscription's lambda invocation.
 <7> Assuming that this is a trasient error and going back to the beginning of the loop, to try opening the subscription again.
 <8> Raise the error to the calling code.
 
 <<retry-subscription-error>> shows a typical way to handle errors in subscriptions. There are a few non-recoverable scenarios, such as the database not existing,
-the subscription doesn't exist or is misconfigured, or the credentials we have are invalid. There's no way to recover from those kinds of errors 
+the subscription doesn't exist or is misconfigured, or the credentials we have are invalid. There's no way to recover from those kinds of errors
 without administrator involvement, so we should just raise this up the stack until we catch the attention of someone who can actually fix this.
 
-The next part handles errors when the subscription was closed explicitly by an administrator. RavenDB will automatically recover from failures 
-and accidental disconnects, but the administrator can also choose to explicitly kill a subscription connection. In this case, we'll 
-report this to the caller, who can decide what to do about it. Simply retrying is probably not a good idea in this case. A subscription can 
-also fail because another client is already holding onto it, or a client came in and kicked our subscription from the subscription. Both of 
+The next part handles errors when the subscription was closed explicitly by an administrator. RavenDB will automatically recover from failures
+and accidental disconnects, but the administrator can also choose to explicitly kill a subscription connection. In this case, we'll
+report this to the caller, who can decide what to do about it. Simply retrying is probably not a good idea in this case. A subscription can
+also fail because another client is already holding onto it, or a client came in and kicked our subscription from the subscription. Both of
 these cases are strongly tied to the deployment mode you have and will be discussed in the next section.
 
 .What about subscription script errors?
@@ -879,7 +881,7 @@ Consider the following snippet: `select { Rate: (10 / call.Votes) }`. It isn't m
 set to zero. In this case, when evaluating the script on a support call with no votes, we'll get a error attempting to divide by zero. That error will
 be sent to the client and be part of the batch.
 
-When the client accesses the `item.Result` property on _that particular document_, the exception will be raised on the client side. In this way, you can 
+When the client accesses the `item.Result` property on _that particular document_, the exception will be raised on the client side. In this way, you can
 select how to handle such errors. You can handle this on the client side in some manner and continue forward normally, or you can let it bubble up as
 an error in the subscription, which should trigger your error-handling policy, as we saw in <<retry-subscription-error>>.
 ****
@@ -900,11 +902,11 @@ they're often performing critical business functions. But on the other hand, the
 to the user.)
 
 Subscriptions are usually deployed in either a batch-and-stop mode or in a continuous run. The continuous run is a process (or a set of processes) that are running
-your subscriptions constantly. The database will feed any new data to them as soon as it's able, and all processing happens live. That isn't required, mind you. 
+your subscriptions constantly. The database will feed any new data to them as soon as it's able, and all processing happens live. That isn't required, mind you.
 Under load, the administrator is perfectly able to shut down a subscription (or even all of them) to free up processing capacity. When they're started up again,
 they'll pick up where they left off.
 
-In batch mode, the subscriptions are run on a schedule. When they run out of work to do, they'll shut themselves down until being run again. 
+In batch mode, the subscriptions are run on a schedule. When they run out of work to do, they'll shut themselves down until being run again.
 <<stop-subscription-inactivity>> shows how you can write a self-stopping subscription.
 
 [[stop-subscription-inactivity]]
@@ -930,18 +932,18 @@ The `CloseWhenNoDocsLeft` option will cause RavenDB to abort the subscription if
 through everything that happened since their last run and then shut down again.
 
 Another aspect of subscription deployment is the notion of high availability. On the server side, the cluster will ensure that if there was a failure, we will
-transparently failover to another node. But who takes care of high availability on the client? For high availability you'll want to have at least a couple of machines 
-running subscriptions, so if one of them goes down, the other one will carry on. However, if the same subscription is running concurrently on two machines, 
+transparently failover to another node. But who takes care of high availability on the client? For high availability you'll want to have at least a couple of machines
+running subscriptions, so if one of them goes down, the other one will carry on. However, if the same subscription is running concurrently on two machines,
 that can lead to duplicate processing. Now, your code needs to handle that anyway, since subscriptions guarantee processing at least once and various error conditions can
 cause a batch to be re-sent. However, there's a major difference between handling that once in a blue moon and having to deal with it constantly, leaving aside
 the issue that we'll also have higher resource usage because we need to process the subscription on multiple nodes.
 
 Luckily, RavenDB subscriptions don't work like that. Instead, a subscription is usually opened by one and only one client (we'll talk about concurrent subscriptions
-and the exception to this rule later in this chapter). By default, if two clients attempt to open the same subscription, one of them will succeed and the other one 
+and the exception to this rule later in this chapter). By default, if two clients attempt to open the same subscription, one of them will succeed and the other one
 will raise an error because it couldn't take hold of the subscription.
 This is controlled by the `SubscriptionOpeningStrategy` option set on the `Strategy` property. The various options of this property are:
 
-* `OpenIfFree` is the default. The client will attempt to open the subscription but will fail if another client is already holding it. This is suitable in cases where you're running subscriptions in batch/schedule mode. If another client is already processing it, there's no need to process anything yourself. 
+* `OpenIfFree` is the default. The client will attempt to open the subscription but will fail if another client is already holding it. This is suitable in cases where you're running subscriptions in batch/schedule mode. If another client is already processing it, there's no need to process anything yourself.
 
 * `TakeOver` will attempt to open the subscription even if a client is already connected to it. If there's a connected client, its connection will be closed. This is used to force the subscription open operation to succeed for a particular client. If an incoming subscription tries to take over an existing one, which also has a "take over" strategy, the incoming subscription will "lose" the contest.
 
@@ -949,9 +951,9 @@ This is controlled by the `SubscriptionOpeningStrategy` option set on the `Strat
 
 * `Concurrent` allows multiple subscription instances at the same time, each processing their own set of documents. Will be discuss at length later in this chapter.
 
-For high availability processing on the client, you'll set up multiple machines that will run your subscriptions and open them using the `WaitForFree` option. 
+For high availability processing on the client, you'll set up multiple machines that will run your subscriptions and open them using the `WaitForFree` option.
 In this way, those clients will compete for the subscriptions. If one of them fails, the other will take over and continue processing them. The use of multiple machines
-for handling subscriptions also allows you to split your processing between the machines. 
+for handling subscriptions also allows you to split your processing between the machines.
 
 .Failure conditions in a distributed environment
 ****
@@ -960,31 +962,31 @@ In particular, while we promise that a subscription will only be opened by a sin
 that two clients have successfully connected to two different servers and are trying to process the same subscription from them.
 
 That scenario should be rare, and it will only last for the duration of a single batch, until the next synchronization point for the subscription (which ensures global consistency for the subscription). One of those servers will fail to process the batch acknowledgement and return that error to the client, eventually
-aborting the connection. 
+aborting the connection.
 ****
 
-You may decide that you want certain operations to be handled on one worker node footnote:[I'm using the term worker node here to refer to machines that 
-are running business processes, subscriptions, etc. This is to distinguish them from RavenDB nodes.] and configure those subscriptions to `TakeOver` on 
-that worker node and `WaitForFree` on any other worker nodes. This way, a particular subscription has a preferred worker node that it will run on, but if 
-that one fails, it will run on another. In other words, each worker node will run only its own preferred subscriptions unless there's a failure. 
+You may decide that you want certain operations to be handled on one worker node footnote:[I'm using the term worker node here to refer to machines that
+are running business processes, subscriptions, etc. This is to distinguish them from RavenDB nodes.] and configure those subscriptions to `TakeOver` on
+that worker node and `WaitForFree` on any other worker nodes. This way, a particular subscription has a preferred worker node that it will run on, but if
+that one fails, it will run on another. In other words, each worker node will run only its own preferred subscriptions unless there's a failure.
 
-When your deployment contains multiple worker nodes that are all processing subscriptions, you need to be even more aware of the fact that you're running in a 
-distributed system and that concurrency in a distributed environment should always be a consideration. We already talked about optimistic concurrency in 
-<<advanced-client-api>>, but with distributed databases, we also need to take into account eventual consistency and conflicts between machines. We'll start 
+When your deployment contains multiple worker nodes that are all processing subscriptions, you need to be even more aware of the fact that you're running in a
+distributed system and that concurrency in a distributed environment should always be a consideration. We already talked about optimistic concurrency in
+<<advanced-client-api>>, but with distributed databases, we also need to take into account eventual consistency and conflicts between machines. We'll start
 talking about the distributed nature of RavenDB in <<ravendb-clusters>> in depth.
 
-For subscriptions, we typically don't care about this. The batch processing mode means that we already see the world differently and it doesn't matter if 
+For subscriptions, we typically don't care about this. The batch processing mode means that we already see the world differently and it doesn't matter if
 we get a document in a particular batch or in the next. One thing to be aware of is that different subscriptions may be running on different nodes and thus getting
 the documents in a different order. (All of them will end up getting all the documents. There's just no guaranteed absolute order across the distributed system.)
 
 ### Using subscription for queuing tasks
 
-In this section, I want to utilize subscriptions as a processing queue for a few reasons. For one thing, it's a very common scenario for using subscriptions. 
-For another, it lets us explore a lot of the RavenDB functionality and how different pieces are held together. What we want to do is to be able to write an operation to 
+In this section, I want to utilize subscriptions as a processing queue for a few reasons. For one thing, it's a very common scenario for using subscriptions.
+For another, it lets us explore a lot of the RavenDB functionality and how different pieces are held together. What we want to do is to be able to write an operation to
 the database and, when we've successfully processed it, automatically delete it.
 
-Going back to the email-sending example, our code will write `EmailToSend` documents that will be picked up by a subscription and handled. The code for 
-actually doing this is shown in <<delete-emails-send>>. 
+Going back to the email-sending example, our code will write `EmailToSend` documents that will be picked up by a subscription and handled. The code for
+actually doing this is shown in <<delete-emails-send>>.
 
 [[delete-emails-send]]
 .Delete the emails to send after successful send
@@ -1020,26 +1022,26 @@ using (var subscription = store.Subscriptions
 <2> Successfully sending the email means that we'll delete this document entirely.
 
 There's actually a lot going on in <<delete-emails-send>> that may not be obvious. First, we're processing a batch of documents, trying to send each
-one in turn. If there's an error in sending one of those emails, we'll skip further processing. However, if we were able to successfully send the email, 
-we'll register the document to be deleted. At the end of the batch, we'll delete all the documents that we've successfully sent. 
+one in turn. If there's an error in sending one of those emails, we'll skip further processing. However, if we were able to successfully send the email,
+we'll register the document to be deleted. At the end of the batch, we'll delete all the documents that we've successfully sent.
 
 
-We don't touch the documents that we fail to send. The idea is to dedicate the `EmailToSend` collection for this task only. That means that in the `EmailToSend` 
+We don't touch the documents that we fail to send. The idea is to dedicate the `EmailToSend` collection for this task only. That means that in the `EmailToSend`
 collection, we'll only ever have one of two types of documents:
 
 * `EmailToSend` documents that haven't been processed yet by the subscription and will be sent (and deleted) soon.
 * Documents that we tried to send but failed to.
 
 Those documents that we fail to send are interesting. Since the subscription has already processed them, we won't be seeing them again. However, we
-didn't lose any data, and an administrator can compare the current state of the subscription to the state of the `EmailToSend` collection and get all the 
+didn't lose any data, and an administrator can compare the current state of the subscription to the state of the `EmailToSend` collection and get all the
 failed documents.
 
-At that point, the admin can either fix whatever is wrong with those documents (which will cause them to be sent to the subscription again) or they can reset 
-the position of the subscription and have it reprocess all those documents again (for example, if there was some environmental problem). This mode of 
-operation is really nice for processing queues. For simple cases, you can just rely on RavenDB to do it all for you. In fact, given that RavenDB 
+At that point, the admin can either fix whatever is wrong with those documents (which will cause them to be sent to the subscription again) or they can reset
+the position of the subscription and have it reprocess all those documents again (for example, if there was some environmental problem). This mode of
+operation is really nice for processing queues. For simple cases, you can just rely on RavenDB to do it all for you. In fact, given that RavenDB
 subscriptions can work with failover of both clients and servers, this gives you a robust solution to handle task queues that are local to your application.
 
-RavenDB is _not_ a queuing solution, and this code doesn't pretend that it is. The code in <<delete-emails-send>> is a great way to handle task queues, 
+RavenDB is _not_ a queuing solution, and this code doesn't pretend that it is. The code in <<delete-emails-send>> is a great way to handle task queues,
 but proper queuing systems will offer additional features (like monitoring and built-in error handling) that you might want to consider. For most simple tasks,
 the fire-and-forget operations, you can use RavenDB in this mode. But for more complex situations, you should at least explore whether a proper queue can offer
 a better solution.
@@ -1050,12 +1052,12 @@ Earlier in this chapter I talked about distributed transactions and how hard the
 complexity. Consider the case of <<take-surveys-complex-calls>>, where we needed to send survey emails as well as update the database. Compare that to the code in
 <<delete-emails-send>> which _only_ handles sending emails. The error handling aspect in <<delete-emails-send>> is much simpler than the one in <<take-surveys-complex-calls>>.
 
-Instead of trying to have a distributed transaction across two different systems, we'll use the Outbox pattern. Instead of performing the actual operation 
+Instead of trying to have a distributed transaction across two different systems, we'll use the Outbox pattern. Instead of performing the actual operation
 (`SendSurveyEmailTo`), we'll write a document to RavenDB that declare the _intent_ to do so (`EmailToSend`). That intent (the actual `EmailToSend` document) is then processed
 behind the scenes like we saw in <<delete-emails-send>>.
 
 Take a look at <<take-surveys-outbox>> to see how this is done. We're back to processing support calls, and we update the `Survey` field on the support call as well as
-store a new `EmailToSend`. The final step of the subscription's lambda is to call `SaveChangesAsync` and save both the updates to the 
+store a new `EmailToSend`. The final step of the subscription's lambda is to call `SaveChangesAsync` and save both the updates to the
 support calls as well as the new `EmailToSend` documents in a _single_ transaction.
 
 [[take-surveys-outbox]]
@@ -1083,31 +1085,31 @@ await subscription.Run(async batch =>
     await session.SaveChangesAsync();                   <3>
 });
 ----
-<1> Update the `Survey` flag on the current call. 
+<1> Update the `Survey` flag on the current call.
 <2> Store the new `EmailToSend`.
 <3> Save both changes to the database in a single transaction.
 
-The code in <<take-surveys-outbox>> does only half the job. It perform all the business logic that is required, and handles the transactional aspects very cleanly. 
-But it _doesn't send an email_! That task was cleanly separated out to a different task. As you can imagine, a separate subscription running the code in 
+The code in <<take-surveys-outbox>> does only half the job. It perform all the business logic that is required, and handles the transactional aspects very cleanly.
+But it _doesn't send an email_! That task was cleanly separated out to a different task. As you can imagine, a separate subscription running the code in
 <<delete-emails-send>> would perfectly complement this behavior.
-The Outbox pattern then allows us to split the problem into distinct steps, and then handle each one of them in a far simpler manner. 
+The Outbox pattern then allows us to split the problem into distinct steps, and then handle each one of them in a far simpler manner.
 
 ### Prallel work inside a subscription batch
 
 By default, there is a single running subscription worker at any given time for a subscription. The reasoning behind it is that it makes it a _lot_ simpler to understand
-what is going on. In general, here is the flow of documents in a subscription can be seen in <<subscription-cycle>>. 
-The subscription get a batch of documents, process them and then acknowledge their successful processing. And then cycle starts anew. 
+what is going on. In general, here is the flow of documents in a subscription can be seen in <<subscription-cycle>>.
+The subscription get a batch of documents, process them and then acknowledge their successful processing. And then cycle starts anew.
 
 [[subscription-cycle]]
 .Flow of documents batches in a subscription
 image::./Ch07/img05.png[]
 
-The process outline in <<subscription-cycle>> is easy to understand and deal with. It is also inherently _serial_ process. At any given point in time, there is 
+The process outline in <<subscription-cycle>> is easy to understand and deal with. It is also inherently _serial_ process. At any given point in time, there is
 just a single batch being processed. What happens if we have an expensive process to run through? Let's say that it takes us a second or two to send an email.
-When we want to process a batch that may have dozens of documents, the code in <<delete-emails-send>> will be _very_ slow. 
+When we want to process a batch that may have dozens of documents, the code in <<delete-emails-send>> will be _very_ slow.
 
-We can deal with this using parallel processing. Subscription batches are handled in a serial fashion, but inside the lambda, you are free to use concurrency as you 
-see fit. In <<delete-emails-send-parallel>> you can see the parallel version of <<delete-emails-send>>. 
+We can deal with this using parallel processing. Subscription batches are handled in a serial fashion, but inside the lambda, you are free to use concurrency as you
+see fit. In <<delete-emails-send-parallel>> you can see the parallel version of <<delete-emails-send>>.
 
 [[delete-emails-send-parallel]]
 .Parallel processing all the emails in the batch at once
@@ -1146,7 +1148,7 @@ using (var subscription = store.Subscriptions
 <1> Run over the items in the batch and spawn a separate `SendEmailAsync` for each of them.
 <2> Wait for all the tasks to complete (we don't care if they completed successfully or not).
 <3> Scan through the completed tasks and check their successful status.
-<4> If the email was sent successfully, delete the matcing `EmailToSend` document. 
+<4> If the email was sent successfully, delete the matcing `EmailToSend` document.
 
 .The session is single threaded
 ****
@@ -1154,44 +1156,44 @@ In <<delete-emails-send-parallel>>, we send multiple emails in parallel by calli
 In other words, there are concurrent calls to `SendEmailAsync` at the same time. However, note that when we call to the session using `session.Delete()`, we do
 that _after_ all the parallel tasks has been completed and in a completely singled threaded fashion.
 
-Session in RavenDB are _not_ safe for multi-threading. The `DocuemntStore` is, of course, but the session can only be used from a single thread at a time. 
+Session in RavenDB are _not_ safe for multi-threading. The `DocuemntStore` is, of course, but the session can only be used from a single thread at a time.
 The code in <<delete-emails-send-parallel>> is very careful to ensure that we never try to access the session from multiple threads at the same time.
 ****
 
-Being able to parallelize work inside the batch is great, but it isn't really helpful when we want to parallelize work _between_ batches. We'll discuss that 
+Being able to parallelize work inside the batch is great, but it isn't really helpful when we want to parallelize work _between_ batches. We'll discuss that
 in the next section.
 
 ### Concurrent subscription processing
 
 In the previous version, we dealt with performing the work within a batch in parallel. In this section, we'll discuss how we can run conurrent _batches_.
 Before we get to the code and how to make it work, let's talk about what this means and how this works. One of the problems we have with concurrent batches is what
-happens if we want to process the _same_ docuemnt in concurrent batches. Look at <<subscription-cycle>> again, and note that we are processing the document 
+happens if we want to process the _same_ docuemnt in concurrent batches. Look at <<subscription-cycle>> again, and note that we are processing the document
 `SupportCalls/238-B` in the batch.
 
-If we have two workers working concurrently on the same subscription, and we start processing a batch with `SupportCalls/238-B` in it, what happens when that 
+If we have two workers working concurrently on the same subscription, and we start processing a batch with `SupportCalls/238-B` in it, what happens when that
 document is modified (while the first batch is still running)? In the normal course of things, the second worker will get the _updated_ version of the _same_
-docuemnt to process at the _same time_. 
+docuemnt to process at the _same time_.
 As you can probably tell from the amount of emphasis I added to the previous statement, that is a Bad Thing. It can lead to really complex and hard to follow behavior
-in your application. 
+in your application.
 
-For this reason, when you have concurrent subscription workers running at the same time, RavenDB takes care to ensure that each document can only be handed out 
-to a batch _once_. In other words, if a batch is currently processing `SupportCalls/238-B`, even if there were later modifications to this document and there 
+For this reason, when you have concurrent subscription workers running at the same time, RavenDB takes care to ensure that each document can only be handed out
+to a batch _once_. In other words, if a batch is currently processing `SupportCalls/238-B`, even if there were later modifications to this document and there
 subscription workers that want work, RavenDB will not hand this docuemnt to any worker until the ongoing batch either acknowledge a successful batch or errors.
 
 .Concurrent batch processing assume that the subscription does some _work_
 ****
 When the subscription acknowledges that it successfuly completed a batch, it needs to register that in the cluster. We'll talk more about this in <<ravendb-clusters>>,
 but the gist of it is that it needs to run this acknowledgement through a consensus protocol. In other words, acknowledging a batch (concurrent one or not) is a global
-cluster operation which represents a syncronization point. 
+cluster operation which represents a syncronization point.
 
 This is important because it means that the value you'll get from concurrent subscription will be apparent if you going to benefit from mutliple concurrent batches
 being processed at the same time. The overhead of fetching a new batch or acknoledging a completed one should be vastly less than the cost of actually processing
 a batch. Otherwise, there is not much benefit in going concurrent.
 ****
 
-Concurrent subscriptions requires the RavenDB cluster to do additional book-keeping to ensure that we don't hand the same docuemnt to workers at the same time. 
+Concurrent subscriptions requires the RavenDB cluster to do additional book-keeping to ensure that we don't hand the same docuemnt to workers at the same time.
 Conceptually, you can imagine that RavenDB "checks out" the documents while the subscription is processing a batch. When a new batch is created for another
-concurrent instance, we check each document we load against the documents that are currently "checked out". If there is a match, RavenDB skips adding the 
+concurrent instance, we check each document we load against the documents that are currently "checked out". If there is a match, RavenDB skips adding the
 document to the batch, but record the fact that it should be sent (because it was updated after it was already sent out for processing).
 
 When the batch with that document is acknowledged (or errored), we will then "release" the documents there. And any document that was skipped previously because
@@ -1228,13 +1230,13 @@ var sub1 = subscriptionWorker2.Run(batch => { /* process batch */ });       <4>
 <4> Start processing batches from the second worker concurrently with the first.
 
 Both workers in <<concurrent-subs>> will run in concurrently and process _different_ documents at the same time. We previously talked about the `Strategy`
-option for the subscription worker. It controls how RavenDB deals with concurrent requests for the same subscription. 
+option for the subscription worker. It controls how RavenDB deals with concurrent requests for the same subscription.
 When using the `Concurrent` strategy, _all_ the subscription workers need to agree to use the `Concurrent` strategy. If you'll try to create a subscription worker
 with `Concurrent` while there is an existing one that doesn't have `Concurrent` setup, it will error. Conversely, trying to create a subscription worker _without_
 `Concurrent` if there is a `Concurrent` worker running will also fail.
 
 While a `Concurrent` subscription worker is running, only workers with `Concurrent` can be created. But that limitation holds only as long as there is a running
-subscription worker. In other words, close all the `Concurrent` subscription workers, and you can open a new one with `OpenIfFree` without issue. 
+subscription worker. In other words, close all the `Concurrent` subscription workers, and you can open a new one with `OpenIfFree` without issue.
 
 ### Versioned subscriptions
 
@@ -1245,19 +1247,19 @@ The subscriptions we've used so far are always operating on the _current_ state 
 * You open and run the subscription and observe the incoming items in the batch.
 
 What will the subscription get? It will get the _last_ version of the customer document. The same can happen when the subscription is already running. If you've
-made multiple modifications to a document, when the next batch starts, we'll just grab the current version of the document and send it to the 
+made multiple modifications to a document, when the next batch starts, we'll just grab the current version of the document and send it to the
 subscription. This can be a problem if your subscription code assumes that you'll always get the document every time it changes.
 
-The good news is that we can utilize another RavenDB feature, revisions (discussed in <<documents-extensions>>), to allow us to see all the changes that 
-were made to a document. 
+The good news is that we can utilize another RavenDB feature, revisions (discussed in <<documents-extensions>>), to allow us to see all the changes that
+were made to a document.
 
 The first step to exploring this feature is to enable revisions on the collection you want. In this case, it's the `Customers` collection. Set the minimum retention
-time for two weeks, and again make a few modifications to a `Customer` document. When you run your subscription once more, note that you're again getting 
-just the latest version of the `Customer` document. 
+time for two weeks, and again make a few modifications to a `Customer` document. When you run your subscription once more, note that you're again getting
+just the latest version of the `Customer` document.
 
 The reason you only get the latest version of the document is that the subscription, too, needs to let the server know that it's versioned. This is because the
-data model for versioned subscriptions is different. Let's take a look at <<subscribe-versioned-customers>> for an example of a simple versioned subscription 
-that can detect when a customer changed their name. 
+data model for versioned subscriptions is different. Let's take a look at <<subscribe-versioned-customers>> for an example of a simple versioned subscription
+that can detect when a customer changed their name.
 
 [[subscribe-versioned-customers]]
 .Subscribing to versioned customers
@@ -1281,7 +1283,7 @@ using (var subscription = store.Subscriptions
         {
             Revision<Customer> customer = item.Result;
 
-            if (customer.Previous.Name != 
+            if (customer.Previous.Name !=
                 customer.Current.Name)
             {
                 // report customer name change
@@ -1291,19 +1293,19 @@ using (var subscription = store.Subscriptions
 }
 ----
 
-The key parts to the code in <<subscribe-versioned-customers>> is the use of `Revision<Customer>` as the type that we're subscribing on. 
+The key parts to the code in <<subscribe-versioned-customers>> is the use of `Revision<Customer>` as the type that we're subscribing on.
 RavenDB recognizes that as a versioned subscription and will feed us each and every revision for the `Customer` collection.
 
-Note that the data model as well has changed. Instead of getting the document itself, we get an object that has `Previous` and `Current` properties, 
+Note that the data model as well has changed. Instead of getting the document itself, we get an object that has `Previous` and `Current` properties,
 representing the changes that happened to the document. In other words, you're able to inspect the current and previous versions and make decisions
-based on the changes that happened to the entity. 
+based on the changes that happened to the entity.
 
-This feature opens up a _lot_ of options regarding analytics because you aren't seeing just a snapshot of the state but all the intermediate steps along the 
-way. This has uses in business analytics, fraud, outliers detection and forensics, in addition to the general benefit of being able to reconstruct the 
-flow of data through your system.  The way versioned subscriptions work, we're going to get all the changes that match our criteria, in the same order they 
+This feature opens up a _lot_ of options regarding analytics because you aren't seeing just a snapshot of the state but all the intermediate steps along the
+way. This has uses in business analytics, fraud, outliers detection and forensics, in addition to the general benefit of being able to reconstruct the
+flow of data through your system.  The way versioned subscriptions work, we're going to get all the changes that match our criteria, in the same order they
 happened in the database.footnote:[Again, different nodes may have observed the events in a different order, but it should roughly match across the cluster.]
 
-If I wrote to `customers/8243-C`, created a new `customers/13252-B` and then wrote to `customers/8243-C` again, I'll get the changes (either in a single batch 
+If I wrote to `customers/8243-C`, created a new `customers/13252-B` and then wrote to `customers/8243-C` again, I'll get the changes (either in a single batch
 or across batches) in the following order:
 
 * `customers/8243-C`: (`Previous` -> `Current`)
@@ -1313,10 +1315,10 @@ or across batches) in the following order:
 This can be useful when running forensics or just when you want to inspect what's going on in your system.
 
 .Handling revisioned document creation and deletion
-**** 
+****
 When a new document is created, we'll get it in the versioned subscription with the `Previous` property set to `null` and the `Current` set to the newly
 created version. Conversely, if the document is deleted, we'll get it with the `Current` set to `null` and the `Previous` set to the last version of the
-document. 
+document.
 
 If a document is deleted and recreated, we'll have one entry with (`Previous`, `null`) and then another with (`null`, `Current`). This feature is also
 useful if you just want to detect the deletion of documents in a subscription.
@@ -1339,14 +1341,14 @@ store.Subscriptions.Create(
 );
 ----
 
-The code in <<set-filters-versioned-subscription>> will only send you the `Customer` documents whose names have been changed. 
-The rest of the code in <<subscribe-versioned-customers>> can remain the same, but we now don't need to check if the names have changed on the client side. 
+The code in <<set-filters-versioned-subscription>> will only send you the `Customer` documents whose names have been changed.
+The rest of the code in <<subscribe-versioned-customers>> can remain the same, but we now don't need to check if the names have changed on the client side.
 We've done that already on the server.
 
 Note that the RQL syntax for using versioned subscription directly `from Customers (Revisions = true)`, which tells RavenDB that you want to use the revisions
 as your source of data, rather than the docuemnts thmeselves.
 
-A natural extension of working on revisions is to skip sending the full data to the client and get just the data we need. 
+A natural extension of working on revisions is to skip sending the full data to the client and get just the data we need.
 An example of this can be shown in <<get-changed-names-versioned-subscription>>.
 
 [[get-changed-names-versioned-subscription]]
@@ -1359,30 +1361,30 @@ store.Subscriptions.Create(
         Name = subscriptionName,
         Query = @"
             from Customers (Revisions = true)
-            where Prervious.Name != Current.Name 
+            where Prervious.Name != Current.Name
             select {
-                 OldName: this.Previous.Name, 
+                 OldName: this.Previous.Name,
                  NewName: this.Current.Name
             }"
     }
 );
 ----
 
-The code in <<get-changed-names-versioned-subscription>> isn't that interesting except for what it's actually doing. It's filtering the data on the server 
-side and only sending us the old and new names. The subscription handling code on the client side just needs to take the old name and new name and 
-notify whoever needs to know about the name change. Remember that on the client side you need to match the projection structure, as we saw in 
+The code in <<get-changed-names-versioned-subscription>> isn't that interesting except for what it's actually doing. It's filtering the data on the server
+side and only sending us the old and new names. The subscription handling code on the client side just needs to take the old name and new name and
+notify whoever needs to know about the name change. Remember that on the client side you need to match the projection structure, as we saw in
 <<open-subscription-different-target-load>>.
 
-Versioned subscriptions give you a lot of power to work with your data (and the changes in your data) in an easy way. The ability is of particular 
+Versioned subscriptions give you a lot of power to work with your data (and the changes in your data) in an easy way. The ability is of particular
 interest in reversed event sourcing because you can go over your data, detect a pattern that matches
-a particular event you want to raise and publish it. 
+a particular event you want to raise and publish it.
 
 .Versioned subscriptions use the document revisions
-**** 
-This might be an obvious statement, but it needs to be explicitly said. The backing store for the versioned subscription is all the revisions that are 
+****
+This might be an obvious statement, but it needs to be explicitly said. The backing store for the versioned subscription is all the revisions that are
 stored for the documents as they're changed. That means that it's important to know the minimum retention time that's been configured.
 If you have a weekly subscription run and the versioning is configured to keep data for a day, you're going to miss out on revisions that have already
-been deleted. 
+been deleted.
 
 So when using a versioned subscription, the administrator must verify that the revisions retention time matches the subscription run time.
 ****
@@ -1395,10 +1397,10 @@ to be the case. In fact, it's common for subscriptions to be used as "aftermarke
 
 Consider the case of wanting to send all new users a welcome email after they've registered. We _could_ do that as part of the application itself, but given
 that this is a self-contained feature, we don't actually _have_ to involve the developers. We can write a subscription that would monitor new customers
-and send them the email. 
+and send them the email.
 
-For flexibility, we don't want to write it in C#. We don't need an application. We just need to be able to run a script to process those documents. I'm 
-using the Python client API in <<send-welcome-emails-python>> to perform this task. (I could have used node.js, Ruby, etc. 
+For flexibility, we don't want to write it in C#. We don't need an application. We just need to be able to run a script to process those documents. I'm
+using the Python client API in <<send-welcome-emails-python>> to perform this task. (I could have used node.js, Ruby, etc.
 I'm using Python as the example here because it's a great scripting language, and one I'm very fond of.)
 
 [[send-welcome-emails-python]]
@@ -1432,10 +1434,10 @@ with store.subscriptions.get_subscription_worker_by_name(
             session.save_changes()
 
     subscription.run(handle_batch).join()
----- 
+----
 
-The code in <<send-welcome-emails-python>> is quite similar to the way we would do things in C#. We open a document store, open the subscription and 
-pass a method to process the document batches. The use of Python typically means shorter development time and more freedom for the 
+The code in <<send-welcome-emails-python>> is quite similar to the way we would do things in C#. We open a document store, open the subscription and
+pass a method to process the document batches. The use of Python typically means shorter development time and more freedom for the
 operations team to modify things. That can be a great thing or a horrible thing.
 
 .Subscription in a dynamic language
@@ -1443,7 +1445,7 @@ operations team to modify things. That can be a great thing or a horrible thing.
 A major advantage of writing such scripts in a dynamic language is the low overhead and friction.
 We don't need to define classes. We can just use the shape of the data as it came down the wire. That makes everything simpler.
 
-On the other hand, you need to be aware that doing so requires discipline. You must be sure to version your subscription's code in step with the rest of the code. 
+On the other hand, you need to be aware that doing so requires discipline. You must be sure to version your subscription's code in step with the rest of the code.
 This is especially true if you are writing the sort of "aftermarket" scripts like the one shown in <<send-welcome-emails-python>>, the development team may not
 always give a headsup when the shape of the data changes.
 
@@ -1452,17 +1454,17 @@ database, not a shared database between a multitude of applications using the sa
 be (eventually, at least) all owned by the application itself.
 ****
 
-The beauty in using a scripting language for those kind of tasks is that it allows you to simply set up a subscription without any sort of application, 
+The beauty in using a scripting language for those kind of tasks is that it allows you to simply set up a subscription without any sort of application,
 compilation, etc. A single script per business process is usually enough. Since those are background batch processes, it doesn't usually matter if the
 language isn't very fast. You can trade off convenience for speed in this case with a clear conscience.
 
 One thing that _isn't_ in <<send-welcome-emails-python>> is error handling. In previous examples in this chapter, I spent some time discussing error handling, and any
 subscription scripts you have most certainly do need to have something there. But a conscientious admin will have already set up a watchdog for this, reporting
-errors and raising alerts accordingly. Any production system is made of a lot of moving parts. Most likely that the infrastructure to manage 
-such scripts, restart them if there is an error and alert you if they haven't recovered is already in place. 
+errors and raising alerts accordingly. Any production system is made of a lot of moving parts. Most likely that the infrastructure to manage
+such scripts, restart them if there is an error and alert you if they haven't recovered is already in place.
 
-For example <<python-watchdog>> uses the https://github.com/dbohdan/recur[`recur` tool] to run the Python subscription in a way that would recover from errors, 
-manage exponential backups, etc. 
+For example <<python-watchdog>> uses the https://github.com/dbohdan/recur[`recur` tool] to run the Python subscription in a way that would recover from errors,
+manage exponential backups, etc.
 
 [[python-watchdog]]
 .Executing the subscription script under a watchdog
@@ -1474,15 +1476,15 @@ recur --forever --max-delay 5m --reset -15s \
 
 <<python-watchdog>> is shown not as a specific recommendation for `recur` that is shown there. I mention the need for actual orcehstration of how your subscription
 code runs because it's important that it _is_ in place. The nasty side of this kind of approach is that it's easy for what would turn
-out to be a critical business process to be developed in a completely "Shadow IT" approach; that is, this subscription is running on some server 
-somewhere and will continue to do so until a reboot is done, where stuff breaks and no one really knows what. 
+out to be a critical business process to be developed in a completely "Shadow IT" approach; that is, this subscription is running on some server
+somewhere and will continue to do so until a reboot is done, where stuff breaks and no one really knows what.
 
 ### Subscription and the RavenDB Cluster
 
-We'll deal more with RavenDB clusters in <<ravendb-clusters>>, but since subscriptions are operating in a clustered environment, I wanted to touch on the topic 
+We'll deal more with RavenDB clusters in <<ravendb-clusters>>, but since subscriptions are operating in a clustered environment, I wanted to touch on the topic
 briefly. We'll assume that we are running on a three node RavenDB cluster, and processing documents in a database that is replicated to all those nodes.
 The RavenDB client will direct read & writes from the session to one of the nodes automatically (we'll discuss that in a lot more depth in <<ravendb-clusters>>).
-How do subscriptions work when your database is running on multiple nodes? 
+How do subscriptions work when your database is running on multiple nodes?
 
 The RavenDB cluster will assign one of the nodes hosting the database to be the owner of this subscription. All the work for this subscription will be
 coordinated through that node. Of course, if that node goes down, RavenDB will automatically failover the ownership of the subscription to another node in the cluster.
@@ -1491,11 +1493,11 @@ This is important, because the owning node of a subscription doesn't have to be 
 .RavenDB spreads the subscription load across all nodes
 ****
 It makes sense to make the subscription owner and the client's primary node the same node, no? Why would we want to have them be different?
-The primary reason is that you are likely to have _multiple_ subscriptions, and RavenDB can spread their load across multiple nodes. 
+The primary reason is that you are likely to have _multiple_ subscriptions, and RavenDB can spread their load across multiple nodes.
 A more complete answer is that there isn't really a pr  imary node in RavenDB. The default model uses a primary node, but that is just _a_ default.
-You can use round-robin, you can use a designated node per client, etc. 
+You can use round-robin, you can use a designated node per client, etc.
 
-Note that in practice, this doesn't matter. A write to any node will be replicated to all the other nodes of the database, and then the 
+Note that in practice, this doesn't matter. A write to any node will be replicated to all the other nodes of the database, and then the
 subscription will process that. Which node the subscription is connected to is not really something that you'll likely care about.
 ****
 
@@ -1526,17 +1528,17 @@ query. If it does, we can add that to the batch and send it to the worker.
 .The internal etag queue
 ****
 When RavenDB stores documents on disk, it assigns each document an etag, which is a strictly increasing number that represents the order in which the documents were modified.
-That etag is a _single node_ representation of when a document was modified. Note that in a cluster, does doesn't _quite_ work. Consider nodes `A` and `B` in a cluster. 
-I modify `users/1-A` on node `A` and `users/2-B` on node `B`. Each node will then replicate the changes to the other node. However, the etags on each node may not reflect the 
-same order of modifications. On node `A`, `users/1-A` may have etag `100` and `users/2-B` may have etag `101`, while on node `B`, `users/2-B` may have etag `150` and 
+That etag is a _single node_ representation of when a document was modified. Note that in a cluster, does doesn't _quite_ work. Consider nodes `A` and `B` in a cluster.
+I modify `users/1-A` on node `A` and `users/2-B` on node `B`. Each node will then replicate the changes to the other node. However, the etags on each node may not reflect the
+same order of modifications. On node `A`, `users/1-A` may have etag `100` and `users/2-B` may have etag `101`, while on node `B`, `users/2-B` may have etag `150` and
 `users/1-A` may have etag `153`. At the cluster level, RavenDB uses change vectors, discussed in depth in <<ravendb-clusters>>.
 
 The key is that whenever a document is modified, we'll update its etag. So updating `users/1-A` will give it a new etag, say `103` and the order of documents in node A
 will be `users/2-B` (`101`), `users/1-A` (`103`).
 
-Subscriptions operate on the internal etag queue, remembering the last etag position that was successfully acknowledged by the worker. That means that whenever a document 
+Subscriptions operate on the internal etag queue, remembering the last etag position that was successfully acknowledged by the worker. That means that whenever a document
 is modified, the subscription will process it _again_. That is either desirable, or something that we want to avoid, so we'll add that as a filter to the subscription
-query, as we did in <<subscriptions-with-include>> when we checked the `call.Survey = false` at the query and marked the document with `Survey = true` when we processed them.
+query, as we did in <<subscription-with-include>> when we checked the `call.Survey = false` at the query and marked the document with `Survey = true` when we processed them.
 
 The reason RavenDB operates in this manner is that it means that it needs to keep track of a single value to keep the last processed position. That makes it very easy to
 handle the subscription state and recover from failures.
@@ -1547,17 +1549,17 @@ scanning through the remaining documents to gather enough items to send in the _
 batches being "checked-out" simultaneously. That is required so we won't send an update document to a worker while another worker instance is already processing an
 older version of the document.
 
-Batch processing can fail if the subscription worker explicitly indicates a failure back to the RavenDB server, or if the subscription connection has dropped. 
+Batch processing can fail if the subscription worker explicitly indicates a failure back to the RavenDB server, or if the subscription connection has dropped.
 In that case, we don't update the last processed position, and the next time a worker connects, we resend the same batch of documents again. For concurrent subscriptions,
 we may need to scan through the "checked-out" documents that failed to process and send them to the next available worker.
 
-The biggest cost subscription has on the server side is the need to scan through all the documents in the collection. RavenDB translates the subscription query into a 
-JavaScript function that it applies to each document. A subscription that is connected but isn't currently processing documents require the server to just send a 
+The biggest cost subscription has on the server side is the need to scan through all the documents in the collection. RavenDB translates the subscription query into a
+JavaScript function that it applies to each document. A subscription that is connected but isn't currently processing documents require the server to just send a
 ping every few seconds (to verify that the client on the other side is indeed connected). A subscription that is _not_ connected has no cost at all on the server side.
 
 In other words, subscriptions are very cheap to maintain on the server side. The main cost is when you have a subscription worker needs a new batch of documents to process.
 Assuming that the client does _any_ processing at all, that means that most of the time, the server isn't actually doing much. Having a lot of subscriptions operate at once
-is fine, since they aren't going to be putting a lot of load on the servers. At the same time, you can close subscriptions that are running to reduce overall system load and 
+is fine, since they aren't going to be putting a lot of load on the servers. At the same time, you can close subscriptions that are running to reduce overall system load and
 resume them (from where they left off) if you need to provide extra breathing room for your system.
 
 While the subscription itself is cheap on the server side, there is the worker process that handle batches of documents. That work can be expensive, depending on what you're doing.
@@ -1565,13 +1567,13 @@ And being able to delay background work to less busy times is a great way to ens
 
 ### Subscribing to documents in the future
 
-Subscriptions operate on documents as they are _now_. The subscription query is applied to the current state of the document, and whenever a document is modified, we re-apply 
+Subscriptions operate on documents as they are _now_. The subscription query is applied to the current state of the document, and whenever a document is modified, we re-apply
 the subscription query to see if it matches. When happens if I want to subscribe a document that was modified now, but I want to be called in 3 days? A good example is dealing
 with timeouts. We send a survey to the user, and we want to follow up if they haven't responded in 3 days. Essentially, we want to subscribe to documents in the future.
 
-The problem is that the subscriptions don't work like that. In the previous section, we discussed how subscription operate purely on the modification order of documents. 
+The problem is that the subscriptions don't work like that. In the previous section, we discussed how subscription operate purely on the modification order of documents.
 We cannot "schedule" a document to be processed in the future. However, we can use a small trick to achieve the same effect. RavenDB has the notion of `@refresh` metadata, you
-can see how we use that in <<set-refresh-metadata>>. 
+can see how we use that in <<set-refresh-metadata>>.
 
 [[set-refresh-metadata]]
 .Creating a survey document with `@refresh` metadata three days for now
@@ -1595,18 +1597,18 @@ using (var session = store.OpenSession())
 }
 ----
 
-The code in <<set-refresh-metadata>> creates a `Survey` document and sets the `@refresh` metadata to three days in the future. You can see what this looks in in the RavenDB Studio 
-in <<refresh-metadata-studio>>. The idea of `@refresh` is really simple, at the specified time, RavenDB will simply remove the `@refresh` metadata from the document, that is all. 
-That doesn't look like something particularly useful, isn't it? 
+The code in <<set-refresh-metadata>> creates a `Survey` document and sets the `@refresh` metadata to three days in the future. You can see what this looks in in the RavenDB Studio
+in <<refresh-metadata-studio>>. The idea of `@refresh` is really simple, at the specified time, RavenDB will simply remove the `@refresh` metadata from the document, that is all.
+That doesn't look like something particularly useful, isn't it?
 
-When RavenDB removes the `@refresh` metadata from the document, it is _modifying_ the document. That in turn means that anything that processes documents as they are updated 
+When RavenDB removes the `@refresh` metadata from the document, it is _modifying_ the document. That in turn means that anything that processes documents as they are updated
 will reprocess them. That includes indexes, ETL processes and most relevant for our current discussion, subscriptions.
 
 [[refresh-metadata-studio]]
 .Showing the `@refresh` metadata set on a document
 image::./Ch07/img07.png[]
 
-We can take advantage of this behavior to implement "subscriptions in the future". We create a subscription that looks for `Survey` documents that don't have the 
+We can take advantage of this behavior to implement "subscriptions in the future". We create a subscription that looks for `Survey` documents that don't have the
 `@refresh` metadata set, as shown in <<subscription-future-surveys>>. The key here is that the query will filter based on `where '@metadata'.'@refresh' == null`.
 
 [[subscription-future-surveys]]
@@ -1627,31 +1629,31 @@ This `@refresh` technique to delay the processing of documents with subscription
 
 ### Summary
 
-When RavenDB implemented subscriptions for the first time, it was just a small section: a minor feature that was meant to handle an esoteric scenario that only a 
-single customer had run into. From that modest beginning, this feature has blown up to completely replace most batch processing handling in RavenDB. It's 
+When RavenDB implemented subscriptions for the first time, it was just a small section: a minor feature that was meant to handle an esoteric scenario that only a
+single customer had run into. From that modest beginning, this feature has blown up to completely replace most batch processing handling in RavenDB. It's
 not the first thing you'll use in every situation, but for anything that _isn't_ about responding to a user request, it's usually a match.
 
-In this chapter, we looked into what subscriptions are, how to do batch processes with RavenDB and subscriptions, how to filter and modify the data on the server and how to 
-accept and process the data on the client side and write it back to RavenDB in an optimal fashion. We looked at integrating with external systems via the 
-email-sending example, including how to handle failures and partial failures both in RavenDB and in the external systems. 
+In this chapter, we looked into what subscriptions are, how to do batch processes with RavenDB and subscriptions, how to filter and modify the data on the server and how to
+accept and process the data on the client side and write it back to RavenDB in an optimal fashion. We looked at integrating with external systems via the
+email-sending example, including how to handle failures and partial failures both in RavenDB and in the external systems.
 
 .Using subscription for ETL work
 ****
-It's tempting to use subscriptions to handle ETL tasks,footnote:[Extract, transform, load: the process of moving data around between different data storage systems.] 
-such as writing to a reporting database. While it _is_ possible, RavenDB has better options to handle ETL. See the discussion on this 
+It's tempting to use subscriptions to handle ETL tasks,footnote:[Extract, transform, load: the process of moving data around between different data storage systems.]
+such as writing to a reporting database. While it _is_ possible, RavenDB has better options to handle ETL. See the discussion on this
 topic in <<etl-integrations>>.
 ****
 
 We spent a lot of time discussing how to handle errors in subscriptions, how to deploy subscriptions into production and how we can ensure failover and load balancing
 of the work among both client and server using subscriptions. The subscription open strategies allow us to have a hot standby client for a subscription, ready
-to take over from a failed node and continue processing or multiple concurrent workers that subscribe to same subscription. On the server side, RavenDB will automatically 
+to take over from a failed node and continue processing or multiple concurrent workers that subscribe to same subscription. On the server side, RavenDB will automatically
 failover subscriptions from a failed database node to a healthy one in a completely transparent manner.
 
-Another great use case for subscriptions is implementing task queues. And we looked at that, including error handling and recovery. We also discussed the ability to fix an 
-issue with a document that failed and have it automatically reprocessed by the subscription. 
+Another great use case for subscriptions is implementing task queues. And we looked at that, including error handling and recovery. We also discussed the ability to fix an
+issue with a document that failed and have it automatically reprocessed by the subscription.
 
-We then looked at versioned subscriptions, where we ask RavenDB to give us a before-and-after snapshot of each and every change for the documents we care 
-about. This is a great help when producing timelines, tracking changes and handling forensics. This feature relies on the revisions configuration on the 
+We then looked at versioned subscriptions, where we ask RavenDB to give us a before-and-after snapshot of each and every change for the documents we care
+about. This is a great help when producing timelines, tracking changes and handling forensics. This feature relies on the revisions configuration on the
 database and exposes it directly for batch processing needs. We can even write a subscription script that would filter and send just the relevant details
 from both old and new revisions of the document to the client side.
 Finally, we looked at how we can subscribe to documents in the future using `@refresh`, allowing us to implement timeouts and delayed processing in a simple manner.
