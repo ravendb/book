@@ -172,27 +172,25 @@ if ($Force -or -not (Test-Path -LiteralPath $libMono)) {
     Invoke-WebRequest -Uri "https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz" -OutFile $tarGz
     try {
         tar -xzf $tarGz
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Regular.ttf") -Destination $libMono -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Regular.ttf") -Destination $libSerif -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Regular.ttf") -Destination $libSans -Force
+        # Copy all Liberation font variants (regular, bold, italic, bold-italic)
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Regular.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Bold.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Italic.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-BoldItalic.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Regular.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Bold.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Italic.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-BoldItalic.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Regular.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Bold.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Italic.ttf") -Destination $fontsDir -Force
+        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-BoldItalic.ttf") -Destination $fontsDir -Force
         Remove-Item (Join-Path $root "liberation-fonts-ttf-2.1.5") -Recurse -Force
     } catch {
         Write-Warning "Extraction of tar.gz failed. Ensure 'tar' is available, or place Liberation fonts into $fontsDir manually."
     } finally {
         Remove-Item $tarGz -Force -ErrorAction SilentlyContinue
     }
-}
-
-$notoDev = Join-Path $fontsDir "NotoSansDevanagari-Regular.ttf"
-if ($Force -or -not (Test-Path -LiteralPath $notoDev)) {
-    Write-Host "Fetching NotoSansDevanagari-Regular.ttf..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf" -OutFile $notoDev
-}
-
-$notoSc = Join-Path $fontsDir "NotoSansSC-Regular.otf"
-if ($Force -or -not (Test-Path -LiteralPath $notoSc)) {
-    Write-Host "Fetching NotoSansSC-Regular.otf..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri "https://github.com/googlefonts/noto-cjk/raw/main/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf" -OutFile $notoSc
 }
 
 # Download Noto Sans Mono for better Unicode coverage in code blocks
@@ -209,56 +207,32 @@ if ($Force -or -not (Test-Path -LiteralPath $notoSymbols)) {
     Invoke-WebRequest -Uri "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansSymbols2/NotoSansSymbols2-Regular.ttf" -OutFile $notoSymbols
 }
 
-# Write FOP config
+# Generate FOP config from template
+$fopConfTemplate = Join-Path $root "fop.xconf.template"
 $fopConf = Join-Path $vendorDir "fop.xconf"
-$fontsDirUri = "file:///" + ((Resolve-Path $fontsDir).Path -replace "\\","/")
-$fopConfContent = @"
-<fop version="1.0">
-  <renderers>
-    <renderer mime="application/pdf">
-      <fonts>
-        <font embed-url="${fontsDirUri}/LiberationMono-Regular.ttf">
-          <font-triplet name="LiberationMono" style="normal" weight="normal"/>
-        </font>
-        <font embed-url="${fontsDirUri}/LiberationSerif-Regular.ttf">
-          <font-triplet name="LiberationSerif" style="normal" weight="normal"/>
-        </font>
-        <font embed-url="${fontsDirUri}/LiberationSans-Regular.ttf">
-          <font-triplet name="LiberationSans" style="normal" weight="normal"/>
-        </font>
-        <font embed-url="${fontsDirUri}/NotoSansMono-Regular.ttf">
-          <font-triplet name="NotoSansMono" style="normal" weight="normal"/>
-        </font>
-        <font embed-url="${fontsDirUri}/NotoSansSymbols2-Regular.ttf">
-          <font-triplet name="NotoSansSymbols2" style="normal" weight="normal"/>
-        </font>
-        <font embed-url="${fontsDirUri}/NotoSansDevanagari-Regular.ttf">
-          <font-triplet name="NotoSansDevanagari" style="normal" weight="normal"/>
-        </font>
-        <font embed-url="${fontsDirUri}/NotoSansSC-Regular.otf">
-          <font-triplet name="NotoSansSC" style="normal" weight="normal"/>
-        </font>
-        <auto-detect/>
-      </fonts>
-    </renderer>
-  </renderers>
-</fop>
-"@
-Set-Content -LiteralPath $fopConf -Value $fopConfContent -Encoding UTF8
+if ($Force -or -not (Test-Path -LiteralPath $fopConf)) {
+    if (-not (Test-Path -LiteralPath $fopConfTemplate)) {
+        throw "fop.xconf.template not found at $fopConfTemplate"
+    }
+    
+    $fontsDirUri = "file:///" + ((Resolve-Path $fontsDir).Path -replace "\\","/")
+    $fopConfContent = (Get-Content -LiteralPath $fopConfTemplate -Raw) -replace "{{FONTS_DIR_URI}}", $fontsDirUri
+    Set-Content -LiteralPath $fopConf -Value $fopConfContent -Encoding UTF8
+    Write-Host "Generated fop.xconf from template" -ForegroundColor Yellow
+}
 
-# Ensure custom.xsl exists
+# Generate custom.xsl from template
+$customXslTemplate = Join-Path $root "custom.xsl.template"
 $customXsl = Join-Path $root "custom.xsl"
 if ($Force -or -not (Test-Path -LiteralPath $customXsl)) {
+    if (-not (Test-Path -LiteralPath $customXslTemplate)) {
+        throw "custom.xsl.template not found at $customXslTemplate"
+    }
+    
     $importPath = ".vendor/asciidoctor-fopub-main/build/fopub/docbook-xsl/fo-pdf.xsl"
-    $customXslContent = @"
-<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-  <xsl:import href="$importPath"/>
-  <xsl:param name="monospace.font.family" select="'LiberationMono, NotoSansMono, NotoSansSymbols2, NotoSansDevanagari, NotoSansSC, Symbol, ZapfDingbats'"/>
-  <xsl:param name="body.font.family" select="'LiberationSerif, NotoSansDevanagari, NotoSansSC'"/>
-  <xsl:param name="title.font.family" select="'LiberationSans, NotoSansDevanagari, NotoSansSC'"/>
-</xsl:stylesheet>
-"@
+    $customXslContent = (Get-Content -LiteralPath $customXslTemplate -Raw) -replace "{{IMPORT_PATH}}", $importPath
     Set-Content -LiteralPath $customXsl -Value $customXslContent -Encoding UTF8
+    Write-Host "Generated custom.xsl from template" -ForegroundColor Yellow
 }
 
 Write-Host "Setup complete." -ForegroundColor Green

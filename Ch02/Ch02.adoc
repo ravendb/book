@@ -1679,7 +1679,7 @@ once `SaveChanges` has been called.
 Modifying the metadata in this fashion is possible, but it's pretty rare to do so explicitly in your code. Instead, you'll
 usually use event handlers (covered in Chapter 4) to do this sort of work.
 
-### Distributed compare-exchange operations with RavenDB
+### Distributed Compare-Exchange
 
 RavenDB is meant to be run in a cluster. You can run it in single-node mode, but the most common (and recommended) 
 deployment option is with a cluster. You already saw some of the impact this has had on the design of RavenDB.

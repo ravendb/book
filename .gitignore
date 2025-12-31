@@ -54,3 +54,4 @@ Raven.Studio/Settings.dat
 /Code/Northwind/packages/
 .vendor/*
 output/*
+/.gradle/

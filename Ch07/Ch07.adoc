@@ -33,7 +33,7 @@ You _can_ implement this sort of functionality, but it is pretty complex to do t
 you need to do any such background processing for any other scenario. Luckily, RavenDB provides a more elegant solution.
 RavenDB supports a dedicated batch processing mode, using the notion of subscriptions.
 
-### Processing a batch of documents in a subscription
+### Processing documents batches with Subscriptions
 
 A subscription is simply a way to register a query with the database and have the database send us all the documents that match the query.
 So far, this sounds very much like the streaming feature, which we covered in the previous chapter. However, subscriptions are _meant_ for
@@ -1389,7 +1389,7 @@ been deleted.
 So when using a versioned subscription, the administrator must verify that the revisions retention time matches the subscription run time.
 ****
 
-### Subscriptions, background jobs and the role of the admin
+### Subscriptions, Background Jobs and the admin
 
 Systems typically accrue additional behavior over time. As business processes mature and evolve, so does the demand on our systems. The way we've talked about
 subscriptions so far is mainly as a core part of the application itself. A subscription that the developer team would write, build and manage. But that doesn't have

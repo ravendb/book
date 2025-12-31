@@ -667,7 +667,7 @@ ourselves up to choose whether we want the point-in-time information or the curr
 If this sounds similar to the way we decide if we'll copy data from another document to get a point-in-time snapshot of it or reference it
 by ID to always get the latest data, that's probably because it _is_ similar. And it makes dealing with temporal data significantly simpler.
 
-### Additional considerations for document modeling
+### Additional Document Modeling Considerations
 
 A major challenge in modeling data with RavenDB is that different features and behaviors all have a very different impact on the cost of various
 operations, and that in turn impacts how you'll design and work with your model. In this section, we'll explore a few of the features that we 

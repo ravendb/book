@@ -616,7 +616,7 @@ check from the time we loaded `callOne` in the first session. In a web scenario,
 data and get it back from the client to do the check. You might also want to check out the `Changes API`, which is covered a little later in 
 this chapter. This might help you get early change notifications when you need to implement offline optimistic concurrency.
 
-### Patching documents and concurrent modifications
+### Patching and concurrent modifications
 
 The typical workflow with RavenDB is to open a session, load a document, run some business logic and call `SaveChanges`. When 
 you follow those steps, the session will figure out what documents have changed and send them to the server. This model is simple 

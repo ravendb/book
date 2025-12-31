@@ -1,0 +1,51 @@
+<fop version="1.0">
+  <renderers>
+    <renderer mime="application/pdf">
+      <fonts>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationMono-Regular.ttf">
+          <font-triplet name="LiberationMono" style="normal" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationMono-Bold.ttf">
+          <font-triplet name="LiberationMono" style="normal" weight="bold"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationMono-Italic.ttf">
+          <font-triplet name="LiberationMono" style="italic" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationMono-BoldItalic.ttf">
+          <font-triplet name="LiberationMono" style="italic" weight="bold"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSerif-Regular.ttf">
+          <font-triplet name="LiberationSerif" style="normal" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSerif-Bold.ttf">
+          <font-triplet name="LiberationSerif" style="normal" weight="bold"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSerif-Italic.ttf">
+          <font-triplet name="LiberationSerif" style="italic" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSerif-BoldItalic.ttf">
+          <font-triplet name="LiberationSerif" style="italic" weight="bold"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSans-Regular.ttf">
+          <font-triplet name="LiberationSans" style="normal" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSans-Bold.ttf">
+          <font-triplet name="LiberationSans" style="normal" weight="bold"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSans-Italic.ttf">
+          <font-triplet name="LiberationSans" style="italic" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/LiberationSans-BoldItalic.ttf">
+          <font-triplet name="LiberationSans" style="italic" weight="bold"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/NotoSansMono-Regular.ttf">
+          <font-triplet name="NotoSansMono" style="normal" weight="normal"/>
+        </font>
+        <font embed-url="{{FONTS_DIR_URI}}/NotoSansSymbols2-Regular.ttf">
+          <font-triplet name="NotoSansSymbols2" style="normal" weight="normal"/>
+        </font>
+        <auto-detect/>
+      </fonts>
+    </renderer>
+  </renderers>
+</fop>

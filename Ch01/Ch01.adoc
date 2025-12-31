@@ -47,7 +47,7 @@ load on the operations team by dynamically adjusting to your workload and operat
 Working with a database should be easy and obvious, and to a large extent, RavenDB facilitates that.
 
 
-### Fascniating information about a boring database
+### Fascinating perspective about Boring Database
 
 RavenDB is _meant_ to be boring, it is an explict design goal for us. This may sound strange, but the idea is that if RavenDB is boring, it is
 doing its job, and you can do yours. That said, the idea is that RavenDB is going to be boring to _use_. I find it fascinating, and I hope

@@ -1,5 +1,5 @@
 [[documents-extensions]]
-## Beyond mere documents: Attachments, Counters, Times Series and Revisions
+## Beyond Documents: Attachments, Counters & Time Series
 
 RavenDB is all about documents, everything in RavenDB revolves around them. And documents in RavenDB are JSON objects that can
 be as complex and large as you want them to be.footnote:[Well, actually... documents in RavenDB are limited to about 2GB in size,
