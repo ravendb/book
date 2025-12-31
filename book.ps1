@@ -263,7 +263,13 @@ $javaArgs = @(
 
 if (Test-Path -LiteralPath ./output/book.pdf) {
     Write-Host "Created ./output/book.pdf" -ForegroundColor Green
-    try { Start-Process ./output/book.pdf } catch { }
+    try {
+        if ($IsLinux) {
+            & xdg-open ./output/book.pdf
+        } else {
+            Start-Process ./output/book.pdf
+        }
+    } catch { }
 } else {
     Write-Host "Build failed: ./output/book.pdf not found" -ForegroundColor Red
     Write-Host "Check the FOP output above for errors." -ForegroundColor Yellow
