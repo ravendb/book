@@ -1,9 +1,9 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:fo="http://www.w3.org/1999/XSL/Format">
   <xsl:import href="{{IMPORT_PATH}}" />
-  <xsl:param name="monospace.font.family" select="'LiberationMono, NotoSansMono, NotoSansSymbols2'" />
-  <xsl:param name="body.font.family" select="'LiberationSerif'" />
-  <xsl:param name="title.font.family" select="'LiberationSans'" />
+  <xsl:param name="monospace.font.family" select="'LiberationMono, NotoSansMono, NotoSansSymbols2, Symbol, ZapfDingbats'" />
+  <xsl:param name="body.font.family" select="'LiberationSerif, NotoSansSymbols2'" />
+  <xsl:param name="title.font.family" select="'LiberationSans, NotoSansSymbols2'" />
 
   <!-- Image scaling parameters to prevent overflow -->
   <xsl:param name="ignore.image.scaling" select="0" />

@@ -818,7 +818,7 @@ while (true)                                                                <1>
             {
                 if (item.Result.Company == "companies/832-A")                   <5>
                     throw new UnsupportedCompanyException(
-                        "Company Id can't be 'companies/832-A', FIXME!");
+                        "Company Id can't be 'companies/832-A', ⭐!");
 
                 await ProcessOrder(item.Result);
             }

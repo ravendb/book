@@ -1,4 +1,5 @@
 <fop version="1.0">
+  <complex-scripts disabled="true"/>
   <renderers>
     <renderer mime="application/pdf">
       <fonts>
