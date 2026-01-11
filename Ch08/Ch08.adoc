@@ -895,8 +895,8 @@ var genAiConfiguration = new GenAiConfiguration
       })
       """
   },
-    Prompt =                                    <4>
-        "Translate the product name to the following languages",
+  Prompt =                                      <4>
+      "Translate the product name to the following languages",
   SampleObject =                                <5>
     """
     {
@@ -967,8 +967,111 @@ document using the code in the `UpdateScript`.
 
 #### Understanding RavenDB's Generative AI approach
 
-Now that we have a concrete example of how a Gennerative AI task works in RavenDB, I want 
+Now that we have a concrete example of how a Gennerative AI task works in RavenDB, I want to take a step back and explain the
+overall approach that RavenDB is taking to this feature. The following are key components to RavenDB's Generative AI feature:
 
+* Prompt - telling the model *what* to do. You have used these before whenever you chatted with any AI bot. And you are probably
+  used to the idea of prompt engineering to get better results. Unsurpisingly, this is the `Prompt` field shown in
+  <<generative-ai-product-translation-example>>.
+* Structured Output - instructing the model about the *format* the output. Unless you worked on AI infrastructure before, you likely
+  have not run into that before. The notion of structured output extends beyond merely the shape of the data, and extend to its meaning.
+  You can tell the model the properties and types you want to get back from it, and are able to provide detailed instructions to the model
+  about what each field means. This is done through the `SampleObject` shown in <<generative-ai-product-translation-example>> or in more compex
+  cases you can use the `JsonSchema` property to define the expected output structure in full detail.
+
+Together, the prompt and structure output defines for the model the work it should do and what kind of output it should generate. What 
+remains to see is what data the model should operate on. In other words, what is the input to the model. This is handled using the 
+context extraction script, defined in the `GenAiTransformation.Script` property shown in <<generative-ai-full-configuration>>.
+
+The script in <<generative-ai-full-configuration>> is quite simple, it just extracts the `Name` property from the document and provides it
+as the context to the model. However, you can do much more complex processing there, including loading related documents, transforming data, 
+and more. The script is a full JavaScript environment, so you are limited only by your imagination. We'll see some more complex examples later 
+in this chapter.
+
+RavenDB is responsible for executing the context extraction script, combining the extracted context with the prompt and sending it to the model,
+while telling it how it should structure the output. Because we are using structured output, that means that we can process the results of the 
+model in a programmatic fashion. This is done using the `UpdateScript` property shown in <<generative-ai-full-configuration>>. The `UpdateScript` 
+is also a JavaScript script that is executed in the context of the document being processed. The output from the model is available in the 
+`$output` variable, and you can use that to update the document as needed.
+
+In <<generative-ai-full-configuration>> we are simply setting the `Translation` property of the document to the output from the model. However,
+you can also apply your own logic to process the output from the model and modify the docuemnt (or even related docuemnts) as you see fit. 
+We'll see some more complex examples later in this chapter.
+
+#### Caching Generative AI Results
+
+When we look at using Generative AI models at scale, we need to understand the costs associated with using them. Each call to a Gen AI model 
+typically incurs a cost, based on the number of tokens processed (both input and output tokens). When processing large collections of documents, 
+these costs can quickly add up.
+
+If you have a large product catalog, for example, running a Generative AI task to translate all product names can be quite expensive. You _need_
+to translate the product names, of course. And whenever you create a new product docuemnt in the system, the Generative AI task should run to 
+provide the appropriate translation.
+
+What happens, however, if we update the product document? Changing the `PricePerUnit` field, for example, should not require re-translating the
+product name, but updating the name of the product obviously should. How does RavenDB handles these requirements?
+
+In <<generative-ai-product-translation-example>>, we saw the `products/26-A` document after the Generative AI task ran and added the 
+`Translation` property. You might not have noticed the `@metadata` element for this document, shown in <<generative-ai-document-metadata>>.
+
+[[generative-ai-document-metadata]]
+.The `@metadata` for a document processed by a Generative AI task
+[source,json]
+----
+"@metadata": {
+    "@collection": "Products",
+    "@flags": "HasCounters, HasTimeSeries",
+    "@gen-ai-hashes": {
+        "translate-products": [
+            "uGi9LZullR0f7ZKj8lQwJpzuAoVKntXMV/NfHjjszow="
+        ]
+    }
+}
+----
+
+Take a look at the `@gen-ai-hashes` property in <<generative-ai-document-metadata>>. This property is used by RavenDB to track the state of the 
+document when the Generative AI task was last run. It represents a cryptographic hash of the context that was generated by the context extraction
+script (as well as the prompt, the connection string name, the update script and the output structure). 
+
+.Genenrative AI models and non-determinism
+****
+In typical usage, if you make two identical calls to an AI model, you are _not_ going to get the exact same result. For example, if I'm asking
+the model if "what is 2 + 2?", I might get "4" the first time, and "Four" the second time. This non-determinism is a key aspect of how 
+modern AI models work, and is often desirable when you want to get varied and creative responses from the model. 
+
+You can usually control that using a temperature parameter in the model configuration, setting it to `0` will usually yield more deterministic
+results. However, even with temperature set to `0`, you might still get slightly different results from the model on different calls due to 
+how it is processed internally. 
+
+The caching process for Generative AI tasks in RavenDB is designed under the assumption that you want to avoid unnecessary calls to the model.
+Therefor, if the inputs to the model didn't change, we'll skip calling it. This means that even if the model is non-deterministic, you'll get the 
+same result as last time, since we are not calling the model again. 
+
+If you _want_ to force RavenDB to re-run the Generative AI task for a document, you can do so by adding a counter or a random value to the 
+context object you output, but it is generally not advisable to do so.
+****
+
+When the Generative AI task runs, RavenDB will compute the hash of the current context for the document and compare it to the hash stored in the 
+`@metadata.@gen-ai-hashes` property. If the hash matches, RavenDB knows that it can skip re-running the Generative AI task for this document, since 
+the context hasn't changed since the last time the task ran. 
+
+If the hash doesn't match, RavenDB will run the Generative AI task and update the `@metadata.@gen-ai-hashes` property with the new hash.
+In this manner, RavenDB is able to only run the Generative AI task when necessary, minimizing costs and improving performance.
+
+.Generative AI caching in RavenDB isn't global
+****
+Caching in Generative AI tasks is applied at the _document_ level. In other words, even if two documents output the _same_ context, RavenDB 
+will still send both of them to the model. 
+****
+
+
+####  A single document with multiple contexts
+
+The script in <<generative-ai-full-configuration>> calls `ai.genContext()` once, providing a single context to the model. However, you 
+can call `ai.genContext()` multiple times. For example, if a product has multiple names (such as a technical name and a marketing name), 
+you can call `ai.genContext()` once for each name. RavenDB will then send each context to the model independently and call the `UpdateScript`
+multiple times, once for each model output. 
+This allows you to handle more complex scenarios where a single document might need multiple calls to the model, each with its own context.
 
 
 
