@@ -879,6 +879,7 @@ in a single location. Take a look at the code in <<generative-ai-full-configurat
 
 [[generative-ai-full-configuration]]
 .Generative AI task configuration to automatically translate product names
+[source,csharp]
 ----
 var genAiConfiguration = new GenAiConfiguration
 {
@@ -910,6 +911,9 @@ var genAiConfiguration = new GenAiConfiguration
     """,
   UpdateScript = "this.Translation = $output;", <6>
 };
+
+await documentStore.Maintenance.SendAsync(      <7>
+    new AddGenAiOperation(genAiConfiguration));
 ----
 <1> The name, identifier and the connection string of the Generative AI task.
 <2> The collection this task applies to (`Products`).
@@ -918,7 +922,7 @@ var genAiConfiguration = new GenAiConfiguration
 <4> The prompt telling the model what it is meant to do.
 <5> The sample object defining to the model what the _output_ of the model should look like.
 <6> The update script that will be applied on the document (`this`) with the output from the model (`$output`).
-
+<7> Adding the Generative AI task with your RavenDB server.
 
 Let's explore how <<generative-ai-full-configuration>> works. The Generative AI task is named "Translate Products", and it is
 applied to the `Products` collection. The task uses the `OpenAI Generative` AI connection string to communicate with the OpenAI model.
@@ -1001,8 +1005,8 @@ We'll see some more complex examples later in this chapter.
 #### Caching Generative AI Results
 
 When we look at using Generative AI models at scale, we need to understand the costs associated with using them. Each call to a Gen AI model 
-typically incurs a cost, based on the number of tokens processed (both input and output tokens). When processing large collections of documents, 
-these costs can quickly add up.
+is typically charged to your account, based on the number of tokens processed (both input and output tokens). When processing large collections 
+of documents, these charges can quickly add up.
 
 If you have a large product catalog, for example, running a Generative AI task to translate all product names can be quite expensive. You _need_
 to translate the product names, of course. And whenever you create a new product docuemnt in the system, the Generative AI task should run to 
@@ -1061,23 +1065,343 @@ In this manner, RavenDB is able to only run the Generative AI task when necessar
 .Generative AI caching in RavenDB isn't global
 ****
 Caching in Generative AI tasks is applied at the _document_ level. In other words, even if two documents output the _same_ context, RavenDB 
-will still send both of them to the model. 
+will still send both of them to the model.
 ****
 
+#### Advanced Generative AI tasks
 
-####  A single document with multiple contexts
+<<generative-ai-full-configuration>> is the "Hello World" of Generative AI tasks, let's explore a more complex task that will show more of 
+what you can do with RavenDB. Previously we showed how to translate product names to multiple languages. What if we want to offer a tailored
+approach in which we translate each product name based on the company that is purchasing it? For example, a German company might want to have
+the product name translated to German, while a Spanish company might want the product name in Spanish. You can see how to define such a Generative AI 
+task in <<generative-ai-advanced>>.
 
-The script in <<generative-ai-full-configuration>> calls `ai.genContext()` once, providing a single context to the model. However, you 
-can call `ai.genContext()` multiple times. For example, if a product has multiple names (such as a technical name and a marketing name), 
-you can call `ai.genContext()` once for each name. RavenDB will then send each context to the model independently and call the `UpdateScript`
-multiple times, once for each model output. 
-This allows you to handle more complex scenarios where a single document might need multiple calls to the model, each with its own context.
+[[generative-ai-advanced]]
+.Advanced Generative AI task to translate products for each company individually
+[source,csharp]
+----
+var genAiConfiguration = new GenAiConfiguration
+{
+  Name = "Translate Order Products",
+  Identifier = "translate-order-products",
+  ConnectionStringName = "OpenAI Generative",
+  Collection = "Orders",    <1>
+  GenAiTransformation = new GenAiTransformation
+  {
+    Script =                <2>
+      """
+      const company = load(this.Company); 
+      for (const line of this.Lines) {
+        ai.genContext({
+          Product: line.Product,
+          ProductName: line.ProductName,
+          DestinationCountry: company.Address.Country
+        });
+      }
+      """
+  },
+  Prompt =                  <3>
+    """
+    Translate the product name to the primary language of the
+    destination country provided in the context.
+    """,
+  SampleObject =            <4>
+    """
+    {
+      "Name": "The product name in the local language",
+      "Lang": "The local lanauge name"
+    }
+    """,
+  UpdateScript =            <5>
+    """
+    const line = this.Lines.find(l => l.Product === $input.Product);
+    if(!line) return; // user removed? skip
+    line.Translated = {
+        Name: $output.Name,
+        Lang: $output.Lang
+    };
+    """
+};
+await documentStore.Maintenance.SendAsync(      <6>
+    new AddGenAiOperation(genAiConfiguration));
+----
+<1> The Generative AI task is applied to the `Orders` collection.
+<2> The context extraction script loads the related `Company` document and generates context for each line item in the order _separately_.
+<3> The prompt instructs the model to translate the product name to the primary language of the destination country, unlike the 
+    previous example <<generative-ai-full-configuration>>, where the languages were defined in the sample object.
+<4> The expected output from the model. We request both the actual value as well as the language it was trasnlated into. That type of detail,
+    asking the model to explain what it did, can _dramatically_ ease your ability to understand what atually happened in the system.
+<5> Using the `$input` object that we emitted in the context extract script in <2> to find the matching `line` in the order and setting the
+    translated values.
+<6> Adding the Generative AI task with your RavenDB server.
+
+The Generative AI task in <<generative-ai-advanced>> is doing a lot more than the previous example in <<generative-ai-full-configuration>>.
+In particular, you'll note that we are able to provide additional context from the related `Company` document, allowing us to tailor the translation
+based on the destination country of the order. 
+
+It is also important to note the `Product` property in the context, but that one isn't meant to be used by the model.
+Instead, we are making use of that in the `UpdateScript` to update the correct line item in the order. We have to operate in this manner because of 
+the way Generative AI tasks work in RavenDB. 
+
+The `Script` in <<generative-ai-advanced>> is calling `ai.genContext()` multiple times, once for each line item in the order. RavenDB will then process
+_each_ of those contexts _indepndently_ of one another (in fact, it will do so in parallel to maximize throughput). RavenDB then call the `UpdateScript`
+for each of the model outputs, allowing us to update each line item in the order with its own translation.
+
+That is why we need to also add to the context we output (which is available in the `UpdateScript` using the `$input` variable) enough information to
+know what to update when we have the model's reply. Another important reason is concurrency. The model may take _a while_ to actually process your prompt, and in 
+the meantime, the order document may have changed. By including the `Product` ID in the context, we can ensure that we can detect which line item the 
+context belonged to and update the document accordingly.
+
+.Each context is processed independently and individually
+****
+The code in <<generative-ai-advanced>> will send each product to the model independntly. That is quite important when dealing with Large Language Models,
+because it means that you don't have effect from one product's translation on another product's translation. Consider an order for `Mouse`, `Keyboard` and 
+`Apple`. If we sent each of the three products to the model separately, the model will decide to translate `Apple` as the fruit. If you send them all together,
+the presence of `Mouse` and `Keyboard` in the same context might lead the model to decide that `Apple` refers to the technology company, leading to an incorrect 
+translation.
+
+RavenDB let you choose how to deal with the issue. If you want all the products to share the same context window, your context extraction script can use
+a single call to `ai.genContext()` that includes all the products. RavenDB will then send a single context to the model, and you'll need to process the output 
+accordingly in the `UpdateScript`, as you can see in <<generative-ai-order-translation-once>>.
+****
+
+[[generative-ai-order-translation-once]]
+.An alternative context extraction script that sends all products in a single context
+[source,js]
+----
+ai.genContext({
+  Products: this.Lines.map(line => ({ 
+    Product: line.Product, 
+    ProductName: line.ProductName 
+  })),
+  DestinationCountry: load(this.Company).Address.Country
+});
+----
+
+After creating the Generative AI task in <<generative-ai-advanced>>, RavenDB will process all the documents in the `Orders` collection. For each `Order`, we'll need
+to request a product translation for each of the lines in there. Some of the documents have quite a few line items, leading to many calls to the model. In total, the
+`Northwind` data set has `2,155` line items across all orders. The code in <<generative-ai-advanced>> will lead to that many calls to the model. 
+
+On my end, it took roughly 25 minutes to process all of the orders and line items in the `Northwind` database, mostly because I hit the API rate limits and RavenDB
+let the system "cool off" until it was able to process all of them.
+You can see in <<generative-ai-order-translation-metadata>> the metadata of the `orders/211-A` document. 
+
+[[generative-ai-order-translation-metadata]]
+.Metadata of the `orders/211-A` docuemnt after the translation task completed
+[source,json]
+----
+"@metadata": {
+    "@collection": "Orders",
+    "@flags": "HasRevisions",
+    "@gen-ai-hashes": {
+        "translate-order-products": [
+            "kPERef8VCts2xTaUpH7Au8XCgZN1M0brshMep3awj+E=",
+            "omChm1J40VIesUshATEn/lXRZuvTtufjfA6K/8SNzJ8=",
+            "8p4/umBBT6GWduCk2P3cK99gmTTA9ZzdBFByqBaWsvo=",
+            "7GPqDScOADqsZ4X9xoqEi6xe6g2ol95+n6FtWca5rcY=",
+            "BBbOIcwxa7MEfSPbec8NxQkkJkyn4Q3IAWF2Gujzj4k="
+        ]
+    }
+}
+----
+
+The `@gen-ai-hashes` property in <<generative-ai-order-translation-metadata>> contains 5 hashes, one for each of the lines in the `orders/211-A` document. In this way, RavenDB
+can handle adding new line items to the orders (which will trigger a new call to the model to translate the relevant product), while avoiding re-translating products that were 
+already processed.
+
+Note that we _only_ consider the values that were included in the `ai.genContext()` call for the hash, so changing the `Quantity` of a line item will not cause us to go to the model,
+nor would changing the order of items in the `Lines` array. If you have a reason to care about the position in the array, on the other hand, you *must* include that value in the context
+so RavenDB will know that it needs to re-send the context to the model fo re-evaluation.
+
+.Removing items & Generative AI caching
+****
+RavenDB will consider update the `@gen-ai-hashes` property whenever it has successfully completed a Generative AI task for a document. If you remove an item from the order,
+RavenDB will remove its hash from the document. In other words, the cache will not survive deletion / re-creation of the line item. That is expected, since the assumption is that
+you are re-creating it without the translated proeprties, so we do have to go back to the model.
+
+TODO: https://issues.hibernatingrhinos.com/issue/RavenDB-24186 should be fixed before release.
+****
+
+A word of caution about <<generative-ai-advanced>>, before we move on. I'm using a pretty simple example to showcase how you can output multiple contexts from a single document.
+That is more to show the ability to call `ai.genContext()` multiple times rather than an actual use case for this feature. If we actually had a reason to want to translate the 
+product names for each order individually, a _far_ better option would be to run this once, on the product catalog. In other words, the example shown in <<generative-ai-full-configuration>>.
+
+Even assuming that you need to translate product names per order, you likely want to do that _once_ per product per language, not once per order. But beyond that, even assuming that
+we had to translate product names per order, doing so in the manner shown in <<generative-ai-advanced>> is not ideal. A better approach is shown in <<generative-ai-order-translation-once>>,
+where we send all the product names to the model in one shot.
+
+Model has rate limits on the total number of tokens you consume, as well as the number of requests. Consolidating requests means that you are saving both in the number of tokens (each individual
+request has to spend tokens for the prompt, output structure and other related incidentals) and the number of requests. Beyond that, look at the `Prompt` in <<generative-ai-advanced>>. It says:
+`"Translate the product name to the primary language of the destination country provided in the context."`
+
+What is the "primary" language of Belgium, for example? The `orders/211-A` document is shipping to Belgium, which has three official languages: Dutch, French, and German. Which one should the 
+model pick? The prompt doesn't specify, and when we send the model each product independently, we may get "interesting" results, as you can see in <<generative-ai-mixed-translation>>.
+
+[[generative-ai-mixed-translation]]
+.The model translated each product name to a different language
+image::./Ch08/img11.png[]
+
+When you are designing Generative AI tasks, you need to consider carefully the prompt and the context you are providing to the model to ensure that the results are internally consistent. This 
+is a humorous example of what bad examples can lead to.
+
+.Good usecases for multiple calls to `ai.genContext()`
+****
+A better use case for multiple calls to `ai.genContext()` is when you want to act on actual individual items. For examppe, processing users' input such as 
+product reviews submitted by the users. A single product may have multiple reviews, and you have a Generative AI task that check the reviews for spam, profanity 
+or other undesirables attributes.
+
+In that case, you _need_ to use separate `ai.genContext()` calls, since you don't want the first review you analyze (talking about a crypto scheme you _must_ invest in) to 
+affect the next one that is decrying the poor choice of color schemes available for the product. 
+
+On the other hand, sometimes you are not _able_ to pass all the context to the model in one shot. If you have large amount of data (big text fields, long arrays, etc), you may
+hit the token limits of your model, and then need to split the work across multiple calls by using `ai.genContext()`. 
+****
+
+#### Letting the model query additional information
+
+In the previous examples, we provided all the context that the model needed to perform its task from the source document that triggered the Generative AI task. What about cases where 
+you might want the model to be able to query additional information? For example, let's say that we want to generate a recommendation list for additional products to add to your
+order. In order to do that, we want to look at both our product catalog and past orders for the same customer. 
+
+This is a pretty complex Generate AI workflow, so I broke into two separate stages. We have <<generative-ai-products-rec>>, which is similar to the kind of Gen AI tasks that we
+previously look at. But note that I redacted the new `Queries` element from it. That part is shown in <<generative-ai-products-rec-queries>>. Let's look at the code and then we'll
+disucss them in depth.
+
+[[generative-ai-products-rec]]
+.Recommending products for orders using the product catalog and past orders
+[source,csharp]
+----
+var genAiConfiguration = new GenAiConfiguration
+{
+  Name = "Product Recommendations",
+  Identifier = "product-recommendations",
+  ConnectionStringName = "OpenAI Generative",
+  Collection = "Orders",
+  GenAiTransformation = new GenAiTransformation
+  {
+    Script =                  <1>
+      """
+      if(this.ShippedAt != null) {
+        // ignore orders that already shipped
+        return; 
+      }
+
+      ai.genContext({
+        Company: this.Company,
+        Products: this.Lines.map(l=>({
+          Product: l.Product, 
+          ProductName: l.ProductName,
+          Quantity: l.Quantity,
+        })),
+      })
+      """
+  },
+  Prompt =                    <2>
+    """
+    Based on the products in the current order, recommend matching
+    products that are not in the order and are suited for this company.
+    """,
+  SampleObject =              <3>
+    """
+    {
+      "Recommendations":  [{
+        "Product": "ID of the product",
+        "Name": "Name of the product",
+        "BuyMessage": "Short explanation for buyer: why buy this?",
+        "Reason": "Because of previous purchase, similar catalog item, etc"
+      }]
+    }
+    """,
+  UpdateScript = "this.Recommendations = $output.Recommendations;",
+  Queries = [/*redacted*/]    <4>
+};
+----
+<1> The context extract script will apply only to orders that haven't shipped yet (no point in recommending products to shipped orders).
+<2> We ask the model to recommend procucts for the order, based on the product catalog and past orders. Note that the context just list the products from the _current_ order.
+<3> We use the `SampleObject` to ask for an array of recommendations. Note the `BuyMessage` that is aimed at the buyer (to get them to buy the recommended product) as well as
+    the `Reason` property. I find it unreasonably effective to get the model to document its own reasoning while it is running as part of the model output. That makes it much
+    easier to understand why it did what it did.
+<4> The model need to know to search the product catalog of lookup at past invoices. This redacted content is showing fully in <<generative-ai-products-rec-queries>>.
+
+The Generative AI task in <<generative-ai-products-rec>> is not anything special. We have already seen several iteration of the same format. We extract some context from the 
+document using a script, ask the model nicely via the `Prompt` what to do and define the output using `SampleObject`. The interesting thing here is that we ask the model to
+use information that it doesn't have. The product catalog and the previous orders. 
+<<generative-ai-products-rec-queries>> shows how the model can get access to that information.
+
+[[generative-ai-products-rec-queries]]
+.The `Queries` array that was refacted from <<generative-ai-products-rec>>
+[source,csharp]
+----
+Queries = [
+    new AiAgentToolQuery
+    {
+      Name = "GetRecentOrders", <1>
+      Description = """
+                    Get the recent orders for the current company
+                    along with their recently ordered products
+                    """,
+      Query =                   <2>
+        """
+        from "Orders" as o
+        where o.Company = $Company and o.ShippedAt != null
+        order by o.OrderedAt desc
+        limit 5
+        select {
+          OrderedAt: o.OrderedAt,
+          Products: o.Lines.map(x=>({
+            Product: x.Product, 
+            ProductName: x.ProductName
+          }))
+        }
+        """,
+      ParametersSampleObject = "{}"
+    },
+    new AiAgentToolQuery  
+    {
+      Name = "SearchProductCatalog",
+      Description =             <3>
+        """
+        Search the product catalog using vector search to 
+        find matching products to the search terms
+        """,
+      Query =                   <4>
+        """
+        from "Products" 
+        where vector.search(embedding.text(Name), $q) 
+        """,
+      ParametersSampleObject =  <5>
+        """
+        {
+          "q": ["query terms for semantic search on the products"]
+        }
+        """
+    }
+  ]
+----
+<1> Defining a named query `GetRecentOrders` and describing what it can to do to the model.
+<2> The actual query that would be executed when the model calls to `GetRecentOrders`. Note the use of the `$Company` parameter in the query (we get that from the context) 
+    and that we are projecting only some of the document data back to the model.
+<3> Another query (`SearchProductCatalog`) and its description, so the model know what it can do with it.
+<4> The query to search the product catalog using vector search. Note the use of the `$q` parameter, which is defined using `ParametersSampleObject`.
+<5> Using sample object notation (JSON Schema is also available) to tell the model how it should format the parameters for this query.
 
 
 
-json schema vs sample object defining the expected output structure from the model.
+.What about security?
+****
+limite scope...
+****
 
-GenAI Attachments
+The model decides what queries to use.
+
+What can you use for queires? everything from the document / related to it.
+
+#### GenAI Attachments
+
+#### Tracing & Debugging with Generative AI tasks
+
+conversations
+expiration
 
 ### Generative AI & Subscriptions
 
