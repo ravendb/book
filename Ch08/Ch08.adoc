@@ -879,6 +879,7 @@ in a single location. Take a look at the code in <<generative-ai-full-configurat
 
 [[generative-ai-full-configuration]]
 .Generative AI task configuration to automatically translate product names
+[source,csharp]
 ----
 var genAiConfiguration = new GenAiConfiguration
 {
@@ -1001,8 +1002,8 @@ We'll see some more complex examples later in this chapter.
 #### Caching Generative AI Results
 
 When we look at using Generative AI models at scale, we need to understand the costs associated with using them. Each call to a Gen AI model 
-typically incurs a cost, based on the number of tokens processed (both input and output tokens). When processing large collections of documents, 
-these costs can quickly add up.
+is typically charged to your account, based on the number of tokens processed (both input and output tokens). When processing large collections 
+of documents, these charges can quickly add up.
 
 If you have a large product catalog, for example, running a Generative AI task to translate all product names can be quite expensive. You _need_
 to translate the product names, of course. And whenever you create a new product docuemnt in the system, the Generative AI task should run to 
@@ -1061,14 +1062,83 @@ In this manner, RavenDB is able to only run the Generative AI task when necessar
 .Generative AI caching in RavenDB isn't global
 ****
 Caching in Generative AI tasks is applied at the _document_ level. In other words, even if two documents output the _same_ context, RavenDB 
-will still send both of them to the model. 
+will still send both of them to the model.
 ****
 
+### Advanced Generative AI tasks
 
-####  A single document with multiple contexts
+<<generative-ai-full-configuration>> is the "Hello World" of Generative AI tasks, let's explore a more complex task that will show more of 
+what you can do with RavenDB. Previously we showed how to translate product names to multiple languages. What if we want to offer a tailored
+approach in which we translate each product name based on the company that is purchasing it? For example, a German company might want to have
+the product name translated to German, while a Spanish company might want the product name in Spanish. You can see how to define such a Generative AI 
+task in <<generative-ai-advanced>>.
 
-The script in <<generative-ai-full-configuration>> calls `ai.genContext()` once, providing a single context to the model. However, you 
-can call `ai.genContext()` multiple times. For example, if a product has multiple names (such as a technical name and a marketing name), 
+[[generative-ai-advanced]]
+.Advanced Generative AI task to translate products for each company individually
+[source,csharp]
+----
+var genAiConfiguration = new GenAiConfiguration
+{
+  Name = "Translate Order Products",
+  Identifier = "translate-order-products",
+  ConnectionStringName = "OpenAI Generative",
+  Collection = "Orders",    <1>
+  GenAiTransformation = new GenAiTransformation
+  {
+    Script =                <2>
+      """
+      const company = load(this.Company); 
+      for (const line of this.Lines) {
+        ai.genContext({
+          ProductId: line.ProductId,
+          ProductName: line.ProductName,
+          DestinationCountry: company.Address.Country
+        });
+      }
+      """
+  },
+  Prompt =                  <3>
+    """
+    Translate the product name to the primary language of the
+    destination country provided in the context.
+    """,
+  SampleObject =            <4>
+    """
+    {
+      "Name": "The product name in the local language",
+      "Lang": "The local lanauge name"
+    }
+    """,
+  UpdateScript =            <5>
+    """
+    const line = this.Lines.find(l => l.ProductId === $context.ProductId);
+    if(!line) return; // user removed? skip
+    line.Translated = {
+        Name: $output.Name,
+        Lang: $output.Lang
+    };
+    """
+};
+----
+<1> The Generative AI task is applied to the `Orders` collection.
+<2> The context extraction script loads the related `Company` document and generates context for each line item in the order _separately_.
+<3> The prompt instructs the model to translate the product name to the primary language of the destination country, unlike the 
+    previous example <<generative-ai-full-configuration>>, where the languages were defined in the sample object.
+<4> The expected output from the model. We request both the actual value as well as the language it was trasnlated into. That type of detail,
+    asking the model to explain what it did, can _dramatically_ ease your ability to understand what atually happened in the system.
+<5> Using the `$context` object that we emitted in the context extract script in <2> to find the matching `line` in the order and setting the
+    translated values.
+
+
+
+
+
+.Don't do it like this...
+****
+Different langs for different products in the same order
+****
+
+For example, if a product has multiple names (such as a technical name and a marketing name), 
 you can call `ai.genContext()` once for each name. RavenDB will then send each context to the model independently and call the `UpdateScript`
 multiple times, once for each model output. 
 This allows you to handle more complex scenarios where a single document might need multiple calls to the model, each with its own context.
