@@ -1334,12 +1334,67 @@ var genAiConfiguration = new GenAiConfiguration
 <4> Updating the category with the output from the model.
 
 The code in <<generative-ai-category-images>> is mostly boiler plate, with most of it taken by the prompt and the detailed
-descriptions of what the model should put in the output fields.l
+descriptions of what the model should put in the output fields. The interesting part is in the context extraction script, 
+where we load the `image.jpg` attachment and add it to the context using the `withJpeg()` method.
+That tells RavenDB to include the image as part of the context sent to the model.
 
+You can then reference the image in the prompt, as we did in <2>, asking the model to analyze the image and generate the appropriate
+descriptions. The model is able to look at both the image and the rest of the context (`Name` and `Description` of the category) to 
+generate the output.
 
-.max size of attachments
+You can see the result of running the Generative AI task in <<generative-ai-category-image-result>>, showing the `categories/3-A` document
+after the task ran.
+
+[[generative-ai-category-image-result]]
+.Result of the Generative AI task to describe category images
+image::./Ch08/img12.png[]
+
+In <<generative-ai-category-image-result>>, you can see the `ImageDescription` property that was added to the `categories/3-A` document and 
+the `AltText` and `DetailedDescription` properties that were generated. You can also see the actual image, that the model used to generate
+them. The `AltText` is concise and to the point, while the `DetailedDescription` is a much more elaborate description of the image.
+For refence, you can see the full output of `DetailedDescription` in <<generative-ai-category-image-detailed-description>>.
+
+[[generative-ai-category-image-detailed-description]]
+.Full output of the `DetailedDescription` for `categories/3-A`
+[source,text]
+----
+The image features an array of small, round pastries meticulously arranged in a grid-like pattern on a white surface. Each pastry is topped with 
+a swirl of light pink cream and garnished with an assortment of fresh fruits including strawberries, blackberries, green grapes, blueberries, 
+raspberries, kiwi slices, and thin peach slices. Edible flowers in shades of purple and yellow add a vibrant decorative touch. The even lighting 
+highlights the textures and vivid colors of the fruits and cream, creating an inviting and elegant presentation. Light crumbs and small specks of 
+dried flower petals are scattered around the pastries, contributing to a natural and artisanal aesthetic.
+----
+
+In <<generative-ai-category-images>>, we used the `withJpeg()` method to include a JPEG image as part of the context sent to the model. RavenDB 
+supports the following attachment types:
+
+* JPEG images using `withJpeg()`
+* PNG images using `withPng()`
+* WebP images using `withWebp()`
+* GIF images using `withGif()`
+* Textual documents using `withText()`
+* PDF documents using `withPdf()`
+
+Note that the last two items are actually for _documents_, not images. In particular, you can hand PDF documents to the model and ask it to 
+extract information out of them. A good example may be to pull invoice data (into the docuemnt) from an attached PDF invoice, etc.
+Using `withText()` is applicable for textual document, not just `.txt` files. You can use that for markdown, json, etc.
+
+.Keep track of the size of the attachments
 ****
+Large language model has a context window that limits how much they can process. For images, most models will downscale the image to a specific size
+and only then "look" at it. You can expect to work with images up to 20MB or so (but check the specific settings for the model you are using, that 
+matters). 
+
+For PDFs, of the other hand, even small documents can contain a _lot_ of text. You need to be aware of your tokens budget if you intend to push whole
+books at the model in this manner. 
+
+RavenDB leaves it up to you to decide how to deal with attachment sizes and the limits of the context window. For the most part, given that it is now
+common to have a context window of 1 million tokens or more, that isn't generally something to be overly concerned with.
 ****
+
+You can also send multiple images at the same time by calling `withJpeg()` (or similar) multiple times. The `withJpeg()` family of methods 
+accepts either the result of a `loadAttachment(filename)` call or a Base64 encoded string representing the image data (for example, if you
+store the image data directly in the document using Base64).
 
 #### Letting the model query additional information
 
@@ -1555,9 +1610,19 @@ call is the same as the previous one, we'll not call the model. That is even if 
 You have to consider this aspect of caching when thinking about your Generative AI tasks.
 ****
 
-The model decides what queries to use.
+A key design principle in this style of operation is that we let the model decide what it needs to call. In the context of <<generative-ai-products-rec>>, it will 
+likely always call both the `SearchProductCatalog` and `GetRecentOrders` queries, but that is not guaranteed. In other cases, the model will evaluate the prompt and
+the data it has and decide which (if any) of the available queries it will run. 
 
-#### GenAI Attachments
+Allowing the model to autonomously determine its actions is a remarkably powerful capability. By offering it a set of queries, the model may choose what to call.
+Crucially, this approach frees _you_ from the necessity of manually anticipating every conceivable scenario, enabling the model to shoulder the bulk of the workload.
+
+Having said that, if you expect that the model will _always_ need to call a particular query, you can use `AiAgentToolQuery.Options.AddToInitialContext = true` 
+on the query definition. That will cause RavenDB to execute the query as part of the context extraction phase and include the results in the context sent to the 
+model. That is useful when you have a query that is always needed, since is saves back and forth chatter between the model and RavenDB.
+
+Given the complexity invovled in this style of operation, RavenDB provides detailed tracing and debugging capabilities to help you understand what is going on. 
+You can see the details of each Generative AI task execution. We'll discuss this topic in the next section.
 
 #### Tracing & Debugging with Generative AI tasks
 
