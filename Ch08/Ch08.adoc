@@ -2061,24 +2061,27 @@ etc). You can find it in the https://gist.github.com/ayende/ab74c527c6db21a76bbe
 define a database named `Resumes`, create an AI Connection string for Chat named `Resume AI` and download the 
 https://www.kaggle.com/datasets/shivani12sharma/resume-dataset-new[resume dataset] for the PDF files.
 
-The output of <<subscription-candidate-routing>> looks like the following:
+The output of <<subscription-candidate-routing>> is something like the following:
 
-___
-Sending email to hr@example.com:
+____
 Subject: Review Candidate Anmisha M. for Open Positions
+
 Dear HR Team,
 
 A new candidate has been evaluated and shows potential matches for open positions.
 Please review the following details and take appropriate action:
 
 Candidate Name: Anmisha M.
-Candidate Email: anmisham....@gmail.com
-Submission ID: CandidateSubmissions/12-A
-Evaluation Reasons: 
-* Data Scientist: Candidate has skills in Python, Machine Learning, and Statistics which match all required technical requirements for this role.
-... redacted ...
-___
 
+Candidate Email: `a....@gmail.com`
+
+Submission ID: `CandidateSubmissions/12-A`
+
+Evaluation Reasons: 
+
+* Data Scientist: Candidate has skills in Python, Machine Learning, and Statistics which match all required technical requirements for this role.
+* ... redacted ... - Rest of the email with more details
+____
 The entire process is fully automated. A candidate uploads their CV, the system extracts the relevant information, evaluates it against opened
 job listings, and routes the candidate details to the HR team or sends a polite refusal email to the candidate. All of that is done using a combination 
 of Generative AI tasks and a Subscription to handle the final routing logic.
@@ -2087,7 +2090,7 @@ That last part is a very important consideration. We aren't trying to do the who
 into discrete pieces, each of of them is pretty simple on its own. Another aspect to consider is that because we broke it to multiple separate Generative
 AI tasks, we can now use _different_ models for each aspect.
 
-The full sample in https://gist.github.com/ayende/ab74c527c6db21a76bbe9be850bd9a39[the GitHub gist], for example, was tested using `gpt-4.1-mini` for both 
+The full sample in the GitHub gist mentioned earlier, for example, was tested using `gpt-4.1-mini` for both 
 tasks, but I may specialize as my needs grow. For example, as of early 2026, I may decide that for PDF extraction the best option is self hosted `Qwen2.5-VL-72B`, 
 but evaluating the candidates is something better done by `Claude 3.7 Sonnet`. With RavenDB, I can make those decisions easily enough, without any impact on the 
 overall architecture.
