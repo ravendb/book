@@ -1798,7 +1798,7 @@ ____
 
 I'm assuming that are data model is composed of the following:
 
-* `CandidateSubmission`` - holds the applicant's contact information, work history, and education extracted from the PDF and form fields. The document
+* `CandidateSubmission` - holds the applicant's contact information, work history, and education extracted from the PDF and form fields. The document
   also holds the actual PDF of the candidate's CV.
 * `JobListing` - holds the role's title, department, status (open / closed), and specific technical requirements used for matching.
 
@@ -1827,7 +1827,7 @@ var cvExtractionTask = new GenAiConfiguration
     {
         Script = 
             """
-            const pdf = loadAttachment('cv-attachment.pdf');
+            const pdf = loadAttachment('cv.pdf');
             if(!pdf) return; // not PDF, nothinhg to do
 
             const ctx = ai.genContext({
@@ -1859,102 +1859,62 @@ from the model. You can see the actual schema that we are using in <<generative-
 [source,json]
 ----
 {
+  "name": "candidate-response-schema",
+  "strict": true,
+  "schema": {
   "type": "object",
   "properties": {
     "Personal": {
-      "type": "object",
-      "description": "Candidate identity and contact details.",
-      "properties": {
-        "Name": {
-          "type": ["string", "null"],
-          "description": "Full legal name."
-        },
-        "Email": {
-          "type": ["string", "null"],
-          "description": "Primary contact email."
-        },
-        "Phone": {
-          "type": ["string", "null"],
-          "description": "Contact phone number."
-        },
-        "Age": {
-          "type": ["integer", "null"],
-          "description": "Candidate age in years."
-        },
-        "Address": {
-          "type": ["string", "null"],
-          "description": "Current city and state."
-        }
-      },
-      "required": ["Name", "Email", "Phone", "Age", "Address"],
-      "additionalProperties": false
+    "type": "object",
+    "description": "Candidate contact info.",
+    "properties": {
+      "Name": {"type": ["string", "null"], "description": "Full name"},
+      "Email": {"type": ["string", "null"], "description": "Email"},
+      "Phone": {"type": ["string", "null"], "description": "Phone"}
+    },
+    "required": ["Name", "Email", "Phone"],
+    "additionalProperties": false
     },
     "WorkHistory": {
-      "type": "array",
-      "description": "List of professional roles and experience.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "Title": {
-            "type": ["string", "null"],
-            "description": "Job title or role name."
-          },
-          "Company": {
-            "type": ["string", "null"],
-            "description": "Employer or organization."
-          },
-          "StartDate": {
-            "type": ["string", "null"],
-            "description": "Start date (YYYY-MM)."
-          },
-          "EndDate": {
-            "type": ["string", "null"],
-            "description": "End date or 'Present'."
-          },
-          "Duties": {
-            "type": ["string", "null"],
-            "description": "Summary of responsibilities."
-          }
-        },
-        "required": ["Title", "Company", "StartDate", "EndDate", "Duties"],
-        "additionalProperties": false
-      }
+    "type": "array",
+    "description": "Work roles and experience.",
+    "items": {
+      "type": "object",
+      "properties": {
+      "Title": {"type": ["string", "null"], "description": "Job title"},
+      "Company": {"type": ["string", "null"], "description": "Company"},
+      "Dates": {"type": ["string", "null"], "description": "Start/End:YYYY-MM"}
+      },
+      "required": ["Title", "Company", "Dates"],
+      "additionalProperties": false
+    }
     },
     "Education": {
-      "type": "array",
-      "description": "Academic degrees and certifications.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "Degree": {
-            "type": ["string", "null"],
-            "description": "Degree or certificate name."
-          },
-          "School": {
-            "type": ["string", "null"],
-            "description": "Institution name."
-          },
-          "Year": {
-            "type": ["string", "null"],
-            "description": "Graduation or completion year."
-          }
-        },
-        "required": ["Degree", "School", "Year"],
-        "additionalProperties": false
-      }
+    "type": "array",
+    "description": "Degrees and certs.",
+    "items": {
+      "type": "object",
+      "properties": {
+      "Degree": {"type": ["string", "null"], "description": "Degree/cert & school"},
+      "Year": {"type": ["string", "null"], "description": "Completion year"}
+      },
+      "required": ["Degree", "Year"],
+      "additionalProperties": false
+    }
     },
     "Skills": {
-      "type": "array",
-      "description": "Technical tools and soft skills.",
-      "items": { "type": "string" }
+    "type": "array",
+    "description": "Skills",
+    "items": {"type": "string"}
     },
     "Summary": {
-      "type": ["string", "null"],
-      "description": "Professional value proposition."
+    "type": ["string", "null"],
+    "description": "Summary"
     }
   },
   "required": ["Personal", "WorkHistory", "Education", "Skills", "Summary"],
   "additionalProperties": false
+  }
 }
 ----
 
@@ -1995,6 +1955,9 @@ var candidateEvaluationTask = new GenAiConfiguration
     skills and summary. Compare the candidate against the results. 
     Provide a MatchFound status. If no matches exist, provide a 
     GlobalRejectionReason explaining the gaps.
+
+    Be strict in how you evaluate the candidate skills vs. the technical
+    requirements of the role.        
     """,
   SampleObject = 
     """
@@ -2015,12 +1978,12 @@ var candidateEvaluationTask = new GenAiConfiguration
     new AiAgentToolQuery
     {
       Name = "SearchJobListings",
-      Description = "Semantic search for open roles based on requirements.",
+      Description = "Semantic search for open roles based on the role description.",
       Query = 
         """
         from "JobListings"
         where Status == 'Open'
-          and vector.search(embedding.text(Requirements), $q)
+          and vector.search(embedding.text(Description), $q)
         order by OpenedAt desc
         limit 15
         """,
@@ -2045,11 +2008,96 @@ The key is that <<generative-ai-cv-matching>> has a guard clause in its context 
 nothing will happen. That property is being generated by <<generative-ai-cv-extraction>>. In essence, we create a pipeline of Generative AI tasks, 
 which will rely on the previous one to push things forward.
 
-The next stage is now to pull this data out of the database and into our Subscription. You can see the reelvant
+The next stage is now to pull this data out of the database and into our Subscription. You can see the Subscription code in <<subscription-candidate-routing>>.
 
+[[subscription-candidate-routing]]
+.Subscription to route candidates based on evaluation results
+[source,csharp]
+----
+const string SubscriptionName = "CandidateSubmissionsWithMatchResults";
+await store.Subscriptions.CreateAsync(new SubscriptionCreationOptions
+{
+    Name = SubscriptionName
+    Query = """
+            from CandidateSubmissions 
+            where exists(MatchResults) and MatchResults != null
+            """
+});
+var worker = store.Subscriptions.GetSubscriptionWorker<CandidateSubmission>(
+                                    SubscriptionName);    
+await worker.Run(async batch =>
+{
+    foreach (var item in batch.Items)
+    {
+        var submission = item.Result;
+        var candidateName = submission.Extracted.Personal.Name;
+        if (submission.MatchResults.MatchFound is false)
+        {
+            SendEmail(submission.Extracted.Personal.Email,
+                $"Update on Your Application",
+                $"""
+                Dear {candidateName}, ...
+                """);
+        }
+        else
+        {
+            SendEmail("hr@example.com", 
+                $"Action Required: Review Candidate {candidateName} for Open Positions",
+                $"""
+                Dear HR Team,
+                A new candidate has been evaluated for the following positions:
+                ...
+                """);
+        }
+    }
+});
+----
 
+<<subscription-candidate-routing>> isn't doing much, it is reacting to the updates from the `evaluate-candidate-match`, which itself
+is reacting to the parsed data from the PDF's CV that we processed using `extract-cv-data`.
+
+The actual full code for this entire process is under 600 lines of code (including the code to import data, define relevant classes, 
+etc). You can find it in the https://gist.github.com/ayende/ab74c527c6db21a76bbe9be850bd9a39[the following GitHub gist]. You need to 
+define a database named `Resumes`, create an AI Connection string for Chat named `Resume AI` and download the 
+https://www.kaggle.com/datasets/shivani12sharma/resume-dataset-new[resume dataset] for the PDF files.
+
+The output of <<subscription-candidate-routing>> looks like the following:
+
+___
+Sending email to hr@example.com:
+Subject: Review Candidate Anmisha M. for Open Positions
+Dear HR Team,
+
+A new candidate has been evaluated and shows potential matches for open positions.
+Please review the following details and take appropriate action:
+
+Candidate Name: Anmisha M.
+Candidate Email: anmisham....@gmail.com
+Submission ID: CandidateSubmissions/12-A
+Evaluation Reasons: 
+* Data Scientist: Candidate has skills in Python, Machine Learning, and Statistics which match all required technical requirements for this role.
+... redacted ...
+___
+
+The entire process is fully automated. A candidate uploads their CV, the system extracts the relevant information, evaluates it against opened
+job listings, and routes the candidate details to the HR team or sends a polite refusal email to the candidate. All of that is done using a combination 
+of Generative AI tasks and a Subscription to handle the final routing logic.
+
+That last part is a very important consideration. We aren't trying to do the whole thing as a single AI driven process. Instead, we broke it apart
+into discrete pieces, each of of them is pretty simple on its own. Another aspect to consider is that because we broke it to multiple separate Generative
+AI tasks, we can now use _different_ models for each aspect.
+
+The full sample in https://gist.github.com/ayende/ab74c527c6db21a76bbe9be850bd9a39[the GitHub gist], for example, was tested using `gpt-4.1-mini` for both 
+tasks, but I may specialize as my needs grow. For example, as of early 2026, I may decide that for PDF extraction the best option is self hosted `Qwen2.5-VL-72B`, 
+but evaluating the candidates is something better done by `Claude 3.7 Sonnet`. With RavenDB, I can make those decisions easily enough, without any impact on the 
+overall architecture.
+
+We aren't done talking about AI. Up until now, we covered stuff that happens in the background, going to the model _once_. In the next section, we are going
+to see how RavenDB can build AI Agents and expose them to your users for variety of interesting tasks.
 
 ### AI Agents
+
+error handling
 
 #### Mutli Agents
 
