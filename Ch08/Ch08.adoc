@@ -2082,6 +2082,7 @@ Evaluation Reasons:
 * Data Scientist: Candidate has skills in Python, Machine Learning, and Statistics which match all required technical requirements for this role.
 * ... redacted ... - Rest of the email with more details
 ____
+
 The entire process is fully automated. A candidate uploads their CV, the system extracts the relevant information, evaluates it against opened
 job listings, and routes the candidate details to the HR team or sends a polite refusal email to the candidate. All of that is done using a combination 
 of Generative AI tasks and a Subscription to handle the final routing logic.
@@ -2100,7 +2101,62 @@ to see how RavenDB can build AI Agents and expose them to your users for variety
 
 ### AI Agents
 
-error handling
+When ChatGPT came out, it was amazing. You could ask an AI questions and have a _converastion_ with it. That was a huge leap forward compared to the previous 
+generation of AI systems, where you had to craft very specific prompts to get the desired output. 
+
+When the time comes to _build_ such systems, on the other hand, developer quickly realize that there is quite a lot under the hood beyond simply a smart 
+model. At the same time, everyone wants to add AI into their systems. And AI Agents are the pinacle, the ability to sprinkle intelligence into your system,
+make things easier for users and reduce the need for manual intervention.
+
+Everyone wants to add AI into their systems, but when you try to actually do that in practice, you realize just how much _stuff_ you need to deal with. 
+The following is the tip of the iceberg of what you need to deal with, but it should at least give you some idea about the scope of the problem:
+
+* State & Memory Management: Models treat every interaction as a blank slate. To provide continuity between interactions you must retain and manage 
+  historical context across calls to the model.
+* Data Retrieval & Search: General-purpose models lack knowledge of your specific data and use case. You need to implement mechanisms that fetch and 
+  feed the relevant information required for the model to answer the user properly.
+* Action Execution: Moving from a "readonly" chat to an autonomous agent that can actually _do_ things is a major levelup. You need to both allow
+  the model to execute operations without compromising the security and safety of your system.
+* Compliance & Privacy: users may be (rightfuly) concerned about what models will do with their data. Depending on your jurisdiction, there may also 
+  be legal requirements about what the model can see and what actions it may perform.
+
+The list above is merely the beginning of the list of things that you need to concern yourself with. In the preceding parts of this chapter, we didn't 
+deal with those, because we mostly had one-shot integration with the model. We gave it a single task (generate embedding, generate a response, etc).
+When dealing with AI Agents, the situation is a lot more complex. Thankfully, RavenDB does a lot of the heavy lifting for you, letting you focus on
+the actual business aspects, rather than the tehcnical minituia that you need to run AI Agents succesfully.
+
+#### Your first AI Agent
+
+We'll start learning about AI Agents in RavenDB by building a simple one. Using the `Northwind` database, we'll build an agent to assist our users
+with their orders. Our goal is to build an agent that will let users interact with their orders, search for products and add items to their cart.
+
+We'll start by defining a trivial agent, as shown in <<your-first-agent>>.
+
+[[your-first-agent]]
+.THe simplest possible AI Agent
+[source,csharp]
+----
+----
+
+#### The memory of an AI Agent
+
+In its natural state, a Large Language Model is just doing a bunch of math on top of a large pile of parameters. Yes, that is oversimplifying things 
+just a bit, but I'm trying to get a point across. 
+
+The key aspect is that the model has no intrisinc memory of past conversations. 
+To change the model's parameters you'll typically need to fine-tune it. A typical fine-tuning session, to make the model match exactly what you want it to do
+can cost upward of 6 figures and sometimes _significantly_ more. 
+
+That means that in order to carry an actual conversation with the model, you need to send it the _entire_ history of your conversation with it each time.
+If you had a long conversation (exceeding the context window of the model), it would only read the latest parts ("forgetting" the previous context), which led
+to some hilarious results.
+
+#### Dealing with offline responses
+
+#### Timers, remidners and out of band communications
+
+#### Error handling & rate limits
+
 
 #### Mutli Agents
 
