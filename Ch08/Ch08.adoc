@@ -2136,7 +2136,235 @@ We'll start by defining a trivial agent, as shown in <<your-first-agent>>.
 .THe simplest possible AI Agent
 [source,csharp]
 ----
+var aiAgent = new AiAgentConfiguration
+{
+    Name = "Shopping Agent",  <1>
+    Identifier = "shopping-agent",
+    ConnectionStringName = "OpenAI Generative",
+    SystemPrompt =            <2>
+        """
+        Act as a savvy Shopping Assistant for Northwind e-commerce store, 
+        dedicated to helping customers find exactly what they need 
+        with a mix of efficiency and flair. Your goal is to provide 
+        personalized product recommendations, information about past 
+        orders, assist in billing and help the customers have a great day. 
+        Maintain a helpful, upbeat, and professional tone—think of yourself 
+        as a knowledgeable concierge who knows the inventory inside out and 
+        treats every shopper like a VIP.
+        """,
+    SampleObject =            <3>
+        """
+        { 
+            "Answer": "Answer to the customer"
+        } 
+        """
+};
+await store.AI.CreateAgentAsync(aiAgent);
 ----
+<1> The name, identifier and the connection string to use, similar to how we do things for the Generative AI tasks.
+<2> The system prompt that instructs the AI model what is its purpose.
+<3> Sample object that shows the model what the resulting schema should look like.
+
+The code in <<your-first-agent>> should be familiar to you, we have already run into the same concepts when talking about Generative AI
+tasks, after all. The most important aspect here is the `SystemPrompt`, which define what the agent is suppsoed to do. If you'll run the 
+code in <<your-first-agent>>, you'll find that the agent is created in RavenDB. You can see it in the Studio by going to the `AI Hub` 
+and then to the `AI Agents` tab, as shown in <<ai-agent-in-studio>>.
+
+[[ai-agent-in-studio]]
+.The Shopping Agent shown in the RavenDB Studio
+image::./Ch08/img17.png[]
+
+Once the agent is created, we can start interacting with it. You can do that directly from the Studio by clicking on the `Start New Chat` 
+button you see in the Studio. You'll need to provide a `Conversation ID or prefix`, for now, put in `"chats/"` when asked, write your
+quesion a the bottom and submit your query.
+You can see my interaction with the agent in <<valentine-day-recommendation>> below, where I'm asking for Valentine's day recommendation.
+
+[[valentine-day-recommendation]]
+.Chatting with the agent about Valentine's day purchase
+image::./Ch08/img18.png[]
+
+In response to asking: "What should I buy for Valentine day?", the model gave the following response:
+
+____
+Valentine's Day is a perfect occasion to show your love with something special! Depending on the recipient's tastes, I can recommend 
+several categories. For a romantic touch, consider our elegant jewelry collection or a beautiful bouquet of fresh flowers. 
+If they love indulgence, gourmet chocolates and luxury candles make wonderful gifts. Or perhaps a personalized gift, like a custom 
+photo album or engraved keepsake, would add that heartfelt touch. Let me know their preferences, and I can suggest 
+the perfect gift from Northwind!
+____
+
+If you read this answer carefully, you'll note something quite interesting. It _looks_ like a pretty reasonable answer, right? But 
+where did the model get _any_ details about jewelry or flowers? None of them are actually being sold by our fictional e-commrece 
+shop.
+
+Because we used the term Northwind in the prompt, the model is able to used is _generalized_ knoweldge. I'm using the `gpt-4.1-mini`
+model, and asking it a question such as "Who won the World Cup?" would result in the answer: "Argentina, 2022". By the time you read 
+this text, there should be a different answer.footnote:[Hopefully, the right answer would be: "Argentina, 2026".]
+
+The problem from our perpective is that using such an agent for generic knwoledge isn't really a good use of our time. We want the
+agent to be _relevant_ for our scenario. In <<generative-ai-cv-matching>>, we matched candidates CV to job listing, we did that by
+wiring the Generative AI task directly into our database. In order to create useful AI Agents, we need to be able the same. 
+
+Let's start from adding product search capability to this AI Agent. We did something similar in <<generative-ai-products-rec-queries>> 
+and in much the same way, we can do this for our AI Agent. You can see the full update definition in <<agent-with-product-search>>.
+
+[[agent-with-product-search]]
+.Updating our AI Agent definition to allow searching the product catalog
+----
+var aiAgent = new AiAgentConfiguration
+{
+    Name = "Shopping Agent",
+    Identifier = "shopping-agent",
+    ConnectionStringName = "OpenAI Generative",
+    SystemPrompt = " .. redacted .. ",
+    SampleObject = " .. redacted .. ",
+    Queries = [new AiAgentToolQuery  
+    {
+        Name = "SearchProductCatalog",
+        Description =            
+            """
+            Search the product catalog using vector search to 
+            find matching products to the search terms
+            """,
+        Query =                  
+            """
+            from "Products" 
+            where vector.search(embedding.text(Name), $q)
+            limit 10
+            """,
+        ParametersSampleObject =  
+            """
+            {
+              "q": ["query terms for semantic search on the products"]
+            }
+            """
+    }]
+};
+await store.AI.CreateAgentAsync(aiAgent);
+----
+
+Run the code in <<agent-with-product-search>> and then create a new chat with the AI Agent. You can how the agent reacted in 
+<<chat-with-query>>. You can also see the full answer of the mdoel when it has the ability to search our product catalog
+here:
+
+____
+For Valentine's Day, consider delightful treats like "Sir Rodney's Scones" for a charming breakfast or snack, priced at $10.00, 
+or "Grandma's Boysenberry Spread" at $25.00 for a sweet touch to any meal. If you want something more indulgent, 
+"Tarte au sucre" is an exquisite pie priced at $49.30. These options offer a lovely way to celebrate with a thoughtful and tasty gift. 
+Would you like more suggestions or info on any of these?
+____
+
+[[chat-with-query]]
+.AI Agent running a product search to answer our query
+image::./Ch08/img19.png[]
+
+There are a few interesting points to note about the answer of the agent. I think we can safely agree that flowers are much 
+better Valentine's day gift over scones. _However_, the model is now offering _contextual_ information, that is relevant to the 
+products that the store sells. 
+
+In other words, the act of merely adding the `SearchProductCatalog` query changed the AI Agent from a generic reply to a relevant
+one. The products it lists in the response are ones that we have in the `Northwind` database, after all. 
+If you'll look closely at <<chat-with-query>>, you can see that it _run_ a query to get the information it needed to answer the user.
+You can click on the query, dig into the exact parameters that the model sent to the database and even run the query yourself. 
+
+.Generative AIs in RavenDB are single shot AI Agents
+****
+The similarities between Generative AI tasks and AI Agents aren't accidentals. Under the cover, Generative AI are simply AI Agents
+that are invoked a single time, when a document is changed. They have the system prompt and the the context script extraction
+document is the input they operate on. The Generative AI then takes the output of the model and apply that using the update 
+script to the source docuemnt.
+
+Conversely, an AI Agents has its system prompt, as you can see in <<your-first-agent>> and can be called multiple times to have a
+conversation with a user. And _you_ decide what should be done with the output of the model.
+****
+
+From this point onward, in order to develop our agent, the process is straightfoward. Give it the ability to see more of your 
+system, and it will be able to give you concrete answers. Let's extend the agent we built to allow it to read our past orders. 
+That can allow it to make better recommendation about what to buy. That is essentially what we previously did in 
+<<generative-ai-products-rec-queries>>, by the way. Now we are simply applying that via an AI Agent.
+You can see the additional query we define in <<agent-with-recent-orders>>.
+
+[[agent-with-recent-orders]]
+.Adding pareters to the agent, and exposing the `GetRecentOrders` query
+----
+Parameters = [            <1>
+        new AiAgentParameter("Company", 
+            "The id of the current company for the agent")
+    ],
+Queries = [  new AiAgentToolQuery
+    {
+      Name = "GetRecentOrders", 
+      Description = 
+        """
+        Get the recent orders for the current company
+        along with their recently ordered products
+        """,
+      Query =                 
+      """
+      from "Orders" as o  <2>
+      where o.Company = $Company and o.ShippedAt != null
+      order by o.OrderedAt desc
+      select {
+        OrderedAt: o.OrderedAt,
+        Products: o.Lines.map(x=>({
+          Product: x.Product, 
+          ProductName: x.ProductName
+        }))
+      }
+      limit 5
+      """,
+      ParametersSampleObject = "{}"
+  },
+  new AiAgentToolQuery  
+  {
+      Name = "SearchProductCatalog",
+      // redacted
+  }]
+----
+<1> Adding the `Company` parameter to the agent defintion. The agent will now _required_ you to call it with this parameter.
+    That parameter is exposed to the query and allows us to properly define its scope.
+<2> Using the `Company` parameter as part of the query.
+
+<<agent-with-recent-orders>> introduce the notion of agent parameters. That allows you to call the agent and provide it with
+the context in which it is running. Run the code in <<agent-with-recent-orders>> and then click on "Start new chat" in the 
+`AI Agents` page. You'll then be asked to fill in both the Conversation ID prefix and the agent parameters, as you can see
+in <<calling-agent-with-params>>.
+
+[[calling-agent-with-params]]
+.Invoking the Shopping Agent with the `companies/1-A` parameter
+image::./Ch08/img20.png[]
+
+Once you defined the agent's parameters as shown in <<calling-agent-with-params>>, you can ask it a question. I asked it:
+"What cheese did I get last time?" and got the following reply:
+
+____
+The last cheese you ordered was "Flotemysost," which was part of your most recent order on April 9, 1998. 
+If you'd like, I can help you find more of this cheese or suggest similar options!
+____
+
+Asking the agent "What other cheeses do you have?" gave me this answer:
+
+____
+We have a fine selection of cheeses available for you, including Mozzarella di Giovanni and Mascarpone Fabioli. 
+Both are high-quality options with good stock levels. If you'd like more details or want to order any of these, just let me know!
+____
+
+You can see the full conversation we had in <<agent-cheese-conversation>>.
+
+[[agent-cheese-conversation]]
+.Multi turn conversation with the agent, including multiple queries
+image::./Ch08/img21.png[]
+
+<<agent-cheese-conversation>> shows how the mdoel executes different queries based on the inputs from the user.
+
+.The power of AI + data
+****
+It may not seem like it at first, but what we have just achieved is _remarkable_. 
+
+
+
+****
+
 
 #### The memory of an AI Agent
 
