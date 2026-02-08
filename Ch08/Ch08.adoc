@@ -949,6 +949,7 @@ translation to German, Spanish, Hindi, Chinese as well as simple English. Note t
 of the reply as well as the _meaning_ for each field. 
 
 [TIP]
+.Sample Object vs. JSON Schema
 ====
 RavenDB actually have two ways to define the expected structure. The sample object is the "easy" way, which is turned into a JSON Schema
 that strictly outlines what the data from the model should look like. Or you can use JSON Schema directly, with full control over how the schema.
@@ -1745,7 +1746,7 @@ much that this will _do_.
 Let's look at some typical Generative AI scenario and their prompt injection impact:
 
 * SPAM detection for blog post comments - User-submitted comments may contain prompt injections attempting to bypass spam filters or alter detection logic. 
-  Given that SPAM detection is probabalistic anyway, the impact is limited to misclassification of some comments. Always in the direction of no classifying 
+  Given that SPAM detection is probabalistic anyway, the impact is limited to misclassification of some comments. Always in the direction of not classifying 
   SPAM comments as SPAM (since legitimate comments won't need it).
 * Customer support ticket classification - Malicious users could inject prompts to misclassify tickets. 
   However, the classification is typically used for routing or prioritization, so the worst case is a misrouted ticket or an escalated priority for a ticket
@@ -2155,7 +2156,7 @@ var aiAgent = new AiAgentConfiguration
     SampleObject =            <3>
         """
         { 
-            "Answer": "Answer to the customer"
+            "Reply": "Answer to the customer"
         } 
         """
 };
@@ -2164,6 +2165,7 @@ await store.AI.CreateAgentAsync(aiAgent);
 <1> The name, identifier and the connection string to use, similar to how we do things for the Generative AI tasks.
 <2> The system prompt that instructs the AI model what is its purpose.
 <3> Sample object that shows the model what the resulting schema should look like.
+
 
 The code in <<your-first-agent>> should be familiar to you, we have already run into the same concepts when talking about Generative AI
 tasks, after all. The most important aspect here is the `SystemPrompt`, which define what the agent is suppsoed to do. If you'll run the 
@@ -2210,6 +2212,7 @@ and in much the same way, we can do this for our AI Agent. You can see the full 
 
 [[agent-with-product-search]]
 .Updating our AI Agent definition to allow searching the product catalog
+[source,csharp]
 ----
 var aiAgent = new AiAgentConfiguration
 {
@@ -2244,7 +2247,7 @@ await store.AI.CreateAgentAsync(aiAgent);
 ----
 
 Run the code in <<agent-with-product-search>> and then create a new chat with the AI Agent. You can how the agent reacted in 
-<<chat-with-query>>. You can also see the full answer of the mdoel when it has the ability to search our product catalog
+<<chat-with-query>>. You can also see the full answer of the model when it has the ability to search our product catalog
 here:
 
 ____
@@ -2262,12 +2265,7 @@ There are a few interesting points to note about the answer of the agent. I thin
 better Valentine's day gift over scones. _However_, the model is now offering _contextual_ information, that is relevant to the 
 products that the store sells. 
 
-In other words, the act of merely adding the `SearchProductCatalog` query changed the AI Agent from a generic reply to a relevant
-one. The products it lists in the response are ones that we have in the `Northwind` database, after all. 
-If you'll look closely at <<chat-with-query>>, you can see that it _run_ a query to get the information it needed to answer the user.
-You can click on the query, dig into the exact parameters that the model sent to the database and even run the query yourself. 
-
-.Generative AIs in RavenDB are single shot AI Agents
+.Generative AIs are single-shot Agents
 ****
 The similarities between Generative AI tasks and AI Agents aren't accidentals. Under the cover, Generative AI are simply AI Agents
 that are invoked a single time, when a document is changed. They have the system prompt and the the context script extraction
@@ -2278,20 +2276,33 @@ Conversely, an AI Agents has its system prompt, as you can see in <<your-first-a
 conversation with a user. And _you_ decide what should be done with the output of the model.
 ****
 
+In other words, the act of merely adding the `SearchProductCatalog` query changed the AI Agent from a generic reply to a relevant
+one. The products it lists in the response are ones that we have in the `Northwind` database, after all. 
+If you'll look closely at <<chat-with-query>>, you can see that it _ran a query_ to get the information it needed to answer the user.
+You can click on the query, dig into the exact parameters that the model sent to the database and even run the query yourself. 
+
 From this point onward, in order to develop our agent, the process is straightfoward. Give it the ability to see more of your 
-system, and it will be able to give you concrete answers. Let's extend the agent we built to allow it to read our past orders. 
+system, and it will be able to give you concrete answers. We'll explore this topic in more depth in the next section.
+
+#### AI Agents & Queries 
+
+Allowing an AI Agent to query your data turn that from a probablistic text generation machine into something that is actually
+_useful_. Let's extend the agent we built to allow it to read our past orders and see what sort of behavior we can get out 
+of it.
+
 That can allow it to make better recommendation about what to buy. That is essentially what we previously did in 
 <<generative-ai-products-rec-queries>>, by the way. Now we are simply applying that via an AI Agent.
 You can see the additional query we define in <<agent-with-recent-orders>>.
 
 [[agent-with-recent-orders]]
 .Adding pareters to the agent, and exposing the `GetRecentOrders` query
+[source,csharp]
 ----
 Parameters = [            <1>
         new AiAgentParameter("Company", 
             "The id of the current company for the agent")
     ],
-Queries = [  new AiAgentToolQuery
+Queries = [new AiAgentToolQuery
     {
       Name = "GetRecentOrders", 
       Description = 
@@ -2325,6 +2336,7 @@ Queries = [  new AiAgentToolQuery
     That parameter is exposed to the query and allows us to properly define its scope.
 <2> Using the `Company` parameter as part of the query.
 
+
 <<agent-with-recent-orders>> introduce the notion of agent parameters. That allows you to call the agent and provide it with
 the context in which it is running. Run the code in <<agent-with-recent-orders>> and then click on "Start new chat" in the 
 `AI Agents` page. You'll then be asked to fill in both the Conversation ID prefix and the agent parameters, as you can see
@@ -2355,15 +2367,384 @@ You can see the full conversation we had in <<agent-cheese-conversation>>.
 .Multi turn conversation with the agent, including multiple queries
 image::./Ch08/img21.png[]
 
-<<agent-cheese-conversation>> shows how the mdoel executes different queries based on the inputs from the user.
+<<agent-cheese-conversation>> shows how the model executes different queries based on the inputs from the user.
 
 .The power of AI + data
 ****
-It may not seem like it at first, but what we have just achieved is _remarkable_. 
-
-
-
+It may not seem like it at first, but what we have just achieved is _remarkable_. We now have a fully functional AI Agent that is
+integrated into our system. We can ask it questions about our orders, products and get _relevant_ answers.
+The key aspect to note here is that this isn't a special model that we trained on our data. It is a generic model (`gpt-4.1-mini`
+in this case), which we simply allow to run specific queries on our data. That is enough to make the agent do something useful.
 ****
+
+Anyone working with Large Language Models is familiar with the conept of hallucinations. When the model just make stuff up.
+We saw it on the first run of the model, when it recommend flowers and jewelery (which we don't sell). _With_ context, however,
+you'll find that the model is far more grounded. Scones may not be the best Valentine day's gift, but at least they show up
+in Northwind's product catalog.
+
+<<agent-queries-ui>> show the queries that we made available to our Shopping Agent. The model can choose to run any of those 
+queries. The `SearchProductCatalog`, for example, may be executed multiple times with different parameters as the model is working
+on figuring out how to best answer the user's questions.
+
+[[agent-queries-ui]]
+.The queries available to our Shopping Agent
+image::./Ch08/img22.png[]
+
+<<agent-with-recent-orders>> shows how to add the `GetRecentOrders` query to the agent. We need a name and description, which tells
+the model what the query is for (and in what circumstances should the model should use it). We have the actual query text, which 
+is what will be executed when the model run the query, and we have the parameters for the query.
+
+There are two types of parameters that we deal with for queries:
+
+* Agent parameters (`$Company` for `GetRecentOrders`) are provided to the agent when you create a conversation. The model has no way
+  of changing them. These values are provided to the model and are avaialble for queries. The key here is that because the model cannot
+  alter these parameeters, you can rely on them. You _know_ that the `$Company` parameter can be trusted, for example.
+* Query parameters (`$q` for `SearchProductCatalog`) are provided by the model. As such, they can be anything. You have to assume that 
+  those parameters are _not_ to be trusted.
+
+It may seem getting parameters that you cannot trust is problematic, but it turns out that this is effectively the same problem as
+dealing with users' input. We cannot trust that either. You need to validate those, and you can do that we the parameters that you do
+trust. 
+
+RavenDB's AI Agents ensure that you cannot define parameters for a query that would conflict with the agent's parameters. You cannot
+define a query that would modify the `$Company` parameter, for example, for the Shopping Agent. You'll get an error if you try to do that.
+
+When you create an agent, you need to consider what sort of information should be exposed to it. Both in terms of the queries that you
+allow it to run and what is the scope in which it will run. In the case of the `SearchProductCatalog`, for example, we consider the 
+product catalog to be public. We don't need to place any limits. In the case of the `GetRecentOrders`, on the other hand, we need to 
+make sure that the model can only see the orders for the current company.
+
+We can also mix and match those. You can see in <<agent-with-mixed-query>> how we have both the `GetOrdersInDateRange` query, which is 
+limited by the `$Company` agent parameter, and `$StartDate` and `$EndDate` query parameters, which are provided by the model and can 
+be anything.
+
+[[agent-with-mixed-query]]
+.Adding a query that accepts both agent and query parameters
+[source,csharp]
+----
+Queries = [new AiAgentToolQuery
+    {
+      Name = "GetOrdersInDateRange", 
+      Description = 
+        """
+        Get the orders for the current company in a specific date range.
+        """,
+      Query =                 
+      """
+      from "Orders" as o 
+      where o.Company = $Company 
+      and o.OrderedAt between $StartDate and $EndDate
+      order by o.OrderedAt desc
+      select {
+        OrderedAt: o.OrderedAt,
+        Products: o.Lines.map(x=>({
+          Product: x.Product, 
+          ProductName: x.ProductName
+        }))
+      }
+      """,
+      ParametersSampleObject = 
+        """{"StartDate": "yyyy-MM-dd", "EndDate": "yyyy-MM-dd"}"""
+  },
+  new AiAgentToolQuery  
+  {
+      Name = "GetRecentOrders",
+      // redacted
+  }]
+----
+
+The idea with the query in <<agent-with-mixed-query>> is that as long as we are accessing our own orders, there is no
+security reason to not access it at any range. Allowing you to mix those two types together gives you a lot of options
+with the queries that you can define for your agents.
+
+.Agent's queries are limited in scope, by design
+****
+RavenDB's AI Agents can execute queries against the database. That gives them a lot of power, but it is important to
+understand that this isn't a generic querying capabilities. The model can run _only_ the queries that you defined for
+it. And only using the parameters you allow. This is required for safety and security reasons.
+
+AI Agent we define don't have any way to execute arbitrary queries, and even for the queries that we allow it to run,
+we have strict limits on which parameters it can actually pass to the query. That is by design, to ensure that there
+is a proper structure for the manner in which the agent can query.
+
+That, in turn, means that it is much easier to reason about the kind of access that the agent has, and limits its 
+scope to exactly what you intend to give it. 
+****
+
+For your agents, you'll usually define queries to match all the actions that you want the agent to perform. The model
+will react to the user's input and select what queries to run to answer their questions. The fact that you don't have
+to make decisions on what exactly to give to the model means that your agents are going to be much more flexible. 
+
+That translates directly to having smarter agents, including unlocking capabilities that you didn't even consider when
+you built the agent. You can add a query to your agent, and suddenly it is able to do something new because a user asked
+it to do it, and it was able to figure out that it has the right information for that.
+
+For example, you can ask the agent: "What products do I usually order? What would be the cheaper alternative for those?"
+And it would go ahead and scan your recent orders, then scan the product catalog of similar products with lower prices.
+We didn't have to build this feature, it is simply an emergant property of the system.
+
+We still have a lot to learn about AI Agents, but I think it is time to start playing with them in code, and not just in
+the RavenDB Studio.
+
+#### Creating conversations programatically
+
+Chatting with the AI agent via the RavenDB Studio may be fun, but it isn't how you'll actually use AI agents in your 
+application. <<calling-the-agent>> shows how we can call the AI agent from code. 
+
+[[calling-the-agent]]
+.Calling the AI agent from code
+[source,csharp]
+----
+var conversation = store.AI.Conversation(
+    agentId: "shopping-agent",                  <1>
+    conversationId: "chats/",                   <2>
+    new AiConversationCreationOptions()
+      .AddParameter("Company", "companies/1-A") <3>
+);
+
+conversation.SetUserPrompt(                     <4>
+  "How much of the cheese I got last time do you have in stock?"
+);
+var result = await conversation                 
+        .RunAsync<ShoppingAgentAnswer>();       <5>
+Console.WriteLine(result.Answer.Reply);         <6>
+// Output: 
+// You last purchased Raclette Courdavault cheese. 
+// Currently, we have 28 units of Raclette Courdavault in stock.
+// Would you like to place an order for some more, or need any other 
+// assistance with this product?
+Console.WriteLine(conversation.Id);             <7>
+// Output:
+// chats/0000000000000008909-A
+----
+<1> The name of the agent we are invoking (`shopping-agent`).
+<2> The conversation ID for this conversation. This is _important_, see the panel on the conversation ID for more details.
+<3> Passing the agent paramters, in this case, the `Company`, to define its scope.
+<4> The user prompt we are passing to the model, to do its thing.
+<5> Executing the AI agent and sending everything to the model to give us an answer.
+<6> The reply from the model to the user's prompt. 
+<7> The conversation ID for this conversation. Since we used `chats/` as the initial conversation ID, RavenDB generated
+    a unique conversation ID for us. We need this conversation ID to keep talking with the agent in the same 
+    conversation.
+
+As you can see in <<calling-the-agent>>, the manner in which we invoke the agent if pretty simple. We create a 
+conversation, pass the relevant parameters and the user prompt, then we run the agent. In return, we get back the 
+response of the agent. We can call `SetUserPrompt` and `RunAsync` again to continue the conversation. You can see 
+that in <<agent-loop>>.
+
+[[agent-loop]]
+.A multi turn conversation with the agent is just a loop
+[source,csharp]
+----
+while (true)
+{
+    var userPrompt = Console.ReadLine();
+    conversation.SetUserPrompt(userPrompt);
+    result = await conversation.RunAsync<ShoppingAgentAnswer>();
+    Console.WriteLine(result.Answer.Reply);
+}
+----
+
+The code in <<agent-loop>> is enough for you to have a text based conversation with the agent, including having it
+remember the things you sent it in the past, etc. If you worked with the API that AI models typically offer, you can 
+appreciate how much RavenDB is doing for you behind the scenes.
+
+.Agent vs. Conversation
+[TIP]
+====
+Previously, we created agents. Just now, we had a conversation with the model. Those two are closely related, but are
+not the same thing. An agent (such as `shopping-agent`) is similar to a class definition, while a conversation (as we
+create in <<calling-the-agent>>) is an _instance_ of that class. 
+
+In other words, you'll have a few agents defined in your system, and many conversations that pertain to them. Each 
+conversation is its own instance of the agent, with its own parameters, prompt and history. 
+====
+
+<<calling-the-agent>> show us passing `chats/` to the `conversationId` argument when creating the conversation. Before we
+can talk about anything else, we need to understand what a conversation actually _is_. You can see the details in 
+<<conversation-document>>.
+
+[[conversation-document]]
+.The conversation document in RavenDB
+image::./Ch08/img23.png[]
+
+<<conversation-document>> shows the conversation document in RavenDB. Each conversation is stored as a document in the 
+`@onversations` collection. The document contains the conversation history, the agent parameters, the system prompt and other
+relevant information. The conversation ID we are talking about is simply the ID of this document. Why is that important?
+
+To understand that we need to understand how AI model work behind the scenes. There isn't any persistent state at the model's 
+level. Each time that you talk to the model, you start with a clean slate. In order to maintain continuity with the model
+we need to send it back the history of our previous discussion.
+RavenDB uses the conversation document to hold the history of the interaction with the model. 
+
+.Diving into conversation documents for fun & profit
+****
+<<conversation-document>> has a prominent "Continue conversation" button, which you can use to get the agent's chat view
+of the conversation details. This turns out to be _extremely_ useful when want to properly understand what happened in a
+converstaion. 
+
+You can see the user's input, the queries and actions (we'll cover them shortly) that were invoked, what the model replied,
+etc. This is particularly important when you have a long conversation and want to see the whole interaction between the user
+and the model. You can even continue a conversation directly in the RavenDB Studio.
+****
+
+The fact that RavenDB uses documents to store the state of a conversation opens up some really interesting options. You can 
+dig into a conversation to understand what happened there. You can _query_ over conversations (including using vector search).
+You can "fork" a conversation by simply duplicating a document. You can create a new conversation with the model (without the
+previous context) by simply pass a different conversation ID, etc.
+
+##### Conversational state for web applications
+
+The code in <<agent-loop>> shows how we can have a multi-turn conversation with the model. We can call `SetUserPrompt` and 
+`RunAsync` multiple times on the same `conversation` object instance. How would that work when our code runs in a web application?
+We can use the same approach of having a conversation instance, but you'll need to stash that instance somewhere between 
+requests. You can try using a web socket connection, instead of plain HTTP calls, but that significantly raises the bar 
+for complexity in your system.
+
+Instead of trying to store the conversation instance in session storage, or maintain a persistent web socket connection, we can
+use the conversation ID to hold this state. Consider the code in <<agent-web>>, which shows how we 
+
+[[agent-web]]
+.Conversing with the AI agent in a web context
+[source,csharp]
+----
+app.MapPost("/chat", async (HttpContext context) =>
+{
+    var conversationId = "chats/";                                    <1>
+    if (context.Request.Query.TryGetValue("conversationId", out var v))
+        conversationId = v;
+    var companyId = context.Request.Query["companyId"].ToString();    <2>
+    var conversation = store.AI.Conversation(
+        agentId: "shopping-agent",
+        conversationId: conversationId,                               <3>
+        new AiConversationCreationOptions()
+            .AddParameter("Company", companyId)
+    );
+
+    var body = await context.Request.ReadFromJsonAsync<UserRequest>();<4>
+    conversation.SetUserPrompt(body.Prompt);
+
+    var result = await conversation.RunAsync<ShoppingAgentAnswer>();  <5> 
+    
+    await context.Response.WriteAsJsonAsync(new                       <6>
+    { 
+        answer= result.Answer,
+        conversationId = conversation.Id
+    });
+});
+record UserRequest(string Prompt);
+----
+<1> Get the `conversationId` from the query string or use `chats/` to create a _new_ conversation if it wasn't specified.
+<2> Read the `companyId` from the request to pass to the agent later on. 
+<3> Create or resume a conversation.
+<4> Read the user's request from the request body and set it in the conversation instance.
+<5> Run the conversation to get the agent's answer.
+<6> Return the agent's answer and the conversation ID to the client. The client can use the conversation ID to continue the conversation in future requests.
+
+
+The interesting bit about <<agent-web>> is all the code that _isn't_ there. The only thing that you need to handle the state of the 
+conversation between requests is passing the `conversationId` query string parameter. We are also returning that back to the caller, so the caller can 
+resume the conversation later on. The rest of the state management is handled by RavenDB for you.
+
+There are several other aspects to consider when looking at the code in <<agent-web>>. Note that the code doesn't care whether you create a new conversation
+or continue an existing one. It does mean that you _must_ always pass the creation parameters, even if this is an existing conversation (RavenDB will
+ignore the parameters you end when you use an existing conversation). 
+
+The `conversationId` we pass isn't limited to just `chats/`. You can pass anything you want there. If a document with that name exists, RavenDB'll use that to
+resume the conversation. If it doesn't exists, RavenDB will create a new conversation. For example, you can have `$"chats/{DateTime.Today:yyyy-MM-dd}"` as the
+conversation ID. That will give you a "daily" conversation, in effect. 
+
+A note about security: RavenDB assumes that the parameters you send to create the conversation are _validated_. In other words, consider the `companyId` parameer.
+In <<agent-web>> we are just passing the value from the query string to the conversation. In a real system, you'll need to validate that the user actually has 
+access to the relevant company before handing that to the agent.
+
+#### Agent Parameters
+
+When defining an agent, we specify what are the parameters that are required for the agent. We specify both the name and the description of the parameter. Then
+when we create a conversation, we provide those parameters for the conversation. This is similar to defining parameters for a constructor and then creting a
+new instance of the class. 
+
+Let's take a deeper look at how those two play together. In <<agent-parameters>> you can see how we pass parameters to the agent. The system prompt is enhanced
+with the description of the parameters, to give the model a better understanding of what they are for. And we pass multiple user prompts to provides the actual 
+values for those parameters.
+
+[[agent-parameters]]
+.How RavenDB is sending the conversation parameters to the agent
+[source,json]
+----
+{
+ "Messages": [
+  {
+   "role": "system",
+   "content": " // redacted system prompt
+The parameters for this conversation are described as follows:
+- Company: The id of the current company for the agent
+",
+   "date": "2026-02-06T09:31:31.9958138Z"
+  },
+  {
+   "role": "user",
+   "content": "AI Agent Parameters:
+Company = companies/1-A
+",
+   "date": "2026-02-06T09:31:31.9958194Z"
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "text",
+     "text": "How much of that cheese I got last time do you have in stock?"
+    }
+   ],
+   "date": "2026-02-06T09:31:31.9958311Z"
+  }
+ ]
+}
+----
+
+RavenDB treats the agent parameters as part of the conversation history, but it is important to note that they are _not_ user input. In other words,
+RavenDB assumes that those parameters are trusted. The `Company` parameter, for example, is both exposed to the model and available for queries.
+The model can see the parameters, but it cannot effect them for queries. That means that you can rely on those parameters to be consistent and valid. 
+
+Usually, those parameters will be dervied from your own system. For example, the user ID of the user talking to the agent, or the IDs of the 
+companies it it associated with. In other words, that is meant to be trusted information.
+
+What about when we have information that _isn't_ trusted? You can use `conversation.AddUserPrompt()` to add multiple pieces of information to the model.
+That would provide the information to the model, but not expose that to the RavenDB conversation as a trusted value. 
+
+RavenDB ensures that when you create a conversation, all the parameters defined on the agent are set. Those are required only at the creation of the 
+conversation, not when you resume an existing one. It is usually easier to always pass those parameters, but they are _ignored_ for resumption.
+Note that required parameter doesn't mean a required value. You are allowed to send a `null` as a conversation parameter. 
+
+
+
+current time, frex
+
+send to model = false
+
+#### Actions
+
+error handling here
+
+#### Offline actions
+
+#### Complex responses from the agent
+
+#### Streaming
+
+#### Advanced AI Agent queries
+
+agent-with-mixed-query
+
+context size / limits
+
+initial context
+send to model 
+
+
+search by id / load items
+
 
 
 #### The memory of an AI Agent
@@ -2385,7 +2766,10 @@ to some hilarious results.
 
 #### Error handling & rate limits
 
+#### AI Agent Security
 
 #### Mutli Agents
 
 #### AI Agents and attachments
+
+#### Prompt engineering
