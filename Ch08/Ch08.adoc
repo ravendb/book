@@ -2705,17 +2705,74 @@ Company = companies/1-A
 
 RavenDB treats the agent parameters as part of the conversation history, but it is important to note that they are _not_ user input. In other words,
 RavenDB assumes that those parameters are trusted. The `Company` parameter, for example, is both exposed to the model and available for queries.
-The model can see the parameters, but it cannot effect them for queries. That means that you can rely on those parameters to be consistent and valid. 
+The model can see the parameters, but it cannot effect them for queries. That means that you can rely on those parameters to be consistent and 
+valid. 
 
-Usually, those parameters will be dervied from your own system. For example, the user ID of the user talking to the agent, or the IDs of the 
+Usually, those parameters will be derived from your own system. For example, the user ID of the user talking to the agent, or the IDs of the 
 companies it it associated with. In other words, that is meant to be trusted information.
+What about when we have information that _isn't_ trusted? You can use `conversation.AddUserPrompt()` to add multiple pieces of 
+information to the model. That would provide the information to the model, but not expose that to the RavenDB conversation as a trusted value.
 
-What about when we have information that _isn't_ trusted? You can use `conversation.AddUserPrompt()` to add multiple pieces of information to the model.
-That would provide the information to the model, but not expose that to the RavenDB conversation as a trusted value. 
+In other words, if you have queries that accept agent level parameters (which are presumed to be trusted in queries), using `AddUserPrompt()` 
+will hide them from RavenDB. Of course, the agent can chose to use those parameters in queries (where it can set them), but any agent level
+parameter will _override_ them.
 
-RavenDB ensures that when you create a conversation, all the parameters defined on the agent are set. Those are required only at the creation of the 
-conversation, not when you resume an existing one. It is usually easier to always pass those parameters, but they are _ignored_ for resumption.
-Note that required parameter doesn't mean a required value. You are allowed to send a `null` as a conversation parameter. 
+.Parameter naming
+****
+Query parameters that share the same name of an agent level parameter are _guarnateed_ by RavenDB to use the agent's level parameter.
+In other words, the agent has no way to set this parameter or call the query with another value for this parameter.
+
+Trying to define a query level parameter with the same name of an agent level parameter will result in an error. RavenDB also validates
+the parameters for a query, so all the parameters that appear in the query are either defined at the agent level or at the query level.
+****
+
+RavenDB ensures that when you create a conversation, all the parameters defined on the agent are set. 
+Those are required only at the creation of the conversation, but not when you resume an existing one. It is usually easier to 
+always pass those parameters, but they are _ignored_ for resumption.
+
+Requiring that you'll set a parameter doesn't mean requiring a _value_. You are allowed to send a `null` as a conversation parameter. 
+
+<<agent-parameters>> shows you how RavenDB passes the parameters to the agent. What happens when you want to set an agent parameter
+(so that it would be available for queries) but _not_ make it visible to the model? There are a number of reasons why you may want
+to hide information from your model. If you are using a model in the cloud (like OpenAI, OpenRouter, etc), privacy or GDPR concerns
+may mean that you want to hide an email from the model, but you need to use that email in queries to find the current user.
+
+<<hiding-params>> shows how you can handle this scenario using RavenDB, but using `sendToModel: false` in the parameter definition.
+
+[[hiding-params]]
+.Preventing the model from seeing parameters (but using them in queries)
+[source,csharp]
+----
+var aiAgent = new AiAgentConfiguration
+{
+    Name = "Shopping Agent",  
+    // redacted... 
+    Parameters = [            
+        new AiAgentParameter("Company",                 <1>
+        "The id of the current company for the agent"),
+        new AiAgentParameter("email",                   
+            "The email of the current user",
+            sendToModel: false)                         <2>
+    ],
+    Queries = [
+        new AiAgentToolQuery
+        {
+            Name = "GetCurrentUser",
+            Description = "Get the details of the current user",
+            ParametersSampleObject = "{}",// no query level parameters
+            Query = "from Users where Email = $email"   <3>
+        }
+    ]
+};
+----
+<1> Normal parameter (visible to the model)
+<2> Parameter defined with `sendToMode: false` will _not_ be sent to the model.
+<3> Using the model-hidden parameter in a query.
+
+As you can see in <<hiding-params>>, we specify the `email` parameter as an agent level parameter. That parameter is only 
+meant for the agent's internal operations, not for the 
+
+
 
 
 
