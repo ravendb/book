@@ -2124,7 +2124,7 @@ The following is the tip of the iceberg of what you need to deal with, but it sh
 The list above is merely the beginning of the list of things that you need to concern yourself with. In the preceding parts of this chapter, we didn't 
 deal with those, because we mostly had one-shot integration with the model. We gave it a single task (generate embedding, generate a response, etc).
 When dealing with AI Agents, the situation is a lot more complex. Thankfully, RavenDB does a lot of the heavy lifting for you, letting you focus on
-the actual business aspects, rather than the tehcnical minituia that you need to run AI Agents succesfully.
+the actual business aspects, rather than the thecnical minituia that you need to run AI Agents succesfully.
 
 #### Your first AI Agent
 
@@ -2790,15 +2790,42 @@ parameter to the model (and the model may try to provide a value for this query)
 the parameter value that was provided to the agent.
 
 In other words, if you specified `.AddParameter("Vegeterian", true)` in the conversation, the query will _always_ see the query
-parameter `$Vegeterian` as `true`. That is even if you tell teh model that you want a non-vegie meal and the model try to send the 
+parameter `$Vegeterian` as `true`. That is even if you tell the model that you want a non-vegie meal and the model try to send the 
 `$Vegeterian` paramaeter as `false`.
+As a result, optional parameters gives you more fine-grained control over the queries that the model can execute and its behavior.
 
-In other words, optional parameters are a good way for you to have more fine-grained control over the queries that the model can
-execute. 
+[TIP]
+====
+Models have knowledge cut off dates. If you'll ask `gpt-4.1-min`, it's cutoff date is June 2024. It also typically think that 
+it is now June 2024. If you'll ask it "what did I order last month", it will typically use `'2024-05-01' TO '2024-05-31'` as 
+the dates. You can deal with that by passing the current time as a parameter using: 
+`.AddParameter("currentTime", DateTime.Today.ToString("yyyy-MM-dd"))`.
+====
 
+It is important to note that the parameters are _fixed_ for the duration of the conversation and cannot be changed. Usually, a 
+conversation with the model lives only for a short period of time, but if you have long lived conversations, that is something
+to pay attention to.
 
+if you use a single conversation for a long period of time, those parameters may become stale. In the context of the current time, 
+if you continue a conversation that was started a week ago, and ask it for yesterday's details, it will give you old data. A more 
+subtle scenario may be when the underlying parameters for this conversation changed. For example, if a user started a conversation
+about product recommendations and only then updated their allregies in the system, the existing conversation will not have those
+allergies in its parameters. 
 
-current time, frex
+.Paramters you can rely on
+****
+It is pretty easy to expose things like "what is the user allergic for" to the model as a query. In that case, the model will get
+the latest information whenever it executes the query. Why would I want to use parameters for that? 
+
+The answer is simple: you can _rely_ on the parameters. If you give the model the _option_ to query for the allergies, it will 
+_usually_ do that, but sometimes it won't (it is a probalistic engine, after all). The usage of paremeters ensure that you are
+passing the values directly from your code, they are considered trusted and they override anything the agent try to add in
+their place.
+
+There is also a separate issue, the model may have already called the relevant query once, but it may decide to not call it 
+again to refresh the values (it has no intristic notion of "it has been a while, probably need to refresh this"). 
+****
+
 
 send to model = false
 
@@ -2823,6 +2850,8 @@ send to model
 
 search by id / load items
 
+using `when` for queries
+
 #### The memory of an AI Agent
 
 In its natural state, a Large Language Model is just doing a bunch of math on top of a large pile of parameters. Yes, that is oversimplifying things 
@@ -2845,6 +2874,8 @@ to some hilarious results.
 #### AI Agent Security
 
 #### Mutli Agents
+
+#### Pre & Post agents
 
 #### AI Agents and attachments
 

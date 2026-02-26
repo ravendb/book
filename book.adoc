@@ -82,9 +82,6 @@ include::./Ch07/Ch07.adoc[]
 [[ai-llm]]
 include::./Ch08/Ch08.adoc[]
 
-
-
-
 [[ravendb-clusters]]
 ## RavenDB Clusters
 
@@ -107,8 +104,6 @@ include::./Ch10/Ch10.adoc[]
 
 [[map-reduce]]
 ## MapReduce and Aggregations in RavenDB
-
-
 
 [[etl-integrations]]
 ## Sharing data and making friends with ETL
