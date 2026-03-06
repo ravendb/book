@@ -2298,12 +2298,15 @@ You can see the additional query we define in <<agent-with-recent-orders>>.
 .Adding pareters to the agent, and exposing the `GetRecentOrders` query
 [source,csharp]
 ----
-Parameters = [            <1>
-        new AiAgentParameter("Company", 
-            "The id of the current company for the agent")
-    ],
-Queries = [new AiAgentToolQuery
-    {
+new AiAgentConfiguration {
+  Name = "shopping-agent",
+  // redacted
+  Parameters = [            <1>
+          new AiAgentParameter("Company", 
+              "The id of the current company for the agent")
+      ],
+  Queries = [new AiAgentToolQuery
+  {
       Name = "GetRecentOrders", 
       Description = 
         """
@@ -2331,6 +2334,7 @@ Queries = [new AiAgentToolQuery
       Name = "SearchProductCatalog",
       // redacted
   }]
+}
 ----
 <1> Adding the `Company` parameter to the agent defintion. The agent will now _required_ you to call it with this parameter.
     That parameter is exposed to the query and allows us to properly define its scope.
@@ -2422,7 +2426,10 @@ be anything.
 .Adding a query that accepts both agent and query parameters
 [source,csharp]
 ----
-Queries = [new AiAgentToolQuery
+new AiAgentConfiguration {
+  Name = "shopping-agent",
+  // redacted
+  Queries = [new AiAgentToolQuery
     {
       Name = "GetOrdersInDateRange", 
       Description = 
@@ -2451,6 +2458,7 @@ Queries = [new AiAgentToolQuery
       Name = "GetRecentOrders",
       // redacted
   }]
+}
 ----
 
 The idea with the query in <<agent-with-mixed-query>> is that as long as we are accessing our own orders, there is no
@@ -2540,7 +2548,7 @@ while (true)
 {
     var userPrompt = Console.ReadLine();
     conversation.AddUserPrompt(userPrompt);
-    result = await conversation.RunAsync<ShoppingAgentAnswer>();
+    result = await conversation.RunAsync< >();
     Console.WriteLine(result.Answer.Reply);
 }
 ----
@@ -2826,16 +2834,175 @@ There is also a separate issue, the model may have already called the relevant q
 again to refresh the values (it has no intristic notion of "it has been a while, probably need to refresh this"). 
 ****
 
+##### Hiding parameters from the model
 
-send to model = false
+RavenDB allows you to define parameters for the agent that are _not_ sent to the model. That is useful for parameters that you want
+to use for your own logic, but you don't want the model to be aware of them. For example, assume that the `Email` parameter 
+is used in queries to find the current user. At the same time, we do _not_ want to expose the user's email to the model for privacy
+concerns. 
 
-#### Actions
+RavenDB supports this scenario using the `new AiAgentParameter("Email", "N/A", sendToModel: false)` parameter definition.
+That allows you to have the `Email` parameter available for queries, but it won't be sent to the model. Note that in such as scenario
+we don't need to specify the description of the parameter (there is no point, the model will not get that).
+
+#### Agents taking actions
+
+Up to this point, we looked into how RavenDB's AI Agents can query additional information to give us good and relevant answers. The
+next step is to also allow the agent to take actions and modify data. In our `shopping-agent` example, we may want to add an item to
+the shopping cart, cancel an order or refund a payment. How do you do any of that using agents in RavenDB?
+
+With queries, RavenDB allows you to simply define the query and parameters, and when the agent calls it, RavenDB takes care of everything
+for you. With actions, however, the situation is different. We _could_ let the model just mutate the data directly, of course, but that
+would be incredibly unsafe. Instead, RavenDB takes the approach that you can define actions that the model can invoke. When the model invokes
+an action, RavenDB will call a callback in your code, and _you_ are then responsible for executing the action. That allows you to have full 
+control over what the agent can do, and how it does it. That includes invoking your own validation, business rules, authorization, etc.
+
+Let's take a look at how to define an action for the agent. Consider the code in <<agent-action-add-to-cart>>, where we add the ability to
+add an item to the shopping cart. Note that in <<agent-action-add-to-cart>> we only _define_ the action, we'll see what is actually invoked
+later in <<agent-invoke-add-to-cart>>.
+
+[[agent-action-add-to-cart]]
+.Defining an action that adds an item to the shopping cart
+[source,csharp]
+----
+new AiAgentConfiguration {
+  Name = "shopping-agent",
+  // redacted
+  Actions = [
+    new AiAgentToolAction
+    {
+      Name = "AddToCart", <1>
+      Description = "Add a product to the user's cart",
+      ParametersSampleObject = 
+        """               <2>
+        {
+          "ProductId": "The id of the product to add",
+          "Quantity": 1,
+        }
+        """
+    }
+  ],
+}
+----
+<1> The name of the action that we allow the model to invoke.
+<2> The parameters (using sample object notation) that the model needs to pass to the action to invoke it.
+
+<<agent-action-add-to-cart>> is showing how we can define an action. Note that unlike a query, we define the name and description, tell
+the model what parameters it needs to give us to invoke it, but we are _not_ specifying what will run. That is intentional, since RavenDB 
+defers the actual action invocation to _your_ code, as you can see in <<agent-invoke-add-to-cart>>.
+
+[[agent-invoke-add-to-cart]]
+.Defining an action to be invoked by the model at the conversation level
+[source,csharp]
+----
+var companyId = "companies/1-A";
+var conversation = store.AI.Conversation(                 <1>
+  "shopping-agent", "chats/",
+  new AiConversationCreationOptions()
+    .AddParameter("Company", companyId)
+);
+                                                          <2>
+conversation.Handle<AddToCartParams>("AddtoCart", async args => {
+  var i = await AddToCart(companyId, args.ProductId, args.Quantity);
+  return $"cart {i.ProductId} with quantity: {i.Quantity}";
+});
+                      
+async Task<ShoppingCartItem> AddToCart(string companyId,  <3>
+  string productId, int quantity) {
+  using var session = store.OpenAsyncSession();
+  string cartId = "carts/" + companyId;
+  var cart = await session.LoadAsync<ShoppingCart>(cartId);
+  if (cart is null)
+  {
+    cart = new ShoppingCart(productId, []);
+    await session.StoreAsync(cart, cartId);
+  }
+
+  ShoppingCartItem item = cart.Items.Find(
+    x => x.ProductId == productId);
+  if (item is null)
+  {
+    Product product = await session.LoadAsync<Product>(productId);
+    item = new ShoppingCartItem(productId, product.Name);
+    cart.Items.Add(item);
+  }
+  item.Quantity += quantity;
+  await session.SaveChangesAsync();
+  return item;
+}
+----
+<1> Creating the conversation as we normally did up to this point.
+<2> Adding a `Handle` call to handle the invocation of the add to cart action.
+<3> Actual handling of the add to cart action, which is just normal code that you would write to add an item to the shopping cart.
+You'll usually call to your existing code to reuse the same business rules, validation and authorization.
+
+<<agent-invoke-add-to-cart>> shows the full handling of a model invoking the `AddToCart` action. The `Handle` method takes the 
+name of the action and a callback to invoke when the model calls this action. In <<agent-invoke-add-to-cart>> we simply forward
+the method (along with the relevant context) to the standard method we have for adding an item to the shopping cart.
+
+Note that the `Handle` method returns a string. That string is sent to the model and is intended to communicate back to the model
+what the results of invoking this action are. For example, if you try to add a product that is out of stock, we can handle that, return
+that as a message to the model and have it handle the issue properly.
+
+Previously, we were able to use the chat directly inside the studio (as in <<valentine-day-recommendation>>) to test out the behavior
+of our agent. With actions, the situation is a bit more complex, since we need to run the `Handle` logic, we have to use code such as
+<<agent-loop>> to run the agent. You can see an example of such a conversation in <<agent-buy-cheese>>.
+
+[[agent-buy-cheese]]
+.Conversing with the model to invoke the `AddToCart` to buy cheese
+[source,text]
+----
+User  > What cheese did I buy last time?
+Agent > The last time you bought cheese was on 1998-01-15. The cheese you bought was Raclette Courdavault.
+User  > In what units is it sold?
+Agent > The cheese Raclette Courdavault is sold in units of 5 kg packages.
+User  > I want to buy 15 kg
+Agent > I have added 15 kg of Raclette Courdavault cheese to your cart, which is equivalent to 3 units of 5 kg packages.
+----
+
+The conversation in <<agent-buy-cheese>> isn't really interesting, it is a pretty typical back and forth, right? Let's dig deeper and
+see what we can find when we look at the back end. Inside the RavenDB Studio, locate the most recent conversation document, open that
+and then click on the `Continue Conversation` button.
+
+That will open the chat view for this conversation, which will show you the entire history of the conversation, including the user prompts, 
+the model's responses, the queries that were executed and the actions that were invoked. We had three interactions with the user in
+<<agent-buy-cheese>>, the first one is shown <<agent-cheese-1>>.
+
+[[agent-cheese-1]]
+.Asking the model about cheese, and the resulting recent orders query
+image::./Ch08/img24.png[]
+
+<<agent-cheese-1>> isn't anything new, we already saw how the model is able to invoke queries to answer questions from the user. The second
+question is more interesting, as you can see in <<agent-cheese-2>>.
+
+[[agent-cheese-2]]
+.Asking the model in what units the cheese is sold
+image::./Ch08/img25.png[]
+
+<<agent-cheese-2>> shows the model invoking the `SearchProductCatalog` query to get the details about the cheese. This is interesting because
+we can see how the model is able to compose the different query capabilities we gave it to give good answers to the user.  
+The real fun starts with the third question, as you can see in <<agent-cheese-3>>.
+
+[[agent-cheese-3]]
+.Invoking a custom action to add the cheese to the shopping cart
+image::./Ch08/img26.png[]
+
+In <<agent-cheese-3>> you can see that the model turned the "I want to buy 15 kg" into a call to `AddToCart` with the right product id and 
+a quantity of 3. This is pretty fun aspect of using AI models, we didn't have to do any of the hard lifting. The agent is capable of figuring
+out that it needs to call the right query or action, and we can just write the little bit of wiring code to make it happen.
+
+#### Understanding how agents use actions
+
+
 
 error handling here
 
 #### Offline actions
 
 #### Complex responses from the agent
+
+followup, boolean, explanation, etc
+the schema of the answer
 
 #### Streaming
 
