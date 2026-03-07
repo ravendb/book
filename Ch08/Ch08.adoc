@@ -2471,8 +2471,8 @@ RavenDB's AI Agents can execute queries against the database. That gives them a 
 understand that this isn't a generic querying capabilities. The model can run _only_ the queries that you defined for
 it. And only using the parameters you allow. This is required for safety and security reasons.
 
-AI Agent we define don't have any way to execute arbitrary queries, and even for the queries that we allow it to run,
-we have strict limits on which parameters it can actually pass to the query. That is by design, to ensure that there
+The agents we define don't have any way to execute arbitrary queries, and even for the queries that we allow them to run,
+we have strict limits on which parameters they can actually pass to the query. That is by design, to ensure that there
 is a proper structure for the manner in which the agent can query.
 
 That, in turn, means that it is much easier to reason about the kind of access that the agent has, and limits its 
@@ -2906,8 +2906,17 @@ conversation.Handle<AddToCartParams>("AddtoCart", async args => {
   var i = await AddToCart(companyId, args.ProductId, args.Quantity);
   return $"cart {i.ProductId} with quantity: {i.Quantity}";
 });
+
+while (true)                                              <3>
+{
+  Console.Write("User  > ");
+  var userPrompt = Console.ReadLine();
+  conversation.AddUserPrompt(userPrompt);
+  var result = await conversation.RunAsync<ShoppingAgentAnswer>();
+  Console.WriteLine("Agent > " + result.Answer.Reply);
+}
                       
-async Task<ShoppingCartItem> AddToCart(string companyId,  <3>
+async Task<ShoppingCartItem> AddToCart(string companyId,  <4>
   string productId, int quantity) {
   using var session = store.OpenAsyncSession();
   string cartId = "carts/" + companyId;
@@ -2933,7 +2942,8 @@ async Task<ShoppingCartItem> AddToCart(string companyId,  <3>
 ----
 <1> Creating the conversation as we normally did up to this point.
 <2> Adding a `Handle` call to handle the invocation of the add to cart action.
-<3> Actual handling of the add to cart action, which is just normal code that you would write to add an item to the shopping cart.
+<3> Calling the agent in a loop to have a multi-turn conversation with it.
+<4> Actual handling of the add to cart action, which is just normal code that you would write to add an item to the shopping cart.
 You'll usually call to your existing code to reuse the same business rules, validation and authorization.
 
 <<agent-invoke-add-to-cart>> shows the full handling of a model invoking the `AddToCart` action. The `Handle` method takes the 
@@ -2945,19 +2955,26 @@ what the results of invoking this action are. For example, if you try to add a p
 that as a message to the model and have it handle the issue properly.
 
 Previously, we were able to use the chat directly inside the studio (as in <<valentine-day-recommendation>>) to test out the behavior
-of our agent. With actions, the situation is a bit more complex, since we need to run the `Handle` logic, we have to use code such as
-<<agent-loop>> to run the agent. You can see an example of such a conversation in <<agent-buy-cheese>>.
+of our agent. With actions, the situation is a bit more complex, since we need to run the `Handle` logic. You'll note that the code 
+in <<agent-invoke-add-to-cart>> is very similar to the one we previously used in <<agent-loop>> to run the agent. 
+We don't _need_ to do anything, RavenDB will call our `Handle` code as part of running the `conversation.RunAsync()` method. 
+
+You can see an example of such a conversation in <<agent-buy-cheese>>.
 
 [[agent-buy-cheese]]
 .Conversing with the model to invoke the `AddToCart` to buy cheese
 [source,text]
 ----
-User  > What cheese did I buy last time?
-Agent > The last time you bought cheese was on 1998-01-15. The cheese you bought was Raclette Courdavault.
-User  > In what units is it sold?
-Agent > The cheese Raclette Courdavault is sold in units of 5 kg packages.
-User  > I want to buy 15 kg
-Agent > I have added 15 kg of Raclette Courdavault cheese to your cart, which is equivalent to 3 units of 5 kg packages.
+User:   What cheese did I buy last time?
+Agent:  The last time you bought cheese was on 1998-01-15. 
+        The cheese you bought was Raclette Courdavault.
+
+User:   In what units is it sold?
+Agent:  The cheese Raclette Courdavault is sold in units of 5 kg packages.
+
+User:   I want to buy 15 kg
+Agent:  I have added 15 kg of Raclette Courdavault cheese to your cart, 
+        which is equivalent to 3 units of 5 kg packages.
 ----
 
 The conversation in <<agent-buy-cheese>> isn't really interesting, it is a pretty typical back and forth, right? Let's dig deeper and
@@ -2991,11 +3008,58 @@ In <<agent-cheese-3>> you can see that the model turned the "I want to buy 15 kg
 a quantity of 3. This is pretty fun aspect of using AI models, we didn't have to do any of the hard lifting. The agent is capable of figuring
 out that it needs to call the right query or action, and we can just write the little bit of wiring code to make it happen.
 
-#### Understanding how agents use actions
+#### Deep diving into actions
 
+Take another look at the code in <<agent-invoke-add-to-cart>>. We defined the `Handle` callback, but we aren't actually calling that. Instead,
+we let RavenDB itself handle that part. When you make queries and actions available to the model, it is the model's choice to invoke them.
+The model may invoke one (or more) queries and actions to perform its task.
 
+If a query (or queries) are called, RavenDB will handle that internally and send the results back to the model. If an action is called, RavenDB
+will invoke your `Handle` callback and send the resulting string back to the model, in much the same way it would handle queries. There are a 
+few things you need to know about how RavenDB invokes your action.
 
-error handling here
+You can define multiple actions for the agent, and the agent may invoke multiple actions (or the same action multiple times) at once. RavenDB
+ensures that the callbacks are run one at a time. You cannot assume the order in which those actions will be called.
+
+For example, if we ask the agent: "I want 5kg Raclette and 1kg of Mozzarella", what happens behind the scenes? You can see the result in 
+<<agent-two-cheeses>>. 
+
+[[agent-two-cheeses]]
+.Asking the agent to buy two different cheeses in a single shot
+image::./Ch08/img27.png[]
+
+<<agent-two-cheeses>> shows the backend behavior of processing this user request. The model run two queries, one to find the product for Raclette
+and another for Mozzarella. Then it called to `AddToCart` twice, first adding 1 unit of 5kg of Raclette and another to add 5 units of 200g of 
+Mozzarella. All of that was invoked behind the scenes by a single call to `conversation.RunAsync()`.
+
+.Putting the agent at the driver's seat
+****
+The key obesrvation about utilizing agents with RavenDB is that you are _meant_ to provide the agent with the capabilities (queries and actions)
+and let it manage things from there. The idea is that the agent will translate the user's input into the relevant actions in your system. 
+If you are familiar with the Inversion of Control design pattern, that is a very similar concept. We provide a set of capabilities, and then let
+the user (using the model) to drive the interaction with our system. 
+****
+
+I mentioned earlier that the result of the callback is fed back into to model. I want to focus on that for a moment. The callback to the `Handle`
+method is a string. That string is sent back to the model. We can just _tell_ the model the result of executing our action. The model can then
+use this answer to formulate the final message back to the user. 
+
+That gives us a bunch of interesting options. We can provide _more_ information than just "success" / "failed" markers. In 
+<<agent-invoke-add-to-cart>> you can see the we provide the total quantity for the item in the cart. So the model can tell how much total we
+have in our cart. We could also provide it with the full cart details as the result of calling `AddToCart`. It may provide better interaction
+with the user. 
+
+This approach is also useful to convey additional constraints back to the model. For example, if the model call `AddToCart` with a quantity 
+that we don't have in stock, what should we do? We can fail the entire operation, or we can just tell the model that we have only so much in
+stock, and let it decide what to do. It may add the smaller ammount, it may ask the user or use an alternative product.
+
+[TIP]
+====
+If your `Handle` callback throws an exception, RavenDB will automatically pass that exception to the model. If you throw 
+`ProductOutOfStockException` with the right message, that alone would be sufficent for the model to undersatnd what the error is and either
+try to resolve that or explain to the user exactly what the problem is.
+====
+
 
 #### Offline actions
 
