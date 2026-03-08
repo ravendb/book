@@ -3008,6 +3008,13 @@ In <<agent-cheese-3>> you can see that the model turned the "I want to buy 15 kg
 a quantity of 3. This is pretty fun aspect of using AI models, we didn't have to do any of the hard lifting. The agent is capable of figuring
 out that it needs to call the right query or action, and we can just write the little bit of wiring code to make it happen.
 
+[TIP]
+====
+Parameters for actions behave exactly like parameters for queries. The model will generate the values for the parameters, as we saw in
+`AddToCart`. If you have a parmaeter whose name match the _agent's_ parameters, those take precendance. You can _trust_ that the an 
+action parameter with the same name (case sensitive) as the agent parameters is the same one. 
+====
+
 #### Deep diving into actions
 
 Take another look at the code in <<agent-invoke-add-to-cart>>. We defined the `Handle` callback, but we aren't actually calling that. Instead,
@@ -3045,7 +3052,7 @@ method is a string. That string is sent back to the model. We can just _tell_ th
 use this answer to formulate the final message back to the user. 
 
 That gives us a bunch of interesting options. We can provide _more_ information than just "success" / "failed" markers. In 
-<<agent-invoke-add-to-cart>> you can see the we provide the total quantity for the item in the cart. So the model can tell how much total we
+<<agent-invoke-add-to-cart>> you can see that we provide the total quantity for the item in the cart. So the model can tell how much total we
 have in our cart. We could also provide it with the full cart details as the result of calling `AddToCart`. It may provide better interaction
 with the user. 
 
@@ -3060,8 +3067,195 @@ If your `Handle` callback throws an exception, RavenDB will automatically pass t
 try to resolve that or explain to the user exactly what the problem is.
 ====
 
+#### Deferred action responses
 
-#### Offline actions
+So far, we looked at actions that are invoked as part of a single `RunAsync()` call, like `AddToCart`. For example, you may want to have an
+action that require the user to perform an action. For example, what happens if the user's input is required, and you are running in a web
+application.
+
+In our `shopping-agent`, we want to allow the user to purchase the content of their cart. That requires that we would charge the user,
+conver the cart into an order, etc. It's easier to understand when you think about this in terms of the user experience. You can see how
+this is meant to behave in <<purhcase-cart-dlg>>.
+
+[[purhcase-cart-dlg]]
+.A user dialog for purchasing the contents of the shopping cart
+image::./Ch08/img28.png[]
+
+How do we model that kind of interaction with the model? We cannot just handle that using a callback as we previously did. In a web 
+application, the entire model interaction is a single request. We need to have the model trigger an action, which we'll then return
+to the backend code, which will reply to the frontend that it needs to show the purchase dialog. 
+
+We'll start by adding a new action to the agent, as shown in <<agent-purchase-action>>.
+
+[[agent-purchase-action]]
+.Adding a `PurchaseCart` action to the agent
+[source,csharp]
+----
+new AiAgentConfiguration {
+  Name = "shopping-agent",
+  // redacted
+  Actions = [
+    new AiAgentToolAction
+    {
+      Name = "PurchaseCart", 
+      Description = "Charge the user to purchase the cart's contents",
+      ParametersSampleObject = "{}" // no parameters required
+    },
+    new AiAgentToolAction
+    {
+      Name = "AddToCart", 
+      //redacted
+    }
+  ],
+}
+----
+
+Note that <<agent-purchase-action>> shows the `PurchaseCart` action, which has no parameters. The user only has a single cart, and that
+is implicit to the conversation, so there are no parameters to pass. The additional action we added will be invoked by the model when we
+want to purchase the cart. How do we _handle_ this? 
+
+We previously looked at <<agent-web>> to show how we can use AI agents in web application. We adapted that example to also handle 
+actions, as you can see in <<agent-web-action>>.
+
+[[agent-web-action]]
+.Using AI agents with actions in a web context
+[source,csharp]
+----
+app.MapPost("/chat", async (HttpContext context) => {
+  var conversationId = "chats/";                                    
+  if (context.Request.Query.TryGetValue("conversationId", out var v))
+      conversationId = v;
+  var companyId = context.Request.Query["companyId"].ToString();    
+  var conversation = store.AI.Conversation(
+      agentId: "shopping-agent",
+      conversationId: conversationId,                               
+      new AiConversationCreationOptions()
+          .AddParameter("Company", companyId)
+  );
+  conversation.Handle<AddToCartParams>("AddtoCart", async args => {
+    var i = await AddToCart(companyId, args.ProductId, args.Quantity);
+    return $"cart {i.ProductId} with quantity: {i.Quantity}";
+  });
+
+  string purchaseCartActionId = null;                    <1>
+  conversation.Receive<PurchaseCartArgs>("PurchaseCart", 
+      (req, args) => purchaseCartActionId = req.ToolId); <2>
+
+
+  var body = await context.Request.ReadFromJsonAsync<UserRequest>();
+  if(body.Prompt is not null) {
+    conversation.AddUserPrompt(body.Prompt);             <3>
+  }
+  foreach(var r in body.ActionResults) {                 <4>
+    conversation.AddActionResponse(r.ActionId, r.Result);
+  }
+                                                         
+  var result = await conversation.RunAsync<ShoppingAgentAnswer>(); 
+  await context.Response.WriteAsJsonAsync(new            <5>           
+  {
+      showPurchaseCart = purchaseCartActionId != false,   
+      purchaseCartActionId,
+      status = result.Status,                            <6>
+      answer = result.Answer,
+      conversationId = conversation.Id
+  });
+});
+record UserRequest(string Prompt, ActionResult[] ActionResults);
+record ActionResult(string ActionId, string Result);
+----
+<1> A variable to hold the action ID of the `PurchaseCart` action, which will be used to tell the frontend to show the purchase dialog.
+<2> We record the `ToolId` for this action invocation in the  `Recieve` callback. Unlike `Handle`, `Recieve` *not* have a result. We need 
+    to explicitly close this action call using `conversation.AddActionRepsonse()`, so we need to remember which `ToolId` we are closing.
+<3> Adding the user's prompt to the conversation, as we did in <<agent-web>>.
+<4> Adding the results of any actions that were invoked by the model in the previous turn to the conversation.
+<5> Invoking the agent and returning the result back to the client.
+<6> The `result.Status` is set to either `Done` or `ActionRequired` (if there are outstanding actions that require a response).
+
+The code in <<agent-web-action>> is pretty similar to the one we had in <<agent-web>>, but there are a few important differences. 
+The first one is that we are now also handling actions. We have the `Handle` callback for the `AddToCart` action, which is the same as 
+we had in <<agent-invoke-add-to-cart>>. We also have a `Receive` callback for the `PurchaseCart` action.
+
+We are _not_ handling the `PurchaseCart` directly. Instead, we record the `ToolId` for this call (nothing else to do here, since 
+`PurchaseCart` has no parameters) and send that ID back to the client. You can see the front end code for this in <<agent-frontend>>.
+
+[[agent-frontend]]
+.Frontend code using 
+[source,js]
+----
+let conversationId = null; // hold the conversation ID between calls
+async function sendChatMessage(Prompt, ActionResults = []) {
+  while (true) {
+    const query = `companyId=${companyId}&conversationId=${conversationId}`;
+    const res = await fetch(`/chat?${query}`, {   <1>
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Prompt, ActionResults })
+    });
+
+    const data = await res.json();
+    conversationId = data.conversationId;
+    Prompt = null; // Clear prompt for subsequent loop turns
+
+    if (data.showPurchaseCart) {                  <2>
+      const Result = await handlePurchaseFlow();
+      ActionResults = [{ ActionId: data.purchaseCartActionId, Result }];
+      continue;
+    }
+    appendToChat('assistant', data.answer);       <3>
+    return; // done
+  }
+}
+
+async function handlePurchaseFlow() {             <4>
+  try {
+  const c = await showPurchaseModal();
+  return `Success: Charged ${c.amount}. ${c.message}`;
+  } catch (e) {
+  return `Error: ${e.message || "Transaction failed"}`;
+  }
+}
+----
+<1> Call to the `/chat` endpoint with the user's prompt.
+<2> Check if we need to show the purchase cart dialog and show that as needed, then call back into the model with the answer.
+<3> If we have a final answer from the model, add that to the user interface and exit the loop.
+<4> Show the model to the user, and either charge it successfully or raise and error. In both cases, we return the message as an answer to the
+    model. 
+
+Together, <<agent-frontend>> and <<agent-web-action>> are able to handle the complete deferred action. As part of talking with the agent,
+the user request to purchase the contents of the cart. The model invokes the `PurchaseCart` action, which is then sent back all the way
+to the frontend. The frontend then calls `showPurchaseModal()` to show the purchase dialog and we return the result of the dialog all the 
+way back to the model.
+
+Following the flow back, we have the result of `handlePurchaseFlow()` that is added to the `ActionResults` and send back to the `/chat` 
+endpoint. In the backend, we read the `ActionResults` from the request and call to `AddActionResponse` for each of them. 
+
+[TIP]
+====
+The strucutre of the code in <<agent-frontend>> and <<agent-web-action>> is meant to handle multiple types of deferred actions. You can 
+adapt that to add additional actions.
+====
+
+When using deferred actions, you can use the `Receive()` callback to accept the parameters that the model invoked the action with. As far
+as RavenDB is concerned, when we have an open action outstanding, you _have_ to close that before you can get the answer from the model.
+If you try to send a new user prompt and call to `RunAsync()`, RavenDB will re-invoke the relevant `Receive()` method and the result of
+`RunAsync()` will have a status of `ActionRequired`.
+
+Closing an open tool call is done using the `AddActionResponse()` and then calling to `RunAsync()`. As a reminder, in complex agents, in
+is entirely likely to have the agent make multiple actions calls (as we saw that in <<agent-two-cheeses>>). In that case, you need to make 
+sure to close all of the outstanding calls before you can get a final answer from the model.
+
+It is fine to call `RunAsync()` with only some of the answers. It will close the actions that have responses and leave the others open. 
+It will also invoke the `Receive()` callback for any of the open actions _again_. You need to be aware that the `Receive()` may be called
+multiple times and ensure that it won't cause a problem downstream.
+
+
+#### Out of band action execution
+
+Deferred actions is that they block the conversation until they are completed. That is great if the interaction is similar
+to the `PurchaseCart` functionality, which is a modal interaction within the user experience flow. What happens when we want to have 
+actions that can remain outstanding and keep the conversation unlocked?
+
+This is when the notion of out of band actions come into play
 
 #### Complex responses from the agent
 
@@ -3096,7 +3290,6 @@ That means that in order to carry an actual conversation with the model, you nee
 If you had a long conversation (exceeding the context window of the model), it would only read the latest parts ("forgetting" the previous context), which led
 to some hilarious results.
 
-#### Dealing with offline responses
 
 #### Timers, remidners and out of band communications
 
