@@ -3259,7 +3259,7 @@ Deferred actions is that they block the conversation until they are completed. T
 to the `PurchaseCart` functionality, which is a modal interaction within the user experience flow. What happens when we want to have 
 actions that can remain outstanding and keep the conversation unlocked?
 
-This is when the notion of out of band actions come into play. For exmaple, consider an action such as requesting authorinzation to return
+This is when the notion of out of band actions come into play. For example, consider an action such as requesting authorization to return
 a product. We can have an action called `ReturnMerchandise` that would collect the order ID, the product to return and the reason for the return. 
 Invoking this action isn't sufficent to actually handle the return. Let's say that we need to have a manager's approval for that, which may
 take hours or days. What do we do with the conversation in the meantime?
@@ -3267,7 +3267,7 @@ take hours or days. What do we do with the conversation in the meantime?
 If we use deferred actions like in the previous section, we'll be essentially stuck. We cannot do anything else (like order something new) while
 we are waiting for the manager authorization. That is why we also have the notion of out of band actions.
 
-An out of band action is essentially returning a reply back to the agent (and thus closing the invoed action), and then coming back to the 
+An out of band action is essentially returning a reply back to the agent (and thus closing the invoked action), and then coming back to the 
 agent at a later point in time to actually notify the agent about the status of the action.
 
 Usually, for out of band actions, we'll pair them with a query or action that can check the status of an action. For the `ReturnMerchandise` example,
@@ -3277,7 +3277,53 @@ we will also have `CheckReturnMerchandiseStatus`. You can see the whole example 
 .Giving the agent the ability to handle returned merchandise in an out of band manner
 [source,csharp]
 ----
-
+Actions = [
+  new AiAgentToolAction
+  {
+    Name = "ReturnMerchandise",
+    Description = 
+      """
+      Process a return for a given order and product.
+      The agent should use this action when the customer
+      wants to return a product from a past order.
+      This simply start the return process, it doesn't complete it, 
+      the agent can check using "GetReturnStatus" to check the status of 
+      the return and update the customer.
+      """,
+    ParametersSampleObject =
+    """
+    { 
+      "ProductId": "id of the product to return",
+      "OrderId": "id of the order that contains the product",
+      "Reason": "reason for the return"
+    }
+    """
+  },
+  // redacted
+],
+Queries = [  
+  new AiAgentToolQuery{ Name ="GetReturnStatus", 
+  Description = 
+    """
+    Get the status of a return process for a given order and product.
+    The agent should use this query to check the status of a return 
+    process after it has been initiated using "ReturnMerchandise".
+    """,
+  Query = 
+    """
+    from Returns as r
+    where r.OrderId = $OrderId and r.ProductId = $ProductId
+    """,
+    ParametersSampleObject =
+    """
+    { 
+      "ProductId": "id of the product being returned",
+      "OrderId": "id of the order that contains the product"
+    }
+    """
+  },
+  // redacted
+]
 ----
 
 #### Complex responses from the agent
