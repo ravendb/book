@@ -10,7 +10,7 @@
 
  PID 9, 64 bits, 12 Cores, Phys Mem 15.558 GBytes, Arch: X64
  Source Code (git repo): https://github.com/ravendb/ravendb
- Built with love by Hibernating Rhinos and awesome contributors!
+ Built with love by RavenDB LTD and awesome contributors!
 +---------------------------------------------------------------+
 Using GC in server concurrent mode.
 Server available on: http://f33937a289c1:8080

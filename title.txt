@@ -1,6 +1,6 @@
 % Inside RavenDB 4.0
 % Oren Eini
-% Hibernating Rhinos
+% RavenDB LTD
 
 ---
 header-includes:
