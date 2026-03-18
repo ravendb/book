@@ -3326,6 +3326,41 @@ Queries = [
 ]
 ----
 
+There is nothing special in the `ReturnMerchandise` action defintion. It gets interesting when we look at how we _handle_ the model invoking this action.
+You can see that in <<agent-rma-invoke>>.
+
+[[agent-rma-invoke]]
+.Invoking an out-of-band action to start the return merchandise process
+[source,csharp]
+----
+conversation.Handle<ReturnMerchandiseArgs>("ReturnMerchandise", async args =>
+{
+  using var session = store.OpenAsyncSession();
+  if(order?.Company != companyId)
+  {
+    throw new InvalidOperationException(
+        "Order not found or not for the current company");
+  }
+  Return ret = new(args.ProductId, args.OrderId, args.Reason, 
+                    DateTime.UtcNow, ReturnStatus.Pending);
+  await session.StoreAsync(ret);
+  await session.SaveChangesAsync();
+  
+  return $"Async return merchandise started (id: {ret.Id}).";
+});
+----
+
+The code in <<agent-rma-invoke>> isn't really doing anything interesting. We validate the order belongs to the current `companyId`, persist a new
+`Return` item and return its ID back to the model. The only thing worth noting here is the validation that the user is attempting a return on an
+order that belong to it (to avoid tricking the model to trying to initiate a return on another user's order).
+
+The `Handle` call in <<agent-rma-invoke>> is also the right place to add any your business rules. For example, to automatically reject returns on dairy 
+products, or if too much time have passed, etc. That means that the model is left as an orchestrator, nothing more. 
+
+
+
+
+
 #### Complex responses from the agent
 
 followup, boolean, explanation, etc
