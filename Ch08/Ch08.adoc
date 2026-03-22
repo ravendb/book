@@ -3660,8 +3660,129 @@ On the other hand, if you don't have out-of-band actions, you may not require op
 
 #### Complex responses from the agent
 
-followup, boolean, explanation, etc
-the schema of the answer
+Up to this point, the `SampleObject` we defined for our `shopping-agent` was intentionally simple: `{ "Reply": "Answer to the customer" }`. 
+That means our `ShoppingAgentAnswer` class has a single `Reply` property. That is enough to get going, but in a real application you'll 
+want much richer responses. When we talked about Generative AI tasks in <<generative-ai-products-rec>>, we already saw how the `SampleObject` 
+can drive the model to produce structured output. The same technique applies to AI Agents.
+
+Consider what happens when a user asks: "What cheese did I get last time?" The text reply is useful, but your frontend probably wants 
+to render a clickable product card, link to the original order, show the product image, etc. For that, the code needs the _IDs_ of the 
+relevant products and orders, not just their names in a paragraph.
+<<agent-complex-answer>> shows a richer `SampleObject` for our `shopping-agent`.
+
+[[agent-complex-answer]]
+.Defining a complex answer schema for the Shopping Agent
+[source,csharp]
+----
+var aiAgent = new AiAgentConfiguration
+{
+    Name = "Shopping Agent",
+    Identifier = "shopping-agent",
+    ConnectionStringName = "OpenAI Generative",
+    SystemPrompt = " .. redacted .. ",
+    SampleObject =                                              <1>
+        """
+        { 
+            "Reply": "Answer to the customer",
+            "RelatedProducts": [{                               <2>
+                "ProductId": "products/12-A",
+                "Name": "Queso Manchego La Pastora"
+            }],
+            "RelatedOrders": [{                                 <3>
+                "OrderId": "orders/123-A",
+                "OrderedAt": "1998-04-09"
+            }],
+            "Followups": [                                      <4>
+                "Would you like to reorder this cheese?",
+                "Do you want to see similar products?"
+            ]
+        } 
+        """,
+    // queries, actions redacted
+};
+----
+<1> The sample object now has multiple properties beyond `Reply`, guiding the model to produce a richer answer.
+<2> `RelatedProducts` carries the actual product IDs so your code can fetch images, prices and build deep links.
+<3> `RelatedOrders` carries order IDs, letting the frontend link directly to the order details page.
+<4> `Followups` are short suggested prompts that you can present to the user as clickable buttons or chips.
+
+With this `SampleObject`, the corresponding C# class changes accordingly:
+
+[[agent-complex-answer-class]]
+.The `ShoppingAgentAnswer` class matching the complex answer schema
+[source,csharp]
+----
+public class ShoppingAgentAnswer
+{
+    public string Reply { get; set; }
+    public string Reasoning { get; set; }
+    public List<RelatedProduct> RelatedProducts { get; set; }
+    public List<RelatedOrder> RelatedOrders { get; set; }
+    public List<string> Followups { get; set; }
+}
+
+public record RelatedProduct(string ProductId, string Name);
+public record RelatedOrder(string OrderId, string OrderedAt);
+----
+
+Nothing else changes. The call to `conversation.RunAsync<ShoppingAgentAnswer>()` works exactly as before — RavenDB and the model 
+handle the rest. The difference is that `result.Answer` now contains structured data you can act on. For example:
+
+[[agent-complex-answer-usage]]
+.Using the complex answer in your application
+[source,csharp]
+----
+var result = await conversation.RunAsync<ShoppingAgentAnswer>();
+
+Console.WriteLine(result.Answer.Reply);
+Console.WriteLine("Reasoning: " + result.Answer.Reasoning);
+
+foreach (var p in result.Answer.RelatedProducts)
+{
+    Console.WriteLine($"  Product: {p.Name} ({p.ProductId})");
+    // Fetch product image, price, stock from the database 
+    // and render a product card in the UI
+}
+
+foreach (var o in result.Answer.RelatedOrders)
+{
+    Console.WriteLine($"  Order: {o.OrderId} placed on {o.OrderedAt}");
+    // Render a link to the order details page
+}
+----
+
+Where this really shines is in the frontend. Instead of dumping a wall of text, your UI can render product cards with
+images and "Add to Cart" buttons, link order IDs to the order history page, and present the follow-up suggestions as 
+clickable chips that feed back into the next `AddUserPrompt()` call. Each of those follow-up suggestions is a prompt that 
+the user can click to continue the conversation — "Would you like to reorder this cheese?" or "Do you want to see similar 
+products?" — turning what would be a dead-end answer into an ongoing dialog.
+
+The `Reasoning` field deserves a special mention. I find it unreasonably effective to ask the model to explain its own 
+reasoning as part of the output. We already used this trick in <<generative-ai-products-rec>>, where we had a `Reason` 
+field for each recommendation. In the agent context, the reasoning serves double duty: it helps you debug the agent's 
+behavior (why did it recommend _this_ product?), and you can optionally surface it in an admin view or a "Why this 
+answer?" tooltip.
+
+.Match the schema to your frontend
+****
+The `SampleObject` is your contract between the model and your UI. If you want your frontend to show a "Reorder" button, 
+include a `RelatedProducts` array in the schema so the model knows to provide product IDs. If you want follow-up 
+suggestions, include a `Followups` array. The model will do its best to populate them when relevant and leave them empty 
+when they don't apply.
+
+That said, keep your schema focused rather than throwing every possible field at the model. A bloated schema means the 
+model spends tokens on fields that are rarely useful. Add fields that your frontend will actually render, and omit the 
+rest.
+****
+
+The follow-up suggestions are worth a closer look. From a product perspective, they are a powerful engagement tool. Instead 
+of the user staring at a reply and wondering what to type next, you present them with concrete next steps. That lowers the 
+friction to continue the conversation, which means more interaction with your agent — and potentially more sales. It's the 
+same principle behind the "People also ask" section on search engines: guide the user toward the next useful interaction.
+
+From a technical perspective, follow-ups are just strings in an array. Your frontend can render them as buttons or chips. 
+When the user clicks one, you pass it straight into `conversation.AddUserPrompt()` and call `RunAsync()` again. No special 
+handling required.
 
 #### Streaming
 
