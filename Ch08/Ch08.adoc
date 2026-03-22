@@ -3935,6 +3935,291 @@ in a `StringBuilder` and displaying the result at the end, you've gained nothing
 code simpler.
 ****
 
+#### The memory of an AI Agent
+
+When you chat with an AI assistant, it _feels_ like you're having a conversation with someone who remembers 
+what you just said. That feeling is an illusion. A Large Language Model has no memory of its own,
+none at all. Every time you send a message, the model starts from a blank slate. It doesn't "remember" your 
+previous question — it doesn't even know there _was_ a previous question.
+
+So how does a conversation work? The trick is that _your application_ keeps a transcript of every message
+exchanged so far, and sends the whole transcript back to the model with each new request. The model reads the 
+entire thread from the top, generates a reply, and immediately forgets everything. Next time you ask something, 
+the process repeats: your application appends your new message to the transcript and sends it all over again.
+
+Think of it like passing notes to someone with no short-term memory. Every note you send them includes a 
+photocopy of all the previous notes, so they can read the full conversation each time and respond in context. 
+That's exactly what happens under the hood.
+
+This approach works well for short conversations. But what happens when the transcript grows very long? Every 
+model has a hard limit on how much text it can read at once — this is called the _context window_. For large
+models like GPT-4.1, that limit is roughly 1 million _tokens_ (think of a token as roughly ¾ of a word). For 
+smaller or locally hosted models, it might be as low as 8,000 or 32,000 tokens. Once your conversation exceeds 
+that window, you'll get an error from the model because it can't process the entire history. 
+
+Even if you aren't physically hitting the context limits, sending a *lot* of data to the model means that it
+has to sift through quite a lot of unrelated information to find the nuggets that it needs to give you a good
+answer. There's also a cost dimension, both in terms of money and time. 
+
+You pay for tokens — both the ones you send _to_ the model and the ones it sends back. When every request includes 
+50,000 tokens of conversation history, you're paying for all of that on every single call, even when most of 
+the history is about a discussion from three days ago that has nothing to do with today's question.
+
+You'll note that you didn't really have to be aware of any of that so far, even though you wrote quite a few 
+agents during this chapter. RavenDB handles all of this for you transparently. Every time you call `RunAsync()` 
+or `StreamAsync()`, RavenDB takes the full conversation — stored in the `@conversations` collection — and sends 
+it along to the model. You don't need to manage the transcript yourself. When you resume a conversation by passing 
+in an existing `conversationId`, RavenDB loads the previous messages and picks up exactly where you left off. 
+The model sees the full thread and can respond in context.
+
+But as conversations grow, you hit both of these limits — the context window and the cost ceiling. This is where 
+chat trimming comes in. RavenDB can automatically summarize the conversation when it grows too 
+large, using the model itself to condense the history into a shorter form that preserves the essential context. 
+You configure this on the agent using the `ChatTrimming` property, as shown in <<agent-chat-trimming>>.
+
+[[agent-chat-trimming]]
+.Configuring chat trimming on the shopping agent
+[source,csharp]
+----
+var aiAgent = new AiAgentConfiguration
+{
+  // redacted
+  ChatTrimming = new AiAgentChatTrimmingConfiguration(
+    new AiAgentSummarizationByTokens()
+    {
+        MaxTokensBeforeSummarization = 32_768,              <1>
+        MaxTokensAfterSummarization = 1_024                 <2>
+    },
+    new AiAgentHistoryConfiguration(                        <3>
+        expiration: TimeSpan.FromDays(90))
+);
+----
+<1> When the conversation exceeds 32K tokens, RavenDB will trigger summarization.
+<2> The summary itself will be condensed to fit within 1K tokens, about 750 words or roughly two pages of text.
+<3> The original, unsummarized conversation is preserved in the `@conversations-history` collection and expires after 90 days.
+
+The summarization process is worth understanding. When a conversation crosses the `MaxTokensBeforeSummarization`  
+threshold, RavenDB takes the older messages and asks the _same model_ we used for the conversation to produce a 
+summary of the conversation so far. 
+
+That summary replaces the older messages in the conversation document. The result is that the next time you call `RunAsync()`, the
+model receives the summary plus the new user prompt, staying well within the context window.
+
+This is done automatically, as part of the normal `RunAsync()` call. You don't need to check token counts, you  
+don't need to decide when to summarize, and you don't need to write the summarization prompt. RavenDB handles all
+of it.
+
+You have quite a few options to control this behavior. Whether RavenDB will summarize the conversation, or just drop the oldest
+messages, what instructions to send to the model for summarization, etc. You can check the online documentation for more details
+on the topic. For the vast majority of the cases, you can just let RavenDB do its job, and focus on building your agents.
+
+.The original conversation isn't lost
+****
+When summarization happens, the original messages aren't thrown away. RavenDB stores them in a separate document
+in the `@conversations-history` collection. You can use `AiAgentHistoryConfiguration` to control whether history  
+is kept and for how long. The `expiration` parameter sets a TTL — after that period, RavenDB's document expiration 
+feature will clean up the history documents automatically.
+
+This is useful for audit trails, compliance, or debugging. You can always go back and see what the full conversation
+looked like before summarization. But for day-to-day agent operation, the summarized version is what matters.
+
+!!!!TODO!!!!
+
+The full set of historical documents ids is also available in the original document under the `LinkedConversations` collection.
+****
+
+The amount of work this saves you is significant. Without automatic trimming, you'd need to count tokens yourself,
+decide when to cut, write a summarization process, splice the summary back into the conversation, and handle failures along the way. 
+That's a lot of plumbing for something that should be infrastructure. With RavenDB's chat trimming, you set two numbers and forget about it.
+
+#### Conversation lifecycle
+
+Conversations are documents, and like all documents in RavenDB, they have a lifecycle you can control. When you
+create a conversation using `store.AI.Conversation()`, you can set an expiration on it so that idle conversations 
+are cleaned up automatically, as shown in <<agent-conversation-expiration>>.
+
+[[agent-conversation-expiration]]
+.Setting conversation expiration
+[source,csharp]
+----
+var conversation = store.AI.Conversation(
+    agentId: "shopping-agent",
+    conversationId: "chats/",
+    new AiConversationCreationOptions()
+        .AddParameter("Company", companyId)
+    {
+        ExpirationInSec = 7 * 24 * 3600 // 7 days <1>
+    }
+);
+----
+<1> If no new message is added within 7 days, RavenDB will delete the conversation document automatically.
+
+This is especially important in production. Without expiration, every conversation you ever start will
+accumulate in the `@conversations` collection forever. For a shopping agent serving thousands of customers, 
+that's a lot of documents. Setting an expiration gives you automatic cleanup for inactive conversations while
+keeping active ones alive as long as they're in use.
+
+[NOTE]
+====
+On the other hand, there is a good argument to make about _not_ using expiration for conversation (or for the
+`@conversation-history`) documents. They don't cost a lot to keep, and they can provide valuable insight into
+what your users think and want to do.
+====
+
+That leads to an interesting problem, when _should_ you start a new conversation versus continuing an existing one? 
+There's no single right answer — it depends on your application. Here are several common patterns:
+
+* **Per topic** — start a new conversation each time the user initiates a distinct task. If they're asking 
+  about cheese orders now and want to discuss return policies later, those are separate conversations. This 
+  keeps each conversation focused and reduces the amount of irrelevant context the model has to wade through.
+  It can be tricky to figure out whether the user switch topics mid chat, though.
+* **Per session** — start a new conversation when the user logs in or opens the chat window. This is the 
+  simplest approach and works well for applications where users don't expect to pick up a thread from 
+  yesterday.
+* **Per day** — start a new conversation each calendar day. This is a middle ground that gives users some 
+  continuity ("I asked about this earlier today") without letting conversations grow unbounded.
+* **Single long-running conversation** — create one conversation per user and let it run indefinitely. This is
+  the most ambitious approach, but it's entirely viable with RavenDB's chat trimming. As the conversation grows,
+  RavenDB summarizes the older parts automatically, so the model always receives a manageable amount of context. 
+  The user gets the experience of a persistent assistant that "remembers" everything, even though behind the 
+  scenes the older parts have been compressed into a summary.
+
+The single long-running conversation approach is particularly appealing for agents that build up knowledge about 
+a user over time — their preferences, their order patterns, their communication style. The summarization process 
+preserves this kind of high-level context while discarding the low-level details of individual exchanges.
+
+That said, keep in mind that summarization is lossy. When RavenDB summarizes a 30K-token conversation into 
+1K tokens, details _will_ be lost. That's the whole point — you're trading detail for space. If your
+application requires perfect recall of every interaction, you'll want to use shorter conversations and store 
+the important facts elsewhere (in user profiles, for example).
+
+#### Long-term memory for the agent
+
+Even with summarization, a conversation can only hold so much history. What about knowledge that spans across
+conversations entirely? When a returning customer asks, "Do you have any lactose-free options? I'm allergic to 
+dairy," you don't want the agent to forget that fact the moment the conversation ends. And when that same customer 
+comes back a week later, you want the agent to _already know_ about the allergy — without asking again.
+
+The solution is to give the agent explicit tools for long-term memory. Instead of relying on conversation history 
+to retain important facts, you provide the agent with a `RememberThis` action to _store_ a memory and a 
+`RecallMemories` query to _retrieve_ relevant memories later. Each memory is a document associated with the 
+current user, stored in a dedicated collection that you can index and search independently of any conversation.
+
+A memory has a `Name` (a unique key for the fact, for each user), a short `Title`, and a detailed `Description`. 
+For example, a memory might have the name `"dairy-allergy"`, the title `"Customer has dairy allergy"`, and a 
+description of `"Customer mentioned on 2025-03-22 that they are lactose intolerant and cannot consume dairy products. 
+They prefer plant-based alternatives like oat milk and cashew cheese."` This structure lets the agent both recall 
+memories by semantic similarity and update them as new information comes in.
+
+<<agent-remember-this>> shows the `RememberThis` action that creates or updates a memory document for the current 
+user.
+
+[[agent-remember-this]]
+.Giving the agent the ability to remember facts about the user
+[source,csharp]
+----
+new AiAgentToolAction
+{
+  Name = "RememberThis",
+  Description = 
+    """
+    Remember an important fact about this customer for future 
+    interactions. Use this for preferences, allergies, favorite 
+    items, important details, or anything the customer would 
+    expect you to know next time. If a memory with the same 
+    name already exists, update it with the new information.
+    """,
+  ParametersSampleObject = 
+    """
+    { 
+      "Name": "<unique-key>, like 'allergies', 'favorite-colors', etc.", 
+      "Title": "Up to 15 words, describing the fact to remember",
+      "Description": "Detailed description of the fact to remember" 
+    }
+    """
+}
+----
+
+The `RememberThis` action handler is shown on <<agent-remember-this-handler>>. As you can see, there really isn't anything
+really interesting in the code. We have seen the like many times before.
+
+[[agent-remember-this-handler]]
+.Handled for `RememberThis` action, storing the memory in RavenDB
+[source,csharp]
+----
+conversation.Handle<RemeberThisArgs>("RememberThis", await args => 
+{
+    using var session = store.OpenAsyncSession();  
+
+    var docId = $"Memories/{companyId}/{args.Name}";
+    var mem = new Memory(docId, args.Title, args.Description, comanyId);
+    await session.StoreAsync(mem, docId);
+    await session.SaveChangesAsync();
+}
+----
+
+The interesting part of <<agent-remember-this-handler>> is that we save a new `Memory` using a deterministic document ID 
+(using the `companyId` and the `Name` provided by the model).  This means that if the agent remembers the same fact twice
+such as updating an allergy after the customer mentions a new detail, the new memory will overwrites the existing memory 
+rather than creating duplicates. The agent decides the `Name`, so it can naturally group and update related facts.
+
+Now the agent can store facts, but it also needs to find them. <<agent-recall-memories>> shows the 
+`RecallMemories` query that searches the user's memories by semantic similarity.
+
+[[agent-recall-memories]]
+.Allowing the agent to recall memories about the user
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "RecallMemories",
+    Description = 
+      """
+      Search your memories about this customer. Use this to recall 
+      preferences, allergies, favorite products, past recommendations, 
+      or any facts you previously remembered about them.
+      """,
+    Query = """
+        from Memories
+        where Company = $Company
+          and vector.search(embedding.text(Description), $searchTerms)
+        limit 5
+        """,
+    ParametersSampleObject = 
+        """
+        { "searchTerms": "search for relevant memories" }
+        """
+}
+----
+
+With these two tools, the agent builds up a persistent profile of each customer over time. The first time a 
+customer mentions they love aged cheddar, the agent calls `RememberThis` with a name like `"favorite-cheese"` 
+and stores the detail. Next time that customer asks for a recommendation, the agent calls `RecallMemories` with
+`searchTerms` set to `"cheese preferences"` and gets back the stored fact — even if the current conversation 
+has no mention of cheese at all.
+
+Note that the agent performs _semantic_ search rather than keyword matching. If the customer originally said 
+"I love aged cheddar" and later asks "What kind of hard cheese did I like?", the vector search on the memory's 
+`Description` will surface the right memory even though the wording is completely different.
+
+The intent is that the model will recall memories proactively and update them as needed. If a customer says "Actually, 
+I've switched to gouda," the agent can update the existing `"favorite-cheese"` memory with the new preference. 
+The agent doesn't need to be told to do this explicitly — the tool descriptions guide it to remember and recall 
+naturally as part of the conversation flow.
+
+This gives you a clean separation of concerns. Conversations handle the _flow_ of interaction. Memories handle the 
+_facts_ about the user. The combination of automatic summarization, conversation expiration, and persistent memories 
+gives you a layered memory system:
+
+* **Short-term memory**: the current conversation, with the most recent messages in full detail.
+* **Medium-term memory**: summarized history within the current conversation, preserving the key points.
+* **Long-term memory**: persistent memory documents, searchable by semantic similarity, that survive across 
+  all conversations.
+
+This mirrors how human memory works, actually. We remember recent conversations in detail, have a general sense 
+of what we discussed last week. For more details, we'll need to check our records. And with a modest effort, we just 
+provided the same capabilities to our agent.
+
 #### Advanced AI Agent queries
 
 agent-with-mixed-query
@@ -3948,21 +4233,6 @@ search by id / load items
 
 using `when` for queries
 
-#### The memory of an AI Agent
-
-In its natural state, a Large Language Model is just doing a bunch of math on top of a large pile of parameters. Yes, that is oversimplifying things 
-just a bit, but I'm trying to get a point across. 
-
-The key aspect is that the model has no intrisinc memory of past conversations. 
-To change the model's parameters you'll typically need to fine-tune it. A typical fine-tuning session, to make the model match exactly what you want it to do
-can cost upward of 6 figures and sometimes _significantly_ more. 
-
-That means that in order to carry an actual conversation with the model, you need to send it the _entire_ history of your conversation with it each time.
-If you had a long conversation (exceeding the context window of the model), it would only read the latest parts ("forgetting" the previous context), which led
-to some hilarious results.
-
-
-#### Timers, remidners and out of band communications
 
 #### Error handling & rate limits
 
@@ -3970,7 +4240,7 @@ to some hilarious results.
 
 #### Mutli Agents
 
-#### Pre & Post agents
+#### Who guards the agent? 
 
 #### AI Agents and attachments
 
