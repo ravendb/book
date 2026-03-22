@@ -2548,7 +2548,7 @@ while (true)
 {
     var userPrompt = Console.ReadLine();
     conversation.AddUserPrompt(userPrompt);
-    result = await conversation.RunAsync< >();
+    result = await conversation.RunAsync<ShoppingAgentAnswer>();
     Console.WriteLine(result.Answer.Reply);
 }
 ----
@@ -3355,11 +3355,58 @@ The code in <<agent-rma-invoke>> isn't really doing anything interesting. We val
 order that belong to it (to avoid tricking the model to trying to initiate a return on another user's order).
 
 The `Handle` call in <<agent-rma-invoke>> is also the right place to add any your business rules. For example, to automatically reject returns on dairy 
-products, or if too much time have passed, etc. That means that the model is left as an orchestrator, nothing more. 
+products, or if too much time have passed, etc. That means that the model is left as an orchestrator, not as the decision maker. That makes our agents
+far more predictable and reliable.
+
+For out-of-band actions, the typical pattern is to provide an action to initiate the action as well as  way to query over the status of the action. That
+is the `GetReturnStatus` query in <<agent-rma>>. The model can use that to check the status of the return process and update the user accordingly.
+That works if the user is explicitly asking for an update, in which case the model will use `GetReturnStatus` to check the current status. What should
+we do when the process actually complete?
+
+In the `ReturnMerchandise` handler, we returned a value (and thus closed the outstanding action). We need another way to inform the model that the
+return merchandise process was completed. The way we do that is using `AddArtificialActionWithResponse()`. You can see the code in <<agent-rma-complete>>.
+
+[[agent-rma-complete]] 
+.Completing an out-of-band return process
+[source,csharp]
+----
+async Task NotifyUserReturnApproved(string conversationId, string returnId)
+{
+  var conversation = store.AI.Conversation("shopping-agent", 
+    conversationId, creationOptions: null);                 <1>
+  
+  conversation.AddArtificialActionWithResponse(
+    "NotifyReturnMerchandise",                              <2>
+    $"The return merchandise ({returnId}) was approved."); 
+                            
+  var result = 
+    await conversation.RunAsync<ShoppingAgentAnswer>();     <3>
+  
+  await SendToUser(conversationId, result.Answer.Reply);    <4>
+}
+----
+<1> Create a new instance of an existing conversation using `conversationId`.
+<2> Add an artificial action with the response we want to send to the user. This will be added to the conversation's history and sent to the model.
+<3> Run the conversation to send the new message to the model and get the model's response.
+<4> Send the model's response to the user using whatever channel you have for that.
+
+The code in <<agent-rma-complete>> isn't long, but there are a few interesting aspects to look at. When `NotifyUserReturnApproved` is called to indicate
+that the return process is completed, we also inject that into the existing conversation. The use of `AddArtificialActionWithResponse()` is worth noting. 
+We aren't send a message (as a user) to the model, instead, we trick the model by injecting a call (with a response). This creates clear demarcation 
+between what user input and system inputs. 
+
+Finally in <<agent-rma-complete>>, we call the agent using `RunAsync()` and then send the reply to the user. That is important, since this code is _not_
+meant to run in the same conversation loop we have in <<agent-loop>> or responding to a `POST` request like in <<agent-web>>. This is something that 
+happens out-of-band. So we need to also let the user know about that in a slightly different manner. That can be as adding a message to the existing
+chat (so you need to have to do that) or by sending an email, for example.
 
 
 
 
+
+#### Concurrency with agents
+
+optimistic concurrency
 
 #### Complex responses from the agent
 
