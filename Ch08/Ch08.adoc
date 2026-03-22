@@ -1232,8 +1232,6 @@ so RavenDB will know that it needs to re-send the context to the model fo re-eva
 RavenDB will consider update the `@gen-ai-hashes` property whenever it has successfully completed a Generative AI task for a document. If you remove an item from the order,
 RavenDB will remove its hash from the document. In other words, the cache will not survive deletion / re-creation of the line item. That is expected, since the assumption is that
 you are re-creating it without the translated proeprties, so we do have to go back to the model.
-
-TODO: https://issues.hibernatingrhinos.com/issue/RavenDB-24186 should be fixed before release.
 ****
 
 A word of caution about <<generative-ai-advanced>>, before we move on. I'm using a pretty simple example to showcase how you can output multiple contexts from a single document.
@@ -4023,9 +4021,17 @@ feature will clean up the history documents automatically.
 This is useful for audit trails, compliance, or debugging. You can always go back and see what the full conversation
 looked like before summarization. But for day-to-day agent operation, the summarized version is what matters.
 
-!!!!TODO!!!!
+The ID of the history document is going to look somewhat like this: 
+`ConversationHistory/0000000000000010423-A$chats/0000000000000009681-A`. The part after the `$` is the conversation ID, 
+and the part before is just a unique identifier. So you can have multiple history documents for the same conversation if 
+it went long enough to get summarized multiple times. The reason we have this ID format is related to more advanced 
+aspects of RavenDB (it ensures that history documents always reside on the same shard as their conversation, see more in
+<<sharding-in-ravendb>>).
 
+The key takeaway is that the ID for history documents aren't how you'll typically find the history of a particular conversation. 
 The full set of historical documents ids is also available in the original document under the `LinkedConversations` collection.
+The `@conversations-history` documents also have a `LinkedConversations` property, which points back to the original document, 
+allowing you to query over them. 
 ****
 
 The amount of work this saves you is significant. Without automatic trimming, you'd need to count tokens yourself,
