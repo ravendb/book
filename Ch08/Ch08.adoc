@@ -3676,92 +3676,82 @@ relevant products and orders, not just their names in a paragraph.
 ----
 var aiAgent = new AiAgentConfiguration
 {
-    Name = "Shopping Agent",
-    Identifier = "shopping-agent",
-    ConnectionStringName = "OpenAI Generative",
-    SystemPrompt = " .. redacted .. ",
-    SampleObject =                                              <1>
-        """
-        { 
-            "Reply": "Answer to the customer",
-            "RelatedProducts": [{                               <2>
-                "ProductId": "products/12-A",
-                "Name": "Queso Manchego La Pastora"
-            }],
-            "RelatedOrders": [{                                 <3>
-                "OrderId": "orders/123-A",
-                "OrderedAt": "1998-04-09"
-            }],
-            "Followups": [                                      <4>
-                "Would you like to reorder this cheese?",
-                "Do you want to see similar products?"
-            ]
-        } 
-        """,
-    // queries, actions redacted
+  Name = "Shopping Agent",
+  Identifier = "shopping-agent",
+  ConnectionStringName = "OpenAI Generative",
+  SystemPrompt = " .. redacted .. ",
+  SampleObject =                                      <1>
+    """
+    { 
+      "Reply": "Answer to the customer",
+      "RelatedProducts": ["Related products IDs"],    <2>
+      "RelatedOrders": ["Related Order IDs"],         <3>
+      "Followups": [                                  <4>
+        "Up to 3 follow-up suggestions to keep the conversation going"
+      ]
+    } 
+    """,
+  // queries, actions redacted
 };
 ----
 <1> The sample object now has multiple properties beyond `Reply`, guiding the model to produce a richer answer.
-<2> `RelatedProducts` carries the actual product IDs so your code can fetch images, prices and build deep links.
+<2> `RelatedProducts` carries the actual product IDs so your code can show the proper product cards.
 <3> `RelatedOrders` carries order IDs, letting the frontend link directly to the order details page.
 <4> `Followups` are short suggested prompts that you can present to the user as clickable buttons or chips.
 
-With this `SampleObject`, the corresponding C# class changes accordingly:
+With this `SampleObject`, the `ShoppingAgentAnswer` corresponding C# class changes accordingly, as shown in 
+<<agent-complex-answer-class>>.
 
 [[agent-complex-answer-class]]
-.The `ShoppingAgentAnswer` class matching the complex answer schema
+.The `ShoppingAgentAnswer` class matching the complex answer schema in <<agent-complex-answer>>
 [source,csharp]
 ----
 public class ShoppingAgentAnswer
 {
     public string Reply { get; set; }
     public string Reasoning { get; set; }
-    public List<RelatedProduct> RelatedProducts { get; set; }
-    public List<RelatedOrder> RelatedOrders { get; set; }
+    public List<string> RelatedProducts { get; set; }
+    public List<string> RelatedOrders { get; set; }
     public List<string> Followups { get; set; }
 }
-
-public record RelatedProduct(string ProductId, string Name);
-public record RelatedOrder(string OrderId, string OrderedAt);
 ----
 
 Nothing else changes. The call to `conversation.RunAsync<ShoppingAgentAnswer>()` works exactly as before — RavenDB and the model 
-handle the rest. The difference is that `result.Answer` now contains structured data you can act on. For example:
+handle the rest. The difference is that `result.Answer` now contains structured data you can act on, as you can see in 
+<<agent-complex-answer-usage>>.
 
 [[agent-complex-answer-usage]]
-.Using the complex answer in your application
+.Using the complex agent answers in a web endpoint
 [source,csharp]
 ----
 var result = await conversation.RunAsync<ShoppingAgentAnswer>();
 
-Console.WriteLine(result.Answer.Reply);
-Console.WriteLine("Reasoning: " + result.Answer.Reasoning);
+var lazyProds = session.Advanced.Lazily.LoadAsync<Product>(   <1>
+  result.Answer.RelatedProducts);                            
+var lazyOrders = session.Advanced.Lazily.LoadAsync<Product>(  
+    result.Answer.RelatedOrders);                             
 
-foreach (var p in result.Answer.RelatedProducts)
+await context.Response.WriteAsJsonAsync(new                  
 {
-    Console.WriteLine($"  Product: {p.Name} ({p.ProductId})");
-    // Fetch product image, price, stock from the database 
-    // and render a product card in the UI
-}
-
-foreach (var o in result.Answer.RelatedOrders)
-{
-    Console.WriteLine($"  Order: {o.OrderId} placed on {o.OrderedAt}");
-    // Render a link to the order details page
-}
+    reply = result.Answer.Reply,
+    followups = result.Answer.Followups,
+    relatedProducts = (await lazyProds).Values,               <2>
+    relatedOrders = (await lazyOrders).Values,
+    conversationId = conversation.Id
+});
 ----
+<1> Using lazy loading to fetch the related products and orders that we got from the agent.
+<2> A single remote call fetching all the related products and orders, then returning them to the front end for a rich display.
 
-Where this really shines is in the frontend. Instead of dumping a wall of text, your UI can render product cards with
-images and "Add to Cart" buttons, link order IDs to the order history page, and present the follow-up suggestions as 
-clickable chips that feed back into the next `AddUserPrompt()` call. Each of those follow-up suggestions is a prompt that 
-the user can click to continue the conversation — "Would you like to reorder this cheese?" or "Do you want to see similar 
-products?" — turning what would be a dead-end answer into an ongoing dialog.
+The code in <<agent-complex-answer-usage>> makes a most difference in the frontend. Instead of dumping a wall of text, your UI 
+can render product cards with images and "Add to Cart" buttons, link order IDs to the order history page, and present the 
+follow-up suggestions as clickable chips that feed back into the next `AddUserPrompt()` call. For example:
 
-The `Reasoning` field deserves a special mention. I find it unreasonably effective to ask the model to explain its own 
-reasoning as part of the output. We already used this trick in <<generative-ai-products-rec>>, where we had a `Reason` 
-field for each recommendation. In the agent context, the reasoning serves double duty: it helps you debug the agent's 
-behavior (why did it recommend _this_ product?), and you can optionally surface it in an admin view or a "Why this 
-answer?" tooltip.
+* Would you like to reorder this cheese?
+* Do you want to see similar products?
+
+In many cases, the effect of these UX changes are profound. You don't _need_ to read or understand, the agent's own replies
+and rich output makes it easy to proceed and get results. 
 
 .Match the schema to your frontend
 ****
@@ -3780,9 +3770,9 @@ of the user staring at a reply and wondering what to type next, you present them
 friction to continue the conversation, which means more interaction with your agent — and potentially more sales. It's the 
 same principle behind the "People also ask" section on search engines: guide the user toward the next useful interaction.
 
-From a technical perspective, follow-ups are just strings in an array. Your frontend can render them as buttons or chips. 
-When the user clicks one, you pass it straight into `conversation.AddUserPrompt()` and call `RunAsync()` again. No special 
-handling required.
+From a technical perspective, follow-ups are just strings in an array. Your frontend can render them as buttons or clickable
+links. When the user clicks one, you pass it straight into `conversation.AddUserPrompt()` and call `RunAsync()` again. 
+No special handling is required, it goes through the same process as if it was normal user input.
 
 #### Streaming
 
