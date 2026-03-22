@@ -3774,7 +3774,166 @@ From a technical perspective, follow-ups are just strings in an array. Your fron
 links. When the user clicks one, you pass it straight into `conversation.AddUserPrompt()` and call `RunAsync()` again. 
 No special handling is required, it goes through the same process as if it was normal user input.
 
-#### Streaming
+#### Streaming responses from the agent
+
+By this time in this chapter, you probably have a good feel for how the back-and-forth with the agent works. You send a user prompt, 
+the model thinks, and then you get a reply. I'm sure that you are also have had your share of frustrations with waiting for 
+the "model thinking" to complete and the results to show up.
+
+The problem is that we are waiting for the entire response to complete in `RunAsync()`, so we can provide you with the full
+response from the model. For large responses, that can be a _while_. The way that models generate responses is a token at a time,
+which means that there is a big gap between the time for first token and the time for the last token. You are probably used to
+seeing the UI of your favorite model streaming you the response from the model as it is generated.
+
+From a UX perspective, showing the response as soon as possible is hugely beneficial. But we cannot do that with `RunAsync()`, 
+that API _must_ wait until the full response is ready before it can return. This doesn't mean that RavenDB don't have an 
+answer for this scenario. 
+
+I would like to introduce the `StreamAsync()` method, which give you access to the response from the model as soon as it 
+starts arriving. There is a catch, though. Remember that we don't get back plain text. We get back structured objects, 
+the `ShoppingAgentAnswer` with a `Reply`, `RelatedProducts`, `Followups`, and so on. You can't just parse half
+a JSON object. Until the model finishes generating the entire response, you don't have valid JSON to deserialize.
+
+RavenDB's `StreamAsync()` API is designed to give you the best of both worlds. It lets you select a single `string` property
+from your answer type to stream as it arrives, while still giving you the fully parsed object at the end. 
+
+Let's see how this looks in practice with the same shopping agent we've been using. <<agent-stream-console>> shows the
+simplest case of streaming the reply to the console.
+
+[[agent-stream-console]]
+.Streaming the agent's reply to the console
+[source,csharp]
+----
+var conversation = store.AI.Conversation(
+    agentId: "shopping-agent",
+    conversationId: "chats/",
+    new AiConversationCreationOptions()
+        .AddParameter("Company", "companies/1-A")
+);
+
+conversation.AddUserPrompt(
+    "What cheese products do I usually order?"
+);
+
+var result = await conversation
+    .StreamAsync<ShoppingAgentAnswer>(
+        a => a.Reply,                                   <1>
+        async chunk => Console.Write(chunk)             <2>
+    );
+
+Console.WriteLine();                                    <3>
+foreach (var p in result.Answer.RelatedProducts)
+    Console.WriteLine($"  Product: {p}");
+----
+<1> Stream the `Reply` property — this is the text the user sees as it is being generated.
+<2> Each chunk is a small piece of the reply. We write it to the console immediately.
+<3> After streaming completes, `result` contains the full, parsed `ShoppingAgentAnswer` with all the structured fields.
+
+The code in <<agent-stream-console>> is almost identical to the `RunAsync()` version. The only difference is that instead
+of waiting in silence for the full response, the user sees the reply appear as the model generates it. When `StreamAsync()`
+completes, you have the exact same `result.Answer` object you'll get from `RunAsync()`. 
+
+[NOTE]
+====
+The result of the `StreamAsync()` call also include the `Reply` property, the one we streamed. In other words, we get the
+data from the `Reply` twice. Once in a streaming fashion and the second time as the full property in the result.
+====
+
+You might be wondering why we chose the `Reply` property specifically as the one to stream. The answer comes down to two
+constraints that reinforce each other. First, you want to show something to the user ASAP. Showing the user a list of 
+product IDs isn't really going to be helpful. Second,  you want to stream the property the model generates _first_, because 
+that's where the latency savings come from. If you picked a property that the model fills in last, you'd be buffering the 
+entire response anyway, defeating the purpose of streaming.
+
+By convention (and by how you define your `SampleObject`), `Reply` sits at the top of the schema. That means it's the first
+property the model starts generating. Since it's also freeform text — the part the user is actually waiting to read — it's
+the natural choice. The structured fields like `RelatedProducts` pr `Followups` come after, and you only need them once the 
+whole response is complete. 
+
+That said, streaming a partial response into a real UI introduces its own set of challenges. Consider Markdown: halfway through
+the response, the model might have opened a bold marker (`**`) but not closed it yet, or started a table row without
+finishing it. If your frontend renders Markdown eagerly, you'll see flickering formatting, broken bullet points, or stray
+asterisks until the model catches up. Most Markdown renderers aren't designed for incomplete input, so you'll need to either
+use a streaming-aware renderer or accept some visual jitter until the response stabilizes.
+
+A subtler problem is context. Suppose the model's reply says "Here are your usual cheese orders" and references specific
+products. Your UI might want to show rich product cards — with images, prices, and "Reorder" buttons — but those depend on
+the `RelatedProducts` array, which hasn't arrived yet because the model is still generating the `Reply` text. You have two
+choices: render the plain text first and enhance it with product cards once the full response lands, or keep a placeholder
+area that fills in when the structured data becomes available. Either way, your frontend needs to handle the two-phase nature
+of the response: streamed text first, structured data second.
+
+None of these challenges are showstoppers, but they're worth knowing about before you wire streaming into your UI. The simple
+console demo sidesteps all of them — `Console.Write` doesn't care about half-finished Markdown. A browser-based chat UI
+requires a bit more thought.
+
+Streaming to the console is nice for demos, but in a real application you'd want to push chunks to the browser over a
+web socket or Server-Sent Events (SSE). <<agent-stream-web>> shows a web endpoint that uses SSE to stream the reply
+to the client.
+
+[[agent-stream-web]]
+.Streaming agent responses to the browser via Server-Sent Events
+[source,csharp]
+----
+app.MapPost("/chat/stream", async (HttpContext context) =>
+{
+  var conversationId = "chats/";
+  if (context.Request.Query.TryGetValue("conversationId", out var v))
+    conversationId = v;
+  var companyId = context.Request.Query["companyId"].ToString();
+
+  var conversation = store.AI.Conversation(
+    agentId: "shopping-agent",
+    conversationId: conversationId,
+    new AiConversationCreationOptions()
+      .AddParameter("Company", companyId)
+  );
+
+  var body = await context.Request.ReadFromJsonAsync<UserRequest>();
+  conversation.AddUserPrompt(body.Prompt);
+
+  context.Response.ContentType = "text/event-stream";       <1>
+
+  var result = await conversation
+    .StreamAsync<ShoppingAgentAnswer>(
+      a => a.Reply,
+      async chunk =>                                        <2>
+      {
+        await context.Response.WriteAsync($"data: {chunk}\n\n");
+        await context.Response.Body.FlushAsync();
+      }
+    );
+
+  await context.Response.WriteAsync(                        <3>
+    $"event: done\ndata: {JsonSerializer.Serialize(new      
+    {
+      answer = result.Answer,
+      conversationId = conversation.Id
+    })}\n\n"
+  );
+  await context.Response.Body.FlushAsync();
+});
+----
+<1> Set the response content type to `text/event-stream` so the browser treats this as an SSE connection.
+<2> Each chunk is written as an SSE `data` event and flushed immediately, so the browser receives it in real time.
+<3> When streaming completes, we send a `done` event with the full structured answer — including the full `Reply`, 
+    `RelatedProducts`, `RelatedOrderIds`, `Followups`, and the `conversationId` for continuing the conversation.
+
+The pattern in <<agent-stream-web>> gives you real-time feedback _and_ the full structured response. The frontend can
+display the reply text as it streams in, then when the `done` event arrives, switch to the rich UI — rendering product
+cards, order links, and follow-up suggestion buttons.
+
+.Streaming only applies to the last invocation
+****
+An important detail: streaming happens on the _last_ invocation of the model. When the agent runs, it may execute multiple
+steps — running queries, calling actions, invoking sub-agents, etc. None of those intermediate steps generate streaming output. 
+The streaming callback only fires when the model is generating its final response to the user. This is the right behavior — you
+don't want to stream partial query results or internal reasoning steps to the user.
+
+Streaming only makes sense if you actually propagate the chunks to the user in real time. If you're just collecting them
+in a `StringBuilder` and displaying the result at the end, you've gained nothing — use `RunAsync` instead and keep your
+code simpler.
+****
 
 #### Advanced AI Agent queries
 
