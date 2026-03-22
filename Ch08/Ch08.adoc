@@ -3400,9 +3400,172 @@ meant to run in the same conversation loop we have in <<agent-loop>> or respondi
 happens out-of-band. So we need to also let the user know about that in a slightly different manner. That can be as adding a message to the existing
 chat (so you need to have to do that) or by sending an email, for example.
 
+#### Agentic Reminders
 
+The return merchandise scenario above is event-driven: the backend decides when to re-engage the model on behalf of the user.
+Another common pattern is for the _user_ to ask the agent to follow up on something later. Consider this exchange with our Shopping Agent:
 
+____
+*User:* Do you have Carnarvon Tigers in stock?
 
+*Agent:* Unfortunately, Carnarvon Tigers (`products/18-A``) are currently out of stock. We're expecting a new shipment in roughly three weeks.
+I can check again once that window has passed and let you know if they're available.
+
+*User:* Yes please, remind me to order some when they're back.
+____
+
+This is a great UX, right? Let's dig into what makes it possible. The model has no sense of time; it doesn't know when "three weeks" have passed. 
+It also has no way to spontaneously send a message to the user. So how do we make this happen? Let's see how to build this in RavenDB. We'll use
+some of the previously discussed features to built a complete agentic reminders solution.
+
+The first piece is to tell the agent that `CreateReminder` is an action it can invoke. You can see the agent definition for that 
+in <<agent-reminder-action>>.
+
+[[agent-reminder-action]]
+.Defining the `CreateReminder` action on the Shopping Agent
+[source,csharp]
+----
+new AiAgentConfiguration {
+  Name = "shopping-agent",
+  // redacted
+  Actions = [
+    new AiAgentToolAction
+    {
+      Name = "CreateReminder",            
+      Description =
+        """
+        Set a reminder for the user to follow up on something 
+        at a specific date and time. Use this when the user asks 
+        to be notified or reminded about a product, order, or 
+        any other topic at a later time.
+        """,
+      ParametersSchema =                    <1>
+        """
+        {
+          "name": "CreateReminder_args",
+          "strict": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date",           <2>
+                "description": "The date for the reminder"
+              },
+              "productId": {
+                "type": ["string", "null"], <3>
+                "description": "optional product id the reminder concerns"
+              },
+              "msg": {
+                "type": "string",
+                "description": "what to remind the user about"
+              }
+            },
+            "required": [
+              "at",
+              "productId",
+              "msg"
+            ],
+            "additionalProperties": false
+          }
+        }
+        """                         
+    }
+  ]
+}
+----
+<1> We use `ParametersSchema` instead of the usual sample object because we want to have a greater level of control 
+    on exactly what we'll get from the model.
+<2> The `at` field is a string, but required to be a valid `date` format.
+<3> We explicitly note that the `productId` may be nullable using `["string", "null"]`. 
+
+With the action defined, we register a handler so RavenDB knows what to do when the model calls it, as you can see in <<agent-reminder-create>>.
+
+[[agent-reminder-create]]
+.Handling the `CreateReminder` tool call
+[source,csharp]
+----
+conversation.Handle<CreateReminderArgs>("CreateReminder", async (args) =>
+{
+    using var session = _documentStore.OpenAsyncSession();
+    var at = DateTime.Parse(args.at);                               <1>
+    var reminder = new Reminder
+    {
+        CompanyId      = request.CompanyId,
+        ConversationId = conversation.Id,                           <2>
+        ProductId      = args.productId,
+        Message        = args.msg,
+    };
+    await session.StoreAsync(reminder);
+    session.Advanced.GetMetadataFor(reminder)["@refresh"] = at;     <3>
+    await session.SaveChangesAsync();
+
+    return $"Reminder set for {at} ({reminder.Id})";
+});
+----
+<1> The model provides the target date as a string, and we translate that to a `DateTime` instance.
+<2> We store the `ConversationId` so we can resume the exact same conversation thread when the reminder fires.
+<3> `@refresh` is the scheduling mechanism. RavenDB will surface this document to subscribers at the specified date and time.
+
+Practically speaking, in <<agent-reminder-create>> it is the `@refresh` metadata field that does all the scheduling work for us. 
+We set up a RavenDB Subscription that listens for `Reminder` documents once their refresh date arrives, as shown in 
+<<agent-reminder-subscription>>.
+
+[[agent-reminder-subscription]]
+.Subscription that picks up due reminders
+[source,sql]
+----
+from Reminders as r
+where r.'@metadata'.'@refresh' != null
+----
+
+When the subscription fires after three weeks, we re-enter the agent's conversation. 
+We don't want to pretend the user said something — after all, the user has not been chatting.
+Instead, we use the same `AddArtificialActionWithResponse()` trick from <<agent-rma-complete>>: we inject a synthetic
+tool response into the conversation history, so the model sees the reminder as something it checked for and found,
+rather than an out-of-nowhere interruption.
+
+[[agent-reminder-raise]]
+.Raising a reminder by injecting it back into the conversation
+[source,csharp]
+----
+async Task HandleReminder(Reminder reminder)
+{
+    var conversation = _documentStore.AI.Conversation(
+        agentId: "shopping-agent",
+        reminder.ConversationId,                                    <1>
+        creationOptions: null);
+
+    conversation.AddArtificialActionWithResponse(                   <2>
+        "GetRaisedReminders", reminder);
+
+    var result = await conversation.RunAsync<ShoppingAgentAnswer>();
+
+    await SendToUser(reminder.CompanyId, result.Answer.Reply);      <3>
+}
+----
+<1> We resume the original conversation rather than starting a new one. The model gets the full history — including the original
+    out-of-stock exchange — and can respond in context.
+<2> We inject a fake result for a `GetRaisedReminders` tool call. As far as the model is concerned, it polled for pending
+    reminders and found one. It then decides what to do with that information naturally.
+<3> Because the user is not actively looking at the chat right now, we notify them via whatever out-of-band channel your 
+    application supports — push notification, email, SMS — and direct them back to the conversation thread.
+
+.Why inject a fake tool call?
+****
+AI models only know about the messages and tool calls present in their conversation history. There is no concept of "an
+external event just occurred". The trick is to make the reminder _look_ like something the model already did: it polled for
+pending reminders and the one about Carnarvon Tigers came back.
+
+The model can then respond naturally — "Great news, your reminder about Carnarvon Tigers just came up. Let me check the
+current stock for you." — with full awareness of what was discussed three weeks ago. The user gets a coherent, contextual
+reply, and your application never had to maintain any of that state explicitly.
+****
+
+The `AddArtificialActionWithResponse()` pattern ties the two out-of-band scenarios together neatly. The return merchanside 
+approval in <<agent-rma-complete>> fires because the backend completed a process; the stock reminder here fires because a scheduled
+date arrived. The agent-side code is the same in both cases. Whether the trigger is a workflow event, a scheduled check,
+an external webhook, or anything else, you represent it as an artificial tool result and let the model respond from there.
 
 #### Concurrency with agents
 
