@@ -3569,7 +3569,94 @@ an external webhook, or anything else, you represent it as an artificial tool re
 
 #### Concurrency with agents
 
-optimistic concurrency
+Agentic reminders and out-of-band actions are powerful capabilities, allowing you to significantly enhance what your agents
+can do. They also bring with them additional complexity to consider: concurrency. What happens if, at roughly the same time, 
+the user asks another question ("Do you have any fresh apples?") and a manager approves a previously requiested 
+return merchandise request.
+
+Both operations are going to use the same conversation, at the same time. Explaining exactly what will happen in such a case
+is probelmatic, but can be summed up simply as "a mess". Dealing with concurrency is something that most web applications 
+already have to deal with (a user opening a second tab, for example). And the answer for concurrent calls to the same 
+conversation is the same as dealing with concurrent for documents. 
+
+Note that AI agents make concurrent usage _more_ likely than usual. Since the model itself takes time to think, a call to `RunAsync()` may
+spend several seconds waiting for the model's response. During that window, any other code that touches the same conversation document 
+can race ahead.
+
+RavenDB exposes an optional `changeVector` parameter on `Conversation()` for exactly this situation, as you can see in 
+<<conversation-change-vector>>. 
+
+[[conversation-change-vector]]
+.Sepcifying the change vector 
+[source,csharp]
+----
+store.AI.Conversation(
+    agentId: "shopping-agent",
+    conversationId: conversationId,
+    creationOptions: null,
+    changeVector: knownChangeVector);           <1>
+
+// ... register handles, add user prompt ...
+
+var result = await conversation
+              .RunAsync<ShoppingAgentAnswer>();
+knownChangeVector = conversation.ChangeVector;  <2>
+----
+<1> If `changeVector` is provided and the conversation document has been modified since that change vector was observed,
+    RavenDB will throw a concurrency exception rather than continue.
+<2> After calling `RunAsync()`, you can capture the _current_ `ChangeVector` from the conversation for the next round. 
+
+The `changeVector` is the same optimistic concurrency mechanism used throughout RavenDB. You can read the current value
+from `conversation.ChangeVector` after running a conversation, send it alongside the conversation ID to the client 
+so you pass it back in the next call. If the document has been modified in the meantime, the call will fail fast with a 
+`ConcurrencyException`. 
+
+In practice, you'll deal with this in a web endpoint in a way similar to what is shown in 
+<<conversation-optimistic-concurrency>>.
+
+[[conversation-optimistic-concurrency]]
+.Using change vector to ensure optimistic concurrency with conversations
+[source,csharp]
+----
+// Client sends back the changeVector it received in the previous response
+var changeVector = context.Request.Query["changeVector"].ToString();
+
+var conversation = store.AI.Conversation(         <1>
+    agentId: "shopping-agent",
+    conversationId: conversationId,
+    creationOptions: null,
+    changeVector: string.IsNullOrEmpty(changeVector) ? null : changeVector);
+
+// ... register handles, add user prompt ...
+
+var result = await conversation.RunAsync<ShoppingAgentAnswer>();
+await context.Response.WriteAsJsonAsync(new {
+    answer          = result.Answer,
+    conversationId  = conversation.Id,
+    changeVector    = conversation.ChangeVector   <2>
+});
+----
+<1> Pass the `changeVector` the client gave us. On the very first request it will be `null`, which disables the check and
+    lets RavenDB create (or resume) the conversation freely.
+<2> Return the fresh `changeVector` to the client so it can include it in the next request.
+
+The same guard belongs in every out-of-band writer — the subscription worker that fires reminders, the task that 
+completes the return mechandise process, an external webhook — anywhere that resumes a conversation outside the 
+primary HTTP request flow.
+
+Those writers should load the conversation document first, grab its current `changeVector`, and pass that into
+`Conversation()`. If the user happened to send a message at the same instant, one writer will succeed and the other
+will get a `ConcurrencyException`. You can then retry, or inform the caller that the conversation changed and let
+it decide what should be done.
+
+[TIP]
+====
+The window for a concurrent write is much wider than with agents' conversations than in the typical CRUD endpoint. 
+Treat the `changeVector` guard as a _default_ for out-of-band writers, not an afterthought. Note that in order for
+optimistic concurrency to work, you need _all_ usage locations to participate in it. 
+
+On the other hand, if you don't have out-of-band actions, you may not require optimistic concurrency at all. 
+====
 
 #### Complex responses from the agent
 
