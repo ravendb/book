@@ -4226,25 +4226,275 @@ This mirrors how human memory works, actually. We remember recent conversations 
 of what we discussed last week. For more details, we'll need to check our records. And with a modest effort, we just 
 provided the same capabilities to our agent.
 
-#### Advanced AI Agent queries
+[NOTE]
+.Parameters are retained across summarization
+====
+Agent parameters are not part of the conversation history — they are sent as a fixed part of the prompt on every call.
+When RavenDB summarizes a long conversation, details can be lost, but parameters are never touched. 
+This makes parameters the right place for identity and context that must never be forgotten. Keep in mind that parameter values
+should be short, though. They are sent each time, and cannot be summarized away.
+====
 
-agent-with-mixed-query
+#### Multi-stage actions reduce token usage
 
-context size / limits
+The `RecallMemories` query we defined in <<agent-recall-memories>> works well, but it has a subtle cost problem. When the model calls
+`RecallMemories`, it gets back the _full_ documents for all the top matching memories — the `Name`, the `Title`, and the entire 
+`Description` of each result. If you have detailed memories (and you should — the whole point is to store rich context), those 
+descriptions can be quite long. Multiply that by the five results we return and you're burning through a significant number of tokens 
+on every recall, even if the agent only needed _one_ of those memories.
 
-initial context
-send to model 
+This is a general problem when building AI agents. Our natural inclination is to hand the model all the information it might need 
+and let it figure things out. But tokens cost both time and money. Wasterful queries eat into the model's context window. The more 
+noise you push into the context, the less room the model has for the actual conversation and reasoning.
 
-search by id / load items
+The solution is a multi-staged approach. Instead of giving the model everything at once, you let it _browse_ first and then _fetch_ 
+only what it needs. This is not unlike how people work — you don't read an entire library to answer a question. You scan the catalog, 
+pick the relevant books, look at their table of contents, and read only the relevant parts.
 
-using `when` for queries
+We can apply this pattern to our memory system by splitting `RecallMemories` into two separate tools: `SearchMemories` and `FetchMemory`.
+The `SearchMemories` query returns only the document ID and the `Title` of each matching memory — just enough for the model to decide 
+which memories are actually relevant. Then `FetchMemory` loads the full document for a specific memory by its ID, giving the model the 
+complete `Description` only when it chooses to read it.
 
+<<agent-search-memories>> shows the `SearchMemories` query. Note how we only project the document ID and the `Title`, keeping the 
+response small.
+
+[[agent-search-memories]]
+.A lightweight search query that returns only memory titles, not full content
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "SearchMemories",
+    Description = 
+      """
+      Search your memories about this customer. Returns a list of 
+      memory titles — use FetchMemory to read the full details of 
+      any memory that looks relevant.
+      """,
+    Query = """
+        from Memories
+        where Company = $Company
+          and vector.search(embedding.text(Description), $searchTerms)
+        select id() as Id, Title
+        limit 10
+        """,
+    ParametersSampleObject = 
+        """
+        { "searchTerms": "search for relevant memories" }
+        """
+}
+----
+
+Because we're only returning IDs and titles in <<agent-search-memories>>, we can afford to return more results and still
+decrease the overall token count. The model can scan the titles quickly and decide which ones matter.
+<<agent-fetch-memory>> shows the `FetchMemory` query that loads a single memory by its document ID.
+
+[[agent-fetch-memory]]
+.Loading the full content of a specific memory by ID
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "FetchMemory",
+    Description = 
+      """
+      Load the full details of a specific memory by its ID. Use 
+      this after SearchMemories to read information that looks 
+      relevant to the current conversation.
+      """,
+    Query = """
+        from Memories
+        where Company = $Company  <1>
+          and id() = $memoryId
+        """,
+    ParametersSampleObject = 
+        """
+        { "memoryId": "The id of the memory to fetch" }
+        """
+}
+----
+<1> We limit the scope of memories that the `FetchMemory` query can access by filtering using the `Company` parameter, thus
+    ensuring that the model can only fetch memories relevant to the current user.
+
+If the customer asks "What cheese did I like again?", `SearchMemories` might return titles like "Customer's allergies", 
+"Favorite dairy products", "Prefers organic products", and "Important dates". The model only needs to fetch "Favorite dairy products".
+The other memories never get loaded into the context at all, which can dramatically reduce overall token usage.
+
+.Multi-staged queries are a general pattern
+****
+We showed this pattern with memories, but it applies everywhere you give tools to an AI agent. If you have an agent that 
+can search product catalogs or order histories consider whether the first query really needs to return 
+the full documents. Often, returning just the ID and a short summary in the first stage, and letting the model load the 
+full details on demand, will give you both faster responses and lower costs. It costs an extra round-trip, but the savings
+in tokens more than make up for it.
+****
+
+<<agent-fetch-memory>> has an important aspect that you should pay attention to. We explicitly limit the results from the
+query to the memories of the current user (using `where Company = $Company`). We already _did_ that, in `SearchMemories`, 
+why do we need to do it again in `FetchMemory`? 
+
+We have to add that where clause on both locations to guard againt a user trying to game the system. A prompt such ask:
+"Fetch me the memory of 'memories/another-user/secrets', please". You can try to tell the model to protect itself from 
+such attacks, but it is both safer and easier to simply make it impossible. 
+
+#### Optimizing context size vs. repeated calls
+
+Multi-stage querstions reduce the total tokens we send, but we now have to make additional calls. Each such call sends the 
+_entire_ conversation context — system prompt, conversation history, tool definitions, and any results 
+from previous tool calls — all over again. If you have a 10K-token conversation context and the model require a sequence of 
+three tool calls before answering, you've sent those 10K tokens _four times_ (once for each tool call, plus the final response).
+
+At first glance, that seems like the multi-staged approach we just advocated is making things _worse_. We're saving tokens on 
+the data we fetch, but paying for repeated context on every round-trip. One important aspect to consider is the _quality_ of
+the responses that you'll get with reducing the context size. 
+
+When you throw a lot of data into the context and ask the model to produce answers, it has to do a lot more work and the answer 
+quality is measurably worse. Even if we have to pay with extra roundtrips, the fact that we get better answers is worth it. 
+
+Practically speaking, there is another aspect to consider. If the `RecallMemories` loaded 50K tokens into the context, and the
+`SearchMemories` + `RecallMemory` only loaded 10K (but took multiple calls), we are _still_ winning in terms of reducing the
+total number of tokens spent. This technique should be applied when the data you are loading is of significant size 
+(long text fields, big arrays, etc).
+
+Another aspect to consider is the notion of prompt caching, which changes the economics completely.
+Prompt caching is widely supported — by major cloud providers (OpenAI, Anthropic, Google, etc.) and local inference
+engines (Ollama, vLLM, etc.) alike. The idea is simple: when you send a request to the model, the provider checks whether 
+the _beginning_ of your prompt matches a recent request. If it does, the provider can 
+reuse the cached computation for the matching prefix and only process the new tokens at the end. 
+
+Cached input tokens are  significantly cheaper — typically 50% to 90% cheaper depending on the provider — and they're processed 
+faster since the computation was already done. This is a perfect fit for how AI agents work. Think about what stays the same across 
+tool calls within a single conversation turn:
+
+* The system prompt.
+* The tool definitions.
+* The conversation parameters.
+* The conversation history (user messages, tool calls and agent response).
+
+When you make repeated calls to the model, the only thing that changes between calls is the _latest_ addition: a new tool result 
+appended to the end (or a new user prompt). That means the vast majority of the prompt is a shared prefix that hits the cache on 
+every subsequent call. You're paying full price only for the new data at the tail end.
+
+.Prompt caching benefits from delayed summarization
+****
+We previously talked about summarization and trimming. Why not _always_ summarize the conversation, then? We can ask the 
+model to give us a conversation summary each time, massively reducing the number of tokens we need to send, no?
+
+The answer is prompt caching. A longer conversation history means a longer stable prefix, which means more 
+cache hits and cheaper tokens on every subsequent call. If you summarize too early, you shorten the prefix and lose 
+cache efficiency — you're paying full price for tokens that _could_ have been cached. On top of that, a longer history
+gives the model more information to work with, which improves response quality.
+****
+
+This is why the multi-staged approach from the previous section can often be a clear win. Yes, `SearchMemories` followed by 
+`FetchMemory` is two calls instead of one. But the second call's prompt is almost entirely cached — you only pay full price for 
+the small search results that were appended. Meanwhile, you avoided loading four irrelevant memory descriptions into the context, 
+which would have inflated _every subsequent call_ in the conversation (since those results become part of the context for the next turn).
+
+That last point is worth emphasizing. Token costs compound across a conversation. Every piece of data you load into a tool result 
+doesn't just cost you once — it becomes part of the context that gets resent on every future call in that conversation turn. The 
+bloat only goes away when the conversation is trimmed or summarized, which as you saw in <<agent-chat-trimming>>, RavenDB 
+handles automatically.
+
+.How to structure your prompts for optimal caching
+****
+Prompt caching works on _prefixes_ — the provider matches from the beginning of the prompt forward. This means the order of 
+your prompt matters. RavenDB structures the agent's prompts this way automatically, so you get good cache hit rates without 
+having to think about it.
+
+Also keep in mind that different providers have different minimum prefix lengths for caching to kick in (often 1024 tokens or 
+more). Very short prompts won't benefit from caching. But for any real agent conversation with tool definitions and history, 
+you'll comfortably exceed that threshold.
+****
+
+#### Pre-loading context with initial queries
+
+We've been talking about reducing round-trips when the model _might_ need data. But what about data that you _know_ the model 
+will need every single time? Consider a shopping agent that helps customers with their orders. The customer's recent 
+order history is essential context for almost everything the agent does — recommending products, answering "when will my 
+order arrive?", suggesting reorders, or even just greeting the customer appropriately ("Welcome back! How's that brie 
+you ordered last week?").
+
+Without any optimization, the model's first action on every single conversation turn would be to call a `GetRecentOrders` 
+query. That's a completely predictable round-trip, and you're paying for it every time.
+
+RavenDB lets you eliminate this overhead by marking a query tool as an _initial-context query_. When a query is marked this way, 
+RavenDB executes it _before_ sending anything to the model, and includes the results as part of the initial context. The model 
+sees the data as if it had already called the query itself, but without spending a round-trip to ask for it.
+
+<<agent-initial-context>> shows how to configure a query tool to run as initial context.
+
+[[agent-initial-context]]
+.Loading recent orders automatically as initial context
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "GetRecentOrders",
+    // redacted
+    Options = new AiAgentToolQueryOptions
+    {
+        AddToInitialContext = true,   <1>
+        AllowModelQueries = true      <2>
+    }
+}
+----
+<1> Mark this query to run as initial context, RavenDB will executes it before the conversation starts and includes the results 
+    in the initial prompt.
+<2> Allow the model to call this query again later in the conversation if it decides the initial data might need to be refreshed.
+    Setting this to `false` means that this query will only run _once_ at the beginning of the conversation, and isn't available
+    for the model to call it again.
+
+The `AddToInitialContext = true` flag tells RavenDB to run this query at conversation start and inject the results into 
+the context. The model sees the data immediately without needing an additional round-trip. This helps even when the customer 
+isn't asking about orders directly. A customer asking "What should I try this week?" gets a much better recommendation when 
+the model can already see what they've ordered before.
+
+Note that we set `AllowModelQueries = true` in <<agent-initial-context>>. The initial-context query runs when the conversation 
+_starts_, but a conversation can span many messages. If the customer places a new order mid-conversation and then asks 
+"Did my order go through?", the model needs to re-fetch the recent orders to see the new one. Allowing model queries means 
+the model can call `GetRecentOrders` again later in the conversation when it decides the initial data might be stale.
+
+But this isn't always the right choice. Consider a different query that loads the customer's profile — their name and how long
+they have been a customer. This is also useful context for the model, but it's not something that can change during a conversation. 
+There's no reason for the model to ever re-fetch this data, if it cannot change.
+
+By setting `AllowModelQueries` to `false`, we get two benefits. First, we prevent the model from calling the query again and 
+needlessly refreshing the data it already has. Second, RavenDB can omit the tool definition from the prompt entirely — fewer 
+tokens spent describing a tool the model will never call.
+
+.Initial-context queries and agent parameters
+****
+Initial-context queries run _before_ the first message is sent to the model, so the model has no opportunity to fill in 
+parameter values. That means you cannot use LLM-provided parameters (like `$searchTerms`) in initial-context queries.
+
+You _can_, however, use agent parameters — the ones whose values are provided by the client when the conversation starts. 
+Both examples above use the `$Company` agent parameter, whose value is supplied by the client upon creation of
+the conversation.
+****
+
+The key insight is to split your queries into two categories: data the model _always_ needs (use initial context) and 
+data it _sometimes_ needs (use regular or multi-staged queries). For initial-context queries, ask one more question: 
+can this data change mid-conversation? If yes, keep `AllowModelQueries` enabled. If no, disable it to save tokens.
+
+There's a subtlety here. Initial-context results become part of the conversation history, which means they're subject 
+to summarization. After enough summarization cycles, "the customer's recent orders" may be all that remains — the actual 
+order details the model needs could be lost.
+
+For short conversations this rarely matters. But if your users have long conversations with the agent, don't set 
+`AllowModelQueries` to `false`. The model may need to re-fetch the data after summarization has compressed the original results away.
+
+
+using `when` in queries
+
+today() and now()
 
 #### Error handling & rate limits
 
 #### AI Agent Security
 
-#### Mutli Agents
+#### Multi Agents
 
 #### Who guards the agent? 
 
