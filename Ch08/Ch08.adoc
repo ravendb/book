@@ -4671,6 +4671,12 @@ new AiAgentToolQuery
 NOTE: `today()` is effectively a shortcut for `now('0d')`. If you need "yesterday" or "three days from now," use 
 `now('-1d')` or `now('+3d')` instead. 
 
+Like `when()`, the `now()` and `today()` functions are most useful for agent queries. In regular application 
+code, you'd just pass `DateTime.UtcNow` or `DateTime.Today` as a query parameter — there's no need for the 
+server to compute the current time when your code already knows it. But agent queries are defined as static RQL 
+strings in the agent configuration. There's no application code running at query time to inject a parameter value, 
+so `now()` and `today()` fill that gap.
+
 #### Error handling & rate limits
 
 #### AI Agent Security
