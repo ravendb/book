@@ -4593,7 +4593,83 @@ right in the agent definition. But `when` is deliberately limited in what it can
 complex queries dynamically, it's better to do so in your own code. It's far easier to debug and troubleshoot an action 
 handler than to untangle complex RQL with nested `when` clauses.
 
-today() and now()
+#### Time-based queries with `now()` and `today()`
+
+Agent queries often involve time. "Show me orders from the last month" is a straightforward request, and the 
+model will happily try to answer it. We run into a problem because the model doesn't have the concept of 
+time. It has a cutoff date for its knowledge, but no idea what today's date is. 
+
+We previously looked at sending the current time as a parameter to the model, but that puts date arithmetic 
+in the hands of the LLM, which is not where you want it.
+
+RQL provides two built-in functions that handle this on the server: `now()` returns the current UTC date and time, 
+and `today()` returns the current UTC date at midnight (without the time component). Both are evaluated by RavenDB at 
+query execution time, so the model never needs to know what time it is.
+
+The real power comes from `now()` with an offset parameter. Instead of writing a raw timestamp, you write 
+`now('-3mo')` to mean 3 months ago and `now('7 days')` to mean a week from now.
+
+.Offset string syntax
+****
+The offset uses six units: `y` (years), `mo` (months), `d` (days), `h` (hours), `m` (minutes), `s` (seconds). Each 
+unit also accepts long forms (`year`, `years`, `month`, `months`, etc.). Units must appear in descending order — 
+`"2y6mo"` is valid, but `"6mo2y"` is not. A leading `+` or `-` sets the direction. 
+A few examples: `"-18years"`, `"1month"`, `"7days"`, `"2y6month"`. See the online documentation for the full syntax reference.
+****
+
+There is one subtlety to be aware of: _rounding_. The result of `now()` with an offset is automatically floored 
+to the smallest precision unit you provide. If you write `now('-7d')`, RavenDB subtracts seven days and then 
+rounds _down_ to the start of that day (midnight UTC). If you write `now('-2h30m')`, it subtracts two hours and 
+thirty minutes and rounds down to the start of that minute. This means `now('-3mo')` gives you the first instant 
+of the month three months ago — which is usually exactly what you want for range queries.
+
+TIP: If you need the full precision (no rounding), append a zero at the smallest unit you care about. `now('-7d0s')` 
+subtracts seven days and rounds to the second instead of the day, preserving hours, minutes, and seconds.
+
+Putting it together, <<agent-now-query>> shows a query tool that finds recent orders using `now()`, without needing
+to provide the model with the current time (note that this is still a good idea), or rely on it to handle dates properly.
+
+[[agent-now-query]]
+.Using `now()` with an offset to fetch orders from the last three months
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "GetRecentOrders",
+    Description = "Get orders placed in the last 3 months",
+    Query = """
+        from Orders
+        where Company = $Company
+          and OrderedAt between now('-3mo') and now()
+        order by OrderedAt desc
+        """,
+}
+----
+
+Dates are _very_ commonly used in queries, and the most common one is today. The `today()` function takes no parameters 
+and returns midnight UTC of the current day. This make queries in business contexts that operate on today's date a lot 
+simpler, as you can see in <<query-with-today>>.
+
+[[query-with-today]]
+.Finding overdue invoices using `today()`
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "GetOverdueInvoices",
+    Description = "Get over due invoices for this company",
+    Query = """
+        from Invoices
+        where Company = $Company
+          and DueDate < today()
+          and Paid = false
+        order by DueDate
+        """,
+}
+----
+
+NOTE: `today()` is effectively a shortcut for `now('0d')`. If you need "yesterday" or "three days from now," use 
+`now('-1d')` or `now('+3d')` instead. 
 
 #### Error handling & rate limits
 
