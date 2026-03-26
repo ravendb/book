@@ -4485,8 +4485,113 @@ order details the model needs could be lost.
 For short conversations this rarely matters. But if your users have long conversations with the agent, don't set 
 `AllowModelQueries` to `false`. The model may need to re-fetch the data after summarization has compressed the original results away.
 
+#### Conditional filters with `when`
 
-using `when` in queries
+So far, our queries have fixed structure — every filter runs every time. Sometimes a filter should only apply when a 
+certain parameter has a specific value. Consider a product search query for our store. If the customer is located 
+in the EU, we want to restrict results to electronics that ship with a USB-C charger (per EU mandate). 
+If they're outside the EU, that filter is not applied and should be skipped entirely.
+
+You could write two separate queries (one with the EU filter, one without), but that gets unwieldy fast as the number of 
+conditional filters grows. RavenDB's `when` clause solves this directly in RQL. The syntax is `when(condition, filter)`: if the 
+condition evaluates to `true`, the filter is applied to the query; if `false`, the filter is silently dropped as if it 
+wasn't there at all.
+
+<<agent-when-query>> shows a product search query that conditionally restricts results to USB-C products for EU 
+customers.
+
+[[agent-when-query]]
+.Conditionally filtering by charger type based on the customer's location
+[source,csharp]
+----
+new AiAgentToolQuery
+{
+    Name = "SearchProducts",
+    Description = 
+      """
+      Search for products matching a query.
+      """,
+    Query = """
+        from Products
+        where search(Name, $searchTerms)              <1>
+          and when($inEu == true, Charger = 'usb-c')  <2>
+        limit 20
+        """,
+    ParametersSampleObject = 
+        """
+        { "searchTerms": "search terms in product catalog" }
+        """
+}
+----
+<1> Standard full-text search on the product name filled by the model.
+<2> The `when` clause: if `$inEu` is `true`, only products with a USB-C charger are returned. 
+    If `$inEu` is `false` or the parameter is missing, this filter is dropped and all matching products come through.
+
+Note that in <<agent-when-query>>, the `$inEu` parameter here is an agent parameter. It comes from the application code that 
+created the conversation. The model fills in the `$searchTerms` parameter, but it has no control over `$inEu`. You can use
+`when` clause with model parameters as well, but they usually make the most sense with agent parameters.
+
+The `when` clause composes naturally with other filters. Because the condition evaluated to `false` simply removes that 
+part of the query, the remaining filters are unaffected. The query in <<agent-when-query>> becomes just 
+`where search(Name, $searchTerms)` for non-EU customers.
+
+You can also combine multiple `when` clauses. <<agent-when-combined>> adds a second conditional filter 
+that restricts non-premium customers to in-stock items only, since only premium members can also see backordered products.
+
+[[agent-when-combined]]
+.Combining multiple `when` clauses in a single query
+[source,rql]
+----
+from Products
+where search(Name, $searchTerms)
+  and when($custInEu == true, Charger = 'usb-c')
+  and when($isPremium == false, InStock == true)
+----
+
+Each `when` in <<agent-when-combined>> is evaluated independently. A non-EU premium member sees all products 
+(including backordered ones). A non-premium EU customer gets only the USB-C filter and only in-stock items. Both 
+conditions can apply, or neither.
+
+When the conditional logic outgrows what `when` can express, you can use an action instead of a query. Define the 
+tool as an `AiAgentToolAction` with the same parameters the model would pass to a query (e.g. `searchTerms`), and 
+build the query in your handler using the API. <<agent-action-search>> shows an example using LINQ.
+
+[[agent-action-search]]
+.Using an action to build a query with application-side business logic
+[source,csharp]
+----
+conversation.Handle<FindProductsArgs>("FindProducts", async args =>
+{
+    using var session = store.OpenAsyncSession();
+    var company = await session.LoadAsync<Company>(companyId);
+
+    var query = session.Query<Product>()                     <1>
+        .Search(p => p.Name, args.SearchTerms);
+
+    if (IsEuCompany(company))                                <2>
+        query = query.Where(p => p.Charger == "usb-c");
+
+    if (company.IsPremium is false)                          <3>
+        query = query.Where(p => p.InStock);  
+
+    var results = await query.ToListAsync();                  
+    return JsonSerializer.Serialize(results);                <4>
+});
+----
+<1> Start with a base LINQ query — full-text search on the product name, just like in <<agent-when-combined>>.
+<2> Conditionally add the USB-C filter based on the customer's region. This is the same rule as the `when` clause.
+<3> Non-premium customers only see in-stock products. Premium members see everything, including backordered items.
+<4> We have to return the response as a string, so we serialize it to JSON, and the model receives this string exactly 
+    as it would receive query output.
+
+The trade-off is efficiency. A query tool executes in a single step — RavenDB runs the RQL and feeds the 
+results straight to the model. An action requires a full round-trip: the model calls the action, RavenDB returns to 
+your code to execute the `Handle()` callback, then the result is sent back to RavenDB, which send it back to the model...
+
+For simple conditional filters, `when` is the better choice with fewer round-trips, less code, and logic that lives 
+right in the agent definition. But `when` is deliberately limited in what it can express. When you need to build 
+complex queries dynamically, it's better to do so in your own code. It's far easier to debug and troubleshoot an action 
+handler than to untangle complex RQL with nested `when` clauses.
 
 today() and now()
 
@@ -4495,6 +4600,8 @@ today() and now()
 #### AI Agent Security
 
 #### Multi Agents
+
+non agent generated parameters
 
 #### Who guards the agent? 
 
