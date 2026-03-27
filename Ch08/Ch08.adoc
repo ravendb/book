@@ -4679,6 +4679,41 @@ so `now()` and `today()` fill that gap.
 
 #### Error handling & rate limits
 
+Embedding Generation and GenAI tasks run in the background, so if the model is temporarily unavailable, RavenDB 
+backs off and retries transparently. Agents are different. There's a user waiting for a reply, and stalling 
+silently isn't an option. RavenDB surfaces agent errors immediately to your code, and you decide what to do.
+
+There are three categories of errors to be aware of:
+
+* **Model errors** include rate limits, refusals, and outages. If the model provider rejects the request (token quota 
+exceeded, API token revoked, content refused, or service down), RavenDB throws an exception from `RunAsync()`. 
+The model isn't available, so your application code catches the exception and decides how to proceed.
+
+* **Query errors** cover bad RQL, a missing index, or invalid parameters. These are configuration problems that won't 
+fix themselves on retry, so RavenDB raises an exception immediately. A broken query requires a code fix, retry
+attempts won't help here.
+
+* **Action handler errors** are exceptions from your `Handle()` callbacks. As we covered earlier, RavenDB catches 
+these and passes the error message back to the model as the tool result. The model can retry with different 
+parameters, try a different approach, or explain the problem to the user. This is the one category where the error 
+_doesn't_ bubble up to your code, because the model is expected to be able to recover on its own.
+
+* **Concurrency errors** occur when you've enabled optimistic concurrency on the conversation and two 
+`RunAsync()` calls on the same conversation race against each other. Both calls run to completion, but only one can 
+update the conversation document. The other gets a `ConcurrencyException`, and the conversation document will not 
+reflect any changes by that call. You can retry the failed call, and it will pick up the conversation from the state left by the 
+winner. Be aware, though, that any actions the losing call executed (adding items to a cart, placing an order) 
+_did_ happen. The conversation won't record them, but their side effects are real. Design your action handlers 
+with this in mind.
+
+In short: errors the model can potentially handle (action failures, validation problems) are routed back to the 
+model. Errors that no amount of reasoning can fix (rate limits, broken queries, outages) are raised as exceptions 
+to your code.
+
+One important detail: when `RunAsync()` throws an exception, the conversation document is _not_ 
+modified. The failed call leaves no trace in the conversation history. You can resume the conversation from 
+that point safely.
+
 #### AI Agent Security
 
 #### Multi Agents
