@@ -124,7 +124,7 @@ case. Note that you need to evaluate both different models and different quantiz
 If you aren't working with a _lot_ of vectors, there is usually no need to really bother. Just use the model that gives you the best results and don't worry about the size of the vectors. I did want
 to mention that RavenDB has the inherent capability to handle quantization for you, should you need it.
 
-#### Exact and Approximate Nearest Neighbors Search
+#### Scaling similarity search: exact scans vs. approximate indexes
 
 So we now understand what vectors are. What are we actually doing with them? 
 <<bge-micro-v2-embedding>> shows the output of the `bge-micro-v2` model for the words "sweets" and "chocolate", and how we can compute the distance between the two vectors using cosine similarity.
@@ -254,7 +254,7 @@ The script in <<running-ollama>> will run Ollama in a Docker container, and will
 model for embedding tasks. You can use any model that Ollama supports, of course. Those are just here to get you started. 
 Once you have Ollama running, you can connect to it using RavenDB.
 
-#### Connecting RavendB to Ollama
+#### Connecting RavenDB to Ollama
 
 Connecting RavenDB to an AI model is simple. Go to the RavenDB Studio and go to the `Northwind` database, then the `AI Hub` section and the 
 `AI Connection Strings` option. Click on `Add New`, give the connection string a name (we'll use `Ollama Embedding` for now). You can then select an 
@@ -280,7 +280,7 @@ You can repeat the same process as in <<ollama-connection-string>> to create a c
 with the identifier `ollama-generative`, use `Chat` as the model type, `Ollama` as the connector type, `http://localhost:11434/` as the URL and select 
 the `llama3.2:3b` model.
 
-#### Connecting RavenDB to OpenAI and OpenAI compatible models
+#### Connecting to OpenAI and compatible providers
 
 Connecting RavenDB to OpenAI is similar to connecting to Ollama. Go to the `AI Hub` section in RavenDB Studio, then the `AI Connection Strings` option.
 Click on `Add New`, give the connection string a name (we'll use `OpenAI Embedding` for now). You can then select an identifier for the connection string 
@@ -420,7 +420,7 @@ If you go over the list, you can see that the results are quite different. The O
 The model seems to have a broader understanding of what "sweets" are, especially given multilingual context. The `bge-micro-v2` model, on the other hand, is more focused 
 on chocolate and sweets that are explicitly named as such. We also have the spicy soup mix in the results for `bge-micro-v2`, which is clearly not a sweet.
 
-#### Understanding closest neighbors search
+#### How vector distance determines search results
 
 Why did we get "Gumbo Mix" (a spicy soup) when searching for "sweets" with the `bge-micro-v2` model?
 To understand that, we need to look at how vector search works. Vector search is all about finding the closest neighbors in the vector space. Each vector represents a point in a high-dimensional space, and the distance between two vectors represents how similar their meanings are.
@@ -983,7 +983,7 @@ You can see that the model got the prompt to translate to multiple languages, us
 object to know what are the languages we need to translate to, and then RavenDB plugged that result back into the 
 document using the code in the `UpdateScript`.
 
-#### Understanding RavenDB's Generative AI approach
+#### The anatomy of a GenAI task
 
 Now that we have a concrete example of how a Gennerative AI task works in RavenDB, I want to take a step back and explain the
 overall approach that RavenDB is taking to this feature. The following are key components to RavenDB's Generative AI feature:
@@ -1016,7 +1016,7 @@ In <<generative-ai-full-configuration>> we are simply setting the `Translation` 
 you can also apply your own logic to process the output from the model and modify the docuemnt (or even related docuemnts) as you see fit. 
 We'll see some more complex examples later in this chapter.
 
-#### Caching Generative AI Results
+#### Result caching: only running the model when your data changes
 
 When we look at using Generative AI models at scale, we need to understand the costs associated with using them. Each call to a Gen AI model 
 is typically charged to your account, based on the number of tokens processed (both input and output tokens). When processing large collections 
@@ -1082,7 +1082,7 @@ Caching in Generative AI tasks is applied at the _document_ level. In other word
 will still send both of them to the model.
 ****
 
-#### Advanced Generative AI tasks
+#### Per-item context: processing multiple items within a single document
 
 <<generative-ai-full-configuration>> is the "Hello World" of Generative AI tasks, let's explore a more complex task that will show more of 
 what you can do with RavenDB. Previously we showed how to translate product names to multiple languages. What if we want to offer a tailored
@@ -1406,7 +1406,7 @@ You can also send multiple images at the same time by calling `withJpeg()` (or s
 accepts either the result of a `loadAttachment(filename)` call or a Base64 encoded string representing the image data (for example, if you
 store the image data directly in the document using Base64).
 
-##### Letting the model query additional information
+##### Giving the model queries to fetch additional context
 
 In the previous examples, we provided all the context that the model needed to perform its task from the source document that triggered the Generative AI task. What about cases where 
 you might want the model to be able to query additional information? For example, let's say that we want to generate a recommendation list for additional products to add to your
@@ -1620,7 +1620,7 @@ model. That is useful when you have a query that is always needed, since is save
 Given the complexity invovled in this style of operation, RavenDB provides detailed tracing and debugging capabilities to help you understand what is going on. 
 You can see the details of each Generative AI task execution. We'll discuss this topic in the next section.
 
-#### Tracing & Debugging with Generative AI tasks
+#### Tracing and debugging GenAI tasks with conversation logs
 
 Generative AI tasks run asynchronously in the background. They can gather context from a document, related documents, attachments or queries. The model may
 complete its task in a single round, or it may decide to call additional queries to gather more information. The model output is then passed to the update script,
@@ -2492,7 +2492,7 @@ We didn't have to build this feature, it is simply an emergant property of the s
 We still have a lot to learn about AI Agents, but I think it is time to start playing with them in code, and not just in
 the RavenDB Studio.
 
-#### Creating conversations programatically
+#### Building and resuming conversations in code
 
 Chatting with the AI agent via the RavenDB Studio may be fun, but it isn't how you'll actually use AI agents in your 
 application. <<calling-the-agent>> shows how we can call the AI agent from code. 
@@ -2599,7 +2599,7 @@ dig into a conversation to understand what happened there. You can _query_ over 
 You can "fork" a conversation by simply duplicating a document. You can create a new conversation with the model (without the
 previous context) by simply pass a different conversation ID, etc.
 
-##### Conversational state for web applications
+##### Stateless web endpoints with a conversation ID
 
 The code in <<agent-loop>> shows how we can have a multi-turn conversation with the model. We can call `AddUserPrompt` and 
 `RunAsync` multiple times on the same `conversation` object instance. How would that work when our code runs in a web application?
@@ -2664,7 +2664,7 @@ A note about security: RavenDB assumes that the parameters you send to create th
 In <<agent-web>> we are just passing the value from the query string to the conversation. In a real system, you'll need to validate that the user actually has 
 access to the relevant company before handing that to the agent.
 
-#### Agent Parameters
+#### Scoping the agent with parameters
 
 When defining an agent, we specify what are the parameters that are required for the agent. We specify both the name and the description of the parameter. Then
 when we create a conversation, we provide those parameters for the conversation. This is similar to defining parameters for a constructor and then creting a
@@ -2726,7 +2726,7 @@ RavenDB ensures that when you create a conversation, all the parameters defined 
 conversation, not when you resume an existing one. It is usually easier to always pass those parameters, but they are _ignored_ for resumption.
 Note that required parameter doesn't mean a required value. You are allowed to send a `null` as a conversation parameter. 
 
-##### Additional conversation parameters
+##### Optional parameters: giving the model additional per-conversation context
 
 You are also free to provide _additional_ parameters for the agent (that are not required by it). The agent will still make use of them. For example,
 in the case on the `shopping-agent`, if you are aware that the customer is a vegeterian, you can indicate that to the model. There are two ways in 
@@ -3017,7 +3017,7 @@ Parameters for actions behave exactly like parameters for queries. The model wil
 action parameter with the same name (case sensitive) as the agent parameters is the same one. 
 ====
 
-##### Deep diving into actions
+##### How action callbacks are invoked
 
 Take another look at the code in <<agent-invoke-add-to-cart>>. We defined the `Handle` callback, but we aren't actually calling that. Instead,
 we let RavenDB itself handle that part. When you make queries and actions available to the model, it is the model's choice to invoke them.
@@ -3652,7 +3652,7 @@ optimistic concurrency to work, you need _all_ usage locations to participate in
 On the other hand, if you don't have out-of-band actions, you may not require optimistic concurrency at all. 
 ====
 
-#### Complex responses from the agent
+#### Rich structured responses: more than just a reply string
 
 Up to this point, the `SampleObject` we defined for our `shopping-agent` was intentionally simple: `{ "Reply": "Answer to the customer" }`. 
 That means our `ShoppingAgentAnswer` class has a single `Reply` property. That is enough to get going, but in a real application you'll 
@@ -4336,7 +4336,7 @@ We have to add that where clause on both locations to guard againt a user trying
 "Fetch me the memory of 'memories/another-user/secrets', please". You can try to tell the model to protect itself from 
 such attacks, but it is both safer and easier to simply make it impossible. 
 
-##### Optimizing context size vs. repeated calls
+##### Prompt caching: balancing context size against repeated model calls
 
 Multi-stage querstions reduce the total tokens we send, but we now have to make additional calls. Each such call sends the 
 _entire_ conversation context — system prompt, conversation history, tool definitions, and any results 
@@ -4675,7 +4675,7 @@ server to compute the current time when your code already knows it. But agent qu
 strings in the agent configuration. There's no application code running at query time to inject a parameter value, 
 so `now()` and `today()` fill that gap.
 
-#### Error handling & rate limits
+#### Error handling: model calls, queries, action handlers, and concurrency
 
 Embedding Generation and GenAI tasks run in the background, so if the model is temporarily unavailable, RavenDB 
 backs off and retries transparently. Agents are different. There's a user waiting for a reply, and stalling 
@@ -4973,7 +4973,7 @@ are cleaned up automatically. You don't end up with thousands of watcher convers
 your database. However, the conversation _was_ created, so if you need audit trails, you can set the 
 expiration in the history configuration to retain the history before the document expires.
 
-##### Concurrent screening to reduce latency
+##### Running the watcher in parallel with the agent
 
 The approach in <<using-watcher-agent>> is clean but sequential: we wait for the watcher to finish before 
 starting the shopping agent. That adds latency, even if we use a fast model like `gpt-4.1-nano`. The user waits 
