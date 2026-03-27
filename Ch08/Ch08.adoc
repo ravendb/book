@@ -3440,32 +3440,28 @@ new AiAgentConfiguration {
       ParametersSchema =                    <1>
         """
         {
-          "name": "CreateReminder_args",
-          "strict": true,
-          "schema": {
-            "type": "object",
-            "properties": {
-              "at": {
-                "type": "string",
-                "format": "date",           <2>
-                "description": "The date for the reminder"
-              },
-              "productId": {
-                "type": ["string", "null"], <3>
-                "description": "optional product id the reminder concerns"
-              },
-              "msg": {
-                "type": "string",
-                "description": "what to remind the user about"
-              }
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date",             <2>
+              "description": "The date for the reminder"
             },
-            "required": [
-              "at",
-              "productId",
-              "msg"
-            ],
-            "additionalProperties": false
-          }
+            "productId": {
+              "type": ["string", "null"],   <3>
+              "description": "optional product id the reminder concerns"
+            },
+            "msg": {
+              "type": "string",
+              "description": "what to remind the user about"
+            }
+          },
+          "required": [
+            "at", 
+            "productId",
+            "msg"
+          ],
+          "additionalProperties": false
         }
         """                         
     }
