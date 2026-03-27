@@ -522,7 +522,7 @@ the same documents at the same time. You'll learn more about these sorts of beha
 Using those capabilties, RavenDB is able to extract the plain text from your documents, chunk it properly, and send it to the model for embedding generation. Those
 embeddings are then stored inside RavenDB and are ready to be used for vector search.
 
-#### Behind the scenes of RavenDB's Embedding Generation
+##### Behind the scenes of RavenDB's Embedding Generation
 
 RavenDB may try to take care of all the logistics for you, but it is useful to understand what is going on behind the scenes. After you define an Embedding Generation task
 (as we did in <<embedding-generation-full-configuration>>), RavenDB will start processing documents in the background. It will scan the `Products` collection for documents 
@@ -576,7 +576,7 @@ RavenDB uses attachments to store the actual embedding vectors. This is done for
 serializing them through JSON, base64 or the like. RavenDB's attachments also handle de-duplication for us, so an identical vector across multiple documents will use a 
 single attachment under the hood. This saves both disk space and I/O when working with embeddings.
 
-#### Embedding Quantization
+##### Embedding Quantization
 
 Looking at <<embedding-document-example>>, you can see that we have a `@quantization` property for each embedding generation task. That property tells us how the 
 embedding vector is stored. The `bge-micro-v2` generates embeddings of 384 dimensions, `nomic-embed-text` uses 768 dimensions, OpenAI's `text-embedding-3-small`
@@ -640,7 +640,7 @@ any significant loss in accuracy. Binary quantization is useful when you have la
 RavenDB gives you plenty of choices, so you can get the right balance for you. Having said that, we found that `int8` quantization is a great default choice for 
 most scenarios.
 
-#### Caching Embeddings
+##### Caching Embeddings
 
 In <<embedding-generation-initial-configuration>>, we defined a simple Embedding Generation task that would generate embeddings for the `Name` field of 
 the `Products` collection. That raises the question of what happens when the product name changes? What actions do we need to take to ensure that the 
@@ -732,7 +732,7 @@ Embedding Generation task. This caching behavior has several important implicati
 * Deleting or re-creating the Embedding Generation task is safe, since the cache will still be valid and used as needed. 
 
 
-#### Generating Embeddings for Queries
+##### Generating Embeddings for Queries
 
 You can use Embedding Generation tasks in queries as we saw, as you can see in <<vector-search-query>>.
 
@@ -782,7 +782,7 @@ documents. This matters because embeddings can be pretty large, especially if yo
 
 By default, RavenDB will cache embeddings from documents for 90 days, while embeddings from queries will be cached for 14 days. You can adjust those settings in the Embedding Generation task configuration, as shown in <<embedding-generation-full-configuration>>.
 
-#### Using Embedding Generation Scripts
+##### Using Embedding Generation Scripts
 
 In <<embedding-generation-full-configuration>>, we defined a simple Embedding Generation task that would generate embeddings for the `Name` 
 field of the `Products` collection. You aren't limited to simply specifying the fields to embed, however. RavenDB allows you to define a
@@ -1272,7 +1272,7 @@ hit the token limits of your model, and then need to split the work across multi
 A lot of the power in Generative AI tasks in RavenDB is about how you can apply your logic in the context extraction script to output the right details for the model 
 to do its work. In the following section, we are going to take it up a notch and use a multi-modal capabilities.
 
-#### Generative AI & Attachments
+##### Generative AI & Attachments
 
 In the previous section, we provided the model with textual context so it would be perform its task. Not all data is textual and modern AI models are multi-modal. They can deal
 with both text and images. RavenDB allows you to store JSON documents as well as binary attachments. I hope you see the parallels, the question is whether we can make those line
@@ -1406,7 +1406,7 @@ You can also send multiple images at the same time by calling `withJpeg()` (or s
 accepts either the result of a `loadAttachment(filename)` call or a Base64 encoded string representing the image data (for example, if you
 store the image data directly in the document using Base64).
 
-#### Letting the model query additional information
+##### Letting the model query additional information
 
 In the previous examples, we provided all the context that the model needed to perform its task from the source document that triggered the Generative AI task. What about cases where 
 you might want the model to be able to query additional information? For example, let's say that we want to generate a recommendation list for additional products to add to your
@@ -2726,7 +2726,7 @@ RavenDB ensures that when you create a conversation, all the parameters defined 
 conversation, not when you resume an existing one. It is usually easier to always pass those parameters, but they are _ignored_ for resumption.
 Note that required parameter doesn't mean a required value. You are allowed to send a `null` as a conversation parameter. 
 
-#### Additional conversation parameters
+##### Additional conversation parameters
 
 You are also free to provide _additional_ parameters for the agent (that are not required by it). The agent will still make use of them. For example,
 in the case on the `shopping-agent`, if you are aware that the customer is a vegeterian, you can indicate that to the model. There are two ways in 
@@ -3017,7 +3017,7 @@ Parameters for actions behave exactly like parameters for queries. The model wil
 action parameter with the same name (case sensitive) as the agent parameters is the same one. 
 ====
 
-#### Deep diving into actions
+##### Deep diving into actions
 
 Take another look at the code in <<agent-invoke-add-to-cart>>. We defined the `Handle` callback, but we aren't actually calling that. Instead,
 we let RavenDB itself handle that part. When you make queries and actions available to the model, it is the model's choice to invoke them.
@@ -3069,7 +3069,7 @@ If your `Handle` callback throws an exception, RavenDB will automatically pass t
 try to resolve that or explain to the user exactly what the problem is.
 ====
 
-#### Deferred action responses
+##### Deferred action responses
 
 So far, we looked at actions that are invoked as part of a single `RunAsync()` call, like `AddToCart`. For example, you may want to have an
 action that require the user to perform an action. For example, what happens if the user's input is required, and you are running in a web
@@ -3251,7 +3251,7 @@ It will also invoke the `Receive()` callback for any of the open actions _again_
 multiple times and ensure that it won't cause a problem downstream.
 
 
-#### Out of band action execution
+##### Out of band action execution
 
 Deferred actions is that they block the conversation until they are completed. That is great if the interaction is similar
 to the `PurchaseCart` functionality, which is a modal interaction within the user experience flow. What happens when we want to have 
@@ -3768,7 +3768,7 @@ From a technical perspective, follow-ups are just strings in an array. Your fron
 links. When the user clicks one, you pass it straight into `conversation.AddUserPrompt()` and call `RunAsync()` again. 
 No special handling is required, it goes through the same process as if it was normal user input.
 
-#### Streaming responses from the agent
+##### Streaming responses from the agent
 
 By this time in this chapter, you probably have a good feel for how the back-and-forth with the agent works. You send a user prompt, 
 the model thinks, and then you get a reply. I'm sure that you are also have had your share of frustrations with waiting for 
@@ -4034,7 +4034,7 @@ The amount of work this saves you is significant. Without automatic trimming, yo
 decide when to cut, write a summarization process, splice the summary back into the conversation, and handle failures along the way. 
 That's a lot of plumbing for something that should be infrastructure. With RavenDB's chat trimming, you set two numbers and forget about it.
 
-#### Conversation lifecycle
+##### Conversation lifecycle
 
 Conversations are documents, and like all documents in RavenDB, they have a lifecycle you can control. When you
 create a conversation using `store.AI.Conversation()`, you can set an expiration on it so that idle conversations 
@@ -4095,7 +4095,7 @@ That said, keep in mind that summarization is lossy. When RavenDB summarizes a 3
 application requires perfect recall of every interaction, you'll want to use shorter conversations and store 
 the important facts elsewhere (in user profiles, for example).
 
-#### Long-term memory for the agent
+##### Long-term memory for the agent
 
 Even with summarization, a conversation can only hold so much history. What about knowledge that spans across
 conversations entirely? When a returning customer asks, "Do you have any lactose-free options? I'm allergic to 
@@ -4231,7 +4231,9 @@ This makes parameters the right place for identity and context that must never b
 should be short, though. They are sent each time, and cannot be summarized away.
 ====
 
-#### Multi-stage actions reduce token usage
+#### Optimizing the agent
+
+##### Multi-stage actions reduce token usage
 
 The `RecallMemories` query we defined in <<agent-recall-memories>> works well, but it has a subtle cost problem. When the model calls
 `RecallMemories`, it gets back the _full_ documents for all the top matching memories — the `Name`, the `Title`, and the entire 
@@ -4334,7 +4336,7 @@ We have to add that where clause on both locations to guard againt a user trying
 "Fetch me the memory of 'memories/another-user/secrets', please". You can try to tell the model to protect itself from 
 such attacks, but it is both safer and easier to simply make it impossible. 
 
-#### Optimizing context size vs. repeated calls
+##### Optimizing context size vs. repeated calls
 
 Multi-stage querstions reduce the total tokens we send, but we now have to make additional calls. Each such call sends the 
 _entire_ conversation context — system prompt, conversation history, tool definitions, and any results 
@@ -4404,7 +4406,7 @@ more). Very short prompts won't benefit from caching. But for any real agent con
 you'll comfortably exceed that threshold.
 ****
 
-#### Pre-loading context with initial queries
+##### Pre-loading context with initial queries
 
 We've been talking about reducing round-trips when the model _might_ need data. But what about data that you _know_ the model 
 will need every single time? Consider a shopping agent that helps customers with their orders. The customer's recent 
@@ -4481,7 +4483,7 @@ order details the model needs could be lost.
 For short conversations this rarely matters. But if your users have long conversations with the agent, don't set 
 `AllowModelQueries` to `false`. The model may need to re-fetch the data after summarization has compressed the original results away.
 
-#### Conditional filters with `when`
+##### Conditional filters with `when`
 
 So far, our queries have fixed structure — every filter runs every time. Sometimes a filter should only apply when a 
 certain parameter has a specific value. Consider a product search query for our store. If the customer is located 
@@ -4589,7 +4591,7 @@ right in the agent definition. But `when` is deliberately limited in what it can
 complex queries dynamically, it's better to do so in your own code. It's far easier to debug and troubleshoot an action 
 handler than to untangle complex RQL with nested `when` clauses.
 
-#### Time-based queries with `now()` and `today()`
+##### Time-based queries with `now()` and `today()`
 
 Agent queries often involve time. "Show me orders from the last month" is a straightforward request, and the 
 model will happily try to answer it. We run into a problem because the model doesn't have the concept of 
@@ -4838,7 +4840,7 @@ direct database access) helps limit what the agent _can do_, but it doesn't cont
 model that hallucinates a return policy or invents a discount code creates a liability problem, not a security 
 one. Keep this in mind when deciding which tasks to hand to the agent and how much autonomy it gets. 
 
-#### Who guards the agent? 
+##### Who guards the agent? 
 
 We've established that RavenDB's AI agents' security model (scoped queries, validated actions, no direct 
 database access) constrains what the agent _can do_. But we still have an open problem: we can't fully 
@@ -4971,7 +4973,7 @@ are cleaned up automatically. You don't end up with thousands of watcher convers
 your database. However, the conversation _was_ created, so if you need audit trails, you can set the 
 expiration in the history configuration to retain the history before the document expires.
 
-#### Concurrent screening to reduce latency
+##### Concurrent screening to reduce latency
 
 The approach in <<using-watcher-agent>> is clean but sequential: we wait for the watcher to finish before 
 starting the shopping agent. That adds latency, even if we use a fast model like `gpt-4.1-nano`. The user waits 
@@ -5109,7 +5111,7 @@ Having said that, as you can see in <<concurrent-guard-actions>>, this isn't tri
 adds a measurable level of complexity to the system. If you need to run with a watchdog agent, it is usually
 better to start with the sequential option, unless you run into latency issues.
 
-#### Post-processing the agent's output
+##### Post-processing the agent's output
 
 Guarding the input is only half the story. Even with clean, legitimate prompts, the model's _output_ can 
 be problematic. A user who has some an axe to grind might try to get 
@@ -5225,11 +5227,12 @@ the worst case. That's three times the latency and higher token cost (even if th
 are done on a smaller model). You should evaluate whether this is warranted for your use case.
 ****
 
+#### AI Agents and attachments
+
 #### Multi Agents
 
 non agent generated parameters
 
-#### AI Agents and attachments
 
 #### Prompt engineering
  
