@@ -4712,6 +4712,171 @@ One important detail: when `RunAsync()` throws an exception, the conversation do
 modified. The failed call leaves no trace in the conversation history. You can resume the conversation from 
 that point safely.
 
+#### AI Agents and attachments
+
+So far, every interaction we've had with an AI agent has been text. The user sends a prompt, the model replies, 
+queries run, actions fire — all of it was just text. But many real-world workflows involve files. A customer 
+uploads an invoice and asks the agent to extract line items. A support agent needs to look at a screenshot. A 
+compliance workflow processes scanned contracts. RavenDB's AI agents support attachments as a first-class part of 
+the conversation.
+
+[[agent-attachment-upload]]
+.Uploading an attachment and asking the agent to analyze it
+[source,csharp]
+----
+var conversation = store.AI.GetConversation("support-agent", 
+    "chats/");
+conversation.AddUserPrompt("Analyze this invoice and extract the total");
+
+using var stream = File.OpenRead("invoice.pdf");
+conversation.AddAttachment("invoice.pdf", stream, "application/pdf"); // <1>
+
+var result = await conversation.RunAsync<InvoiceAnalysis>();  // <2>
+Console.WriteLine(result.Answer.Total);
+----
+<1> Attaches the file to the _current turn_ of the conversation. The file is uploaded as part of the 
+    `RunAsync()` call and persisted on the conversation document.
+<2> The model receives the file along with the user prompt and can process it normally.
+
+You can attach multiple files in the same turn by calling `AddAttachment` more than once. RavenDB sends 
+them all in a single multipart request — the JSON payload first, then each file stream sequentially. Be 
+mindful of the model's context window, though. Every file the model reads has to fit inside that window 
+alongside the system prompt, conversation history, and the model's own reasoning. If you 
+attach a dozen large PDFs and the model retrieves all of them, you can easily hit the context limit. In 
+practice, keep the total attachment size reasonable for your model's capacity, and prefer smaller, focused 
+files over dumping entire document archives into a single turn.
+
+When you attach a file, its content is sent to the model in that turn's context — the model sees 
+the full file immediately. This is what lets it analyze, extract, and reason about the file's contents right 
+away. But that payload is part of the conversation for _that turn only_. Future turns in the conversation will
+not resend that entire file to the model each time. 
+
+RavenDB automatically lets the model know when there are attachments available on the conversation. 
+The model sees the _filenames_ of all attachments that have been uploaded across the conversation's lifetime, 
+and it can ask RavenDB to reload any of them on demand. If, ten turns later, the user asks "What was the tax rate 
+on that invoice?", the model can pull the file back into context again.
+
+This means attachments survive summarization. The file content is transient in the conversation history, 
+but the file _itself_ is permanently available as long as the conversation exists. The model pays the token 
+cost of the file only in the turns where it actually needs it, not on every subsequent message.
+
+You can also attach files that already exist as attachments on other documents in the database, without 
+re-uploading them:
+
+[[agent-attachment-from-doc]]
+.Attaching a file from an existing document
+[source,csharp]
+----
+conversation.AddUserPrompt("Review this signed agreement");
+conversation.AddAttachmentFromDocument(   // <1>
+    "contracts/123-A",                    // <2>
+    "signed-agreement.pdf"                // <3>
+);
+var result = await conversation.RunAsync<ContractReview>();
+----
+<1> Attaches a file that's already stored on a document in the database.
+<2> The document ID where the attachment lives.
+<3> The attachment name on that document.
+
+This is useful when the agent needs to work with files that are already in the system — customer uploads, 
+generated reports, scanned documents. You don't need to download the attachment to the client and re-upload it 
+to the conversation; RavenDB handles the reference internally.
+
+All files attached during a conversation are persisted on the conversation document itself. They survive server 
+restarts, conversation resumption, and are visible in the Studio alongside the chat messages. In the 
+conversation history API we'll cover later in this chapter, each message carries an `Attachments` list of file 
+names, so you can see exactly which files were provided at each turn.
+
+##### One-shot extraction agents
+
+Not every attachment workflow needs a conversation. Sometimes you just want to hand a file to the model and 
+get structured data back — no follow-up questions, no multi-turn dialogue, no history to maintain. Invoice 
+processing is a classic example: you have a PDF, you want line items as a DTO, and you're done.
+
+For these one-shot extraction tasks, you can define a minimal agent whose system prompt contains all the 
+instructions, create a throwaway conversation, attach the file, and call `RunAsync()` once. The agent 
+doesn't need queries or actions — the prompt and the attachment are the entire input, and the structured 
+response type is the entire output.
+
+<<agent-invoice-agent-def>> shows the agent definition for a one-shot invoice extractor.
+
+[[agent-invoice-agent-def]]
+.Defining a minimal agent for invoice extraction
+[source,csharp]
+----
+var extractionAgent = new AiAgentConfiguration        // <1>
+{
+    Name = "invoice-extractor",
+    ConnectionStringName = "AI",
+    SystemPrompt = """                               
+        You are an invoice processing agent.          // <2>
+        Extract all line items from the attached 
+        invoice. For each line item, extract the 
+        description, quantity, unit price, and 
+        line total. Also extract the invoice 
+        number, date, vendor name, subtotal, 
+        tax amount, and grand total.
+        """,
+    SampleObject =                                    // <3>
+        """
+        {
+            "InvoiceNumber": "INV-001",
+            "Date": "2025-03-22",
+            "VendorName": "Acme Corp",
+            "LineItems": [
+                { "Description": "Widget", 
+                  "Quantity": 2, "UnitPrice": 9.99, 
+                  "LineTotal": 19.98 }
+            ],
+            "Subtotal": 19.98,
+            "Tax": 1.60,
+            "Total": 21.58
+        }
+        """
+};
+----
+<1> The agent definition is minimal — just a name, a connection string, a system prompt, and the expected 
+    response shape. No queries, no actions, no parameters.
+<2> The system prompt contains all the extraction instructions. The model knows exactly what to look for 
+    before it ever sees the file.
+<3> The `SampleObject` defines the structure we want back. RavenDB instructs the model to return JSON 
+    matching this shape, and deserializes it into the matching C# records (`InvoiceData` and `LineItem`).
+
+With the agent defined, extracting data from an invoice is a single call. <<agent-invoice-usage>> shows 
+the usage pattern.
+
+[[agent-invoice-usage]]
+.Extracting structured data from a PDF in a single call
+[source,csharp]
+----
+var conversation = store.AI.GetConversation(           // <1>
+    "invoice-extractor", "extracted-invoices/",
+    new AiConversationOptions { ExpirationInSec = 0 }); // <2>
+
+using var stream = File.OpenRead("invoice.pdf");
+conversation.AddAttachment("invoice.pdf", stream, 
+    "application/pdf");
+
+var result = await conversation                        // <3>
+    .RunAsync<InvoiceData>();
+InvoiceData invoice = result.Answer;
+----
+<1> We create a fresh conversation for each invoice. There's no conversation ID to track or resume — each 
+    extraction is independent.
+<2> We set the conversation to expire immediately after creation using `ExpirationInSec = 0`. The conversation 
+    document served its purpose the moment `RunAsync()` returned.
+<3> A single `RunAsync()` call: the model reads the PDF, extracts the data, and returns a typed `InvoiceData` 
+    object. No tool calls, no follow-up turns.
+
+The pattern in <<agent-invoice-agent-def>> and <<agent-invoice-usage>> is essentially PDF-to-DTO. The model 
+does the heavy lifting of understanding the document layout, and you get back a clean C# object ready to store, 
+validate, or feed into your business logic. This works with any file type the model supports — images, 
+spreadsheets, text files — not just PDFs.
+
+Because this is a stateless, fire-and-forget operation, we set `ExpirationInSec` to `0` directly in the code.
+RavenDB will clean up the conversation document automatically. It served its purpose the moment `RunAsync()` 
+returned.
+
 #### AI Agent Security
 
 Earlier in this chapter, when we discussed Generative AI tasks, we covered prompt injection and its potential 
@@ -5898,8 +6063,6 @@ that were trimmed and whose history was deleted are gone — the API can't recon
 chat can delete messages
 
 revisions + revert to previous one
-
-#### AI Agents and attachments
 
 #### Multi Agents
 
