@@ -3929,6 +3929,158 @@ in a `StringBuilder` and displaying the result at the end, you've gained nothing
 code simpler.
 ****
 
+##### Overriding the output schema per call
+
+So far, the output schema has been fixed at agent creation time — either via the `SampleObject` on the agent 
+definition or through an explicit JSON schema using `OutputSchema`. Every call to 
+`RunAsync<ShoppingAgentAnswer>()` uses that same schema, the one we defined when we created the agent. 
+That works well when your agent has a single job, but real conversations aren't that uniform.
+
+Consider our shopping agent. Most of the time, it replies with the full `ShoppingAgentAnswer` — a `Reply`, 
+`RelatedProducts`, `RelatedOrders`, and `Followups`. But what about the _first_ message? You want all of 
+thoses fields _and_ you also want the model to generate a short title for the conversation so you can show it 
+in a sidebar. The default schema doesn't have a `Title` field, and you shouldn't add one permanently: every 
+subsequent call would waste tokens populating a title you already have. You need the full answer _plus_ a `Title`, 
+but only on the first call.
+
+RavenDB lets you override the output schema on any individual `RunAsync()` or `StreamAsync()` call using 
+`AiOutputOptions`. The override applies to that single call only — the next call reverts to the agent's 
+default schema unless you override it again.
+
+There are three modes:
+
+* **`SampleObject`** — pass a JSON string describing the shape you want. This behaves exactly like the `SampleObject`
+  in the agent's definition.
+* **`OutputSchema`** — pass an explicit JSON schema string if you need full control over the schema.
+* **`NoSchema`** — disable structured output entirely. The model returns free-form text, and you get back 
+  an `AiAnswer<string>` instead of a typed object.
+
+<<agent-output-override-title>> shows the conversation title example. The first call uses an expanded 
+schema that adds a `Title` field to the normal answer, and subsequent calls revert to the agent's default 
+schema.
+
+[[agent-output-override-title]]
+.Generating a conversation title with a per-call schema override
+[source,csharp]
+----
+var conversation = store.AI.GetConversation(
+    "shopping-agent", chatId, options);
+conversation.AddUserPrompt(userMessage);
+
+if (firstMessage)                                      // <1>
+{
+    var result = await conversation
+        .RunAsync<ShoppingAgentAnswerWithTitle>(
+            new AiOutputOptions 
+            { 
+                SampleObject = """
+                {
+                    "Title": "Short conversation title",
+                    "Reply": "Answer to the customer",
+                    "RelatedProducts": ["products/1-A"],
+                    "RelatedOrders": ["orders/1-A"],
+                    "Followups": ["Would you like to reorder?"]
+                }
+                """
+            });
+    StoreTitle(conversation.Id,result.Answer.Title);    // <2>
+}
+else                                                    
+{
+    var result = await conversation                     // <3>
+        .RunAsync<ShoppingAgentAnswer>();
+}
+----
+<1> On the first message, override the schema to include a `Title` field alongside all the usual 
+    fields. The model returns the full answer _plus_ a title for the sidebar.
+<2> We extract the title and store it — for a sidebar, a notification, a search index, whatever 
+    the application needs. The rest of `result.Answer` has all the usual fields.
+<3> Every subsequent call uses the agent's default schema, which has no `Title`. No override needed.
+
+The first call gets everything — the reply, the product IDs, the follow-ups — and the title on top. 
+Subsequent calls don't carry the `Title` field, so the model doesn't waste tokens generating a title 
+you already have, and the conversation history stays lean.
+
+This pattern applies well beyond titles. You can ask the model to categorize a chat with a user so
+you can run analytics over those easily. Add a `Category` to the schema just for that call, and you 
+get back a clean label to store without having to figure it out on your own or pay for it each time.
+
+You pay only for the tokens you need, and you get back a typed object that maps directly to your application logic.
+Per-call overrides also let you tailor the agent's behavior to different _customers_, not just different 
+moments in a conversation. 
+
+For example, VIP customers might warrant a richer schema that includes a 
+`ShouldCallCustomer` flag (so your support team knows to follow up personally) and an `OverallSatisfaction` 
+score that you track over time. Regular customers don't need any of that. Rather than maintaining two separate 
+agents with different `SampleObject` definitions, you use a single agent and swap the schema at call time based 
+on the customer tier. The agent and all it definitions are the same, only the output shape changes.
+
+Sometimes you don't want structured output at all. Not every response from the model needs to be 
+a typed object. Maybe you're generating a summary for an internal log, rendering Markdown in a chat UI, or producing a 
+notification body that goes straight into an email. In all of these cases, forcing the model through a 
+JSON schema adds overhead for no benefit — the model spends tokens on JSON formatting, and your code 
+spends effort parsing a structure you'll immediately unwrap into a string anyway.
+
+For these cases, call `RunAsync()` without a type parameter:
+
+[[agent-output-no-schema]]
+.Getting a plain string response with no structured schema
+[source,csharp]
+----
+conversation.AddUserPrompt("Summarize this conversation");
+var result = await conversation.RunAsync();               // <1>
+string summary = result.Answer;                           // <2>
+----
+<1> No type parameter — this tells RavenDB to skip structured output entirely. The model 
+    returns free-form text.
+<2> `result.Answer` is a plain `string`. The model's response is returned as-is, without JSON 
+    parsing or schema enforcement.
+
+This is distinct from defining an agent with no `SampleObject`. When the agent has a default schema 
+but you call `RunAsync()` on a specific turn, you're saying "I don't need structure _this time_." The 
+agent's default schema is still there for other calls. It's the same per-call override mechanism, just 
+with the free form output.
+
+[NOTE]
+====
+Even if you plan to override the schema on every call, the agent definition still needs a default `SampleObject` 
+(or `OutputSchema`). It makes the agent easier to reason about, test in the Studio, and use in the common case. 
+If you truly want the schema to vary every time, you can define a minimal placeholder schema on the agent — 
+say, `{ "Reply": "..." }` — and override it on each call. That way the agent always has a well-defined default 
+to fall back on.
+====
+
+The no-schema mode also works with streaming. If you want to stream plain text to the browser 
+without any JSON structure, use `StreamAsync()` without a type parameter — same pattern 
+as we saw in <<agent-stream-web>>, but with raw text instead of a structured object.
+
+[[agent-stream-no-schema]]
+.Streaming plain text without a structured schema
+[source,csharp]
+----
+var result = await conversation.StreamAsync(              // <1>
+    async chunk => 
+    {
+        await context.Response.WriteAsync(
+            $"data: {chunk}\n\n");
+        await context.Response.Body.FlushAsync();
+    });
+
+string fullReply = result.Answer;                         // <2>
+----
+<1> No type parameter on `StreamAsync()` — just like `RunAsync()`, this skips structured output. 
+    Each chunk is a piece of raw text streamed directly to the client.
+<2> When streaming completes, `result.Answer` is a plain `string` containing the full response.
+
+.Per-call overrides and the conversation document
+****
+When you use a schema override, RavenDB records the override on the assistant's response message in 
+the conversation document. This means that if you inspect the conversation later (via the conversation
+history API we'll discuss later in this chpater or in the Studio), you can see exactly which schema was 
+used for each turn. Turns that used the agent's default schema have no extra metadata. Turns with an override 
+carry an `output_schema` field showing the resolved schema, and no-schema turns are marked with `output_schema: "none"`.
+****
+
 #### The memory of an AI Agent
 
 When you chat with an AI assistant, it _feels_ like you're having a conversation with someone who remembers 
@@ -4406,6 +4558,30 @@ more). Very short prompts won't benefit from caching. But for any real agent con
 you'll comfortably exceed that threshold.
 ****
 
+You might be wondering what _you_ need to do to take advantage of prompt caching. The answer is: nothing. RavenDB handles 
+this for you automatically by sending a `prompt_cache_key` alongside every chat completion request. The key is derived 
+from the conversation ID, which turns out to be an excellent cache boundary. Each conversation is its own isolated thread — 
+it has its own system prompt, its own parameters, and its own history. Two different conversations, even with the same agent, 
+will diverge almost immediately, so there's no benefit to sharing a cache key across them. But _within_ a single conversation, 
+every call shares a long, stable prefix that grows as the conversation progresses. The conversation ID captures exactly this: 
+same conversation, same prefix, same cache.
+
+RavenDB enables prompt caching by default for providers that support it — OpenAI, Azure OpenAI, Anthropic, Google, Ollama, 
+and others. You don't need to do anything to take advantage of this. RavenDB attaches the cache key on every request it 
+sends to the provider, and providers that don't recognize the field simply ignore it. You can see (and toggle) the 
+`EnablePromptCache` setting in the connection string configuration or in the Studio UI, but for most deployments you'll 
+never need to touch it.
+
+The practical impact is significant. In a typical agent conversation where the model makes two or three tool calls before 
+responding, you're sending the conversation context three or four times. Without caching, that's full price every time. With 
+caching, you pay full price on the first call and heavily discounted rates on the rest. For longer conversations with larger 
+context windows, the savings compound — exactly the scenarios where cost matters most.
+
+This is part of a broader theme you've seen throughout this chapter: RavenDB takes on the optimization concerns that you'd 
+normally have to handle yourself. Conversation trimming keeps context from growing unbounded. Multi-stage queries reduce the 
+data loaded into context. And prompt caching ensures that the context you _do_ send is processed as cheaply as possible. 
+These optimizations work together, and none of them require you to change how you write your agent code.
+
 ##### Pre-loading context with initial queries
 
 We've been talking about reducing round-trips when the model _might_ need data. But what about data that you _know_ the model 
@@ -4872,6 +5048,58 @@ The pattern in <<agent-invoice-agent-def>> and <<agent-invoice-usage>> is essent
 does the heavy lifting of understanding the document layout, and you get back a clean C# object ready to store, 
 validate, or feed into your business logic. This works with any file type the model supports — images, 
 spreadsheets, text files — not just PDFs.
+
+You can take this further by combining attachments with the per-call schema override we covered in 
+<<agent-output-override-title>>. Instead of creating a separate agent for each document type (invoices, 
+expense reports, contracts, receipts), define a single extraction agent with a generic system prompt 
+and override the output schema on each call to match the document you're processing:
+
+[[agent-extraction-override]]
+.Reusing one extraction agent for different document types via per-call schema override
+[source,csharp]
+----
+// Extract an invoice
+var invoiceConv = store.AI.GetConversation(
+    "doc-extractor", "extractions/",
+    new AiConversationOptions { ExpirationInSec = 0 });
+invoiceConv.AddUserPrompt("Extract invoice data");
+invoiceConv.AddAttachment("invoice.pdf", invoiceStream, 
+    "application/pdf");
+
+var invoice = await invoiceConv.RunAsync<InvoiceData>(  // <1>
+    new AiOutputOptions                                
+    { 
+        SampleObject = new 
+        { 
+            InvoiceNumber = "", Date = "", 
+            VendorName = "", Total = 0m 
+        } 
+    });
+
+// Extract an expense report — same agent, different schema
+var expenseConv = store.AI.GetConversation(
+    "doc-extractor", "extractions/",
+    new AiConversationOptions { ExpirationInSec = 0 });
+expenseConv.AddUserPrompt("Extract expense report data");
+expenseConv.AddAttachment("expenses.pdf", expenseStream, 
+    "application/pdf");
+
+var expense = await expenseConv.RunAsync<ExpenseReport>( // <2>
+    new AiOutputOptions 
+    { 
+        SampleObject = new 
+        { 
+            EmployeeName = "", Department = "", 
+            Items = new[] { new { Description = "", 
+                Amount = 0m, Category = "" } },
+            TotalAmount = 0m 
+        } 
+    });
+----
+<1> The invoice extraction uses an `InvoiceData` schema — same as in <<agent-invoice-agent-def>>, but 
+    provided at call time instead of baked into the agent definition.
+<2> The expense report extraction uses a completely different schema, but goes through the same 
+    `"doc-extractor"` agent. One agent definition, many output shapes.
 
 Because this is a stateless, fire-and-forget operation, we set `ExpirationInSec` to `0` directly in the code.
 RavenDB will clean up the conversation document automatically. It served its purpose the moment `RunAsync()` 
@@ -6057,17 +6285,11 @@ the conversation history to expire after a short duration, the API can only retu
 that were trimmed and whose history was deleted are gone — the API can't reconstruct what no longer exists.
 ****
 
-
 ##### Reverting changes
 
 chat can delete messages
 
 revisions + revert to previous one
-
-#### Multi Agents
-
-non agent generated parameters
-
 
 #### Prompt engineering
  
