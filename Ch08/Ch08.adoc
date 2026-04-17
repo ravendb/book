@@ -4491,9 +4491,9 @@ such attacks, but it is both safer and easier to simply make it impossible.
 ##### Prompt caching: balancing context size against repeated model calls
 
 Multi-stage querstions reduce the total tokens we send, but we now have to make additional calls. Each such call sends the 
-_entire_ conversation context — system prompt, conversation history, tool definitions, and any results 
-from previous tool calls — all over again. If you have a 10K-token conversation context and the model require a sequence of 
-three tool calls before answering, you've sent those 10K tokens _four times_ (once for each tool call, plus the final response).
+_entire_ conversation context — system prompt, conversation history, query and action definitions, and any results 
+from previous calls — all over again. If you have a 10K-token conversation context and the model require a sequence of 
+three calls before answering, you've sent those 10K tokens _four times_ (once for each call, plus the final response).
 
 At first glance, that seems like the multi-staged approach we just advocated is making things _worse_. We're saving tokens on 
 the data we fetch, but paying for repeated context on every round-trip. One important aspect to consider is the _quality_ of
@@ -4515,14 +4515,14 @@ reuse the cached computation for the matching prefix and only process the new to
 
 Cached input tokens are  significantly cheaper — typically 50% to 90% cheaper depending on the provider — and they're processed 
 faster since the computation was already done. This is a perfect fit for how AI agents work. Think about what stays the same across 
-tool calls within a single conversation turn:
+calls within a single conversation turn:
 
 * The system prompt.
-* The tool definitions.
+* The query and action definitions.
 * The conversation parameters.
-* The conversation history (user messages, tool calls and agent response).
+* The conversation history (user messages, query and action calls, and agent responses).
 
-When you make repeated calls to the model, the only thing that changes between calls is the _latest_ addition: a new tool result 
+When you make repeated calls to the model, the only thing that changes between calls is the _latest_ addition: a new query result 
 appended to the end (or a new user prompt). That means the vast majority of the prompt is a shared prefix that hits the cache on 
 every subsequent call. You're paying full price only for the new data at the tail end.
 
@@ -4542,7 +4542,7 @@ This is why the multi-staged approach from the previous section can often be a c
 the small search results that were appended. Meanwhile, you avoided loading four irrelevant memory descriptions into the context, 
 which would have inflated _every subsequent call_ in the conversation (since those results become part of the context for the next turn).
 
-That last point is worth emphasizing. Token costs compound across a conversation. Every piece of data you load into a tool result 
+That last point is worth emphasizing. Token costs compound across a conversation. Every piece of data you load into a query result 
 doesn't just cost you once — it becomes part of the context that gets resent on every future call in that conversation turn. The 
 bloat only goes away when the conversation is trimmed or summarized, which as you saw in <<agent-chat-trimming>>, RavenDB 
 handles automatically.
@@ -4554,7 +4554,7 @@ your prompt matters. RavenDB structures the agent's prompts this way automatical
 having to think about it.
 
 Also keep in mind that different providers have different minimum prefix lengths for caching to kick in (often 1024 tokens or 
-more). Very short prompts won't benefit from caching. But for any real agent conversation with tool definitions and history, 
+more). Very short prompts won't benefit from caching. But for any real agent conversation with query definitions and history, 
 you'll comfortably exceed that threshold.
 ****
 
@@ -4572,7 +4572,7 @@ sends to the provider, and providers that don't recognize the field simply ignor
 `EnablePromptCache` setting in the connection string configuration or in the Studio UI, but for most deployments you'll 
 never need to touch it.
 
-The practical impact is significant. In a typical agent conversation where the model makes two or three tool calls before 
+The practical impact is significant. In a typical agent conversation where the model makes two or three calls before 
 responding, you're sending the conversation context three or four times. Without caching, that's full price every time. With 
 caching, you pay full price on the first call and heavily discounted rates on the rest. For longer conversations with larger 
 context windows, the savings compound — exactly the scenarios where cost matters most.
@@ -4593,11 +4593,11 @@ you ordered last week?").
 Without any optimization, the model's first action on every single conversation turn would be to call a `GetRecentOrders` 
 query. That's a completely predictable round-trip, and you're paying for it every time.
 
-RavenDB lets you eliminate this overhead by marking a query tool as an _initial-context query_. When a query is marked this way, 
+RavenDB lets you eliminate this overhead by marking a query as an _initial-context query_. When a query is marked this way, 
 RavenDB executes it _before_ sending anything to the model, and includes the results as part of the initial context. The model 
 sees the data as if it had already called the query itself, but without spending a round-trip to ask for it.
 
-<<agent-initial-context>> shows how to configure a query tool to run as initial context.
+<<agent-initial-context>> shows how to configure a query to run as initial context.
 
 [[agent-initial-context]]
 .Loading recent orders automatically as initial context
@@ -4635,8 +4635,8 @@ they have been a customer. This is also useful context for the model, but it's n
 There's no reason for the model to ever re-fetch this data, if it cannot change.
 
 By setting `AllowModelQueries` to `false`, we get two benefits. First, we prevent the model from calling the query again and 
-needlessly refreshing the data it already has. Second, RavenDB can omit the tool definition from the prompt entirely — fewer 
-tokens spent describing a tool the model will never call.
+needlessly refreshing the data it already has. Second, RavenDB can omit the query definition from the prompt entirely — fewer 
+tokens spent describing a query the model will never call.
 
 .Initial-context queries and agent parameters
 ****
@@ -6285,11 +6285,168 @@ the conversation history to expire after a short duration, the API can only retu
 that were trimmed and whose history was deleted are gone — the API can't reconstruct what no longer exists.
 ****
 
-##### Reverting changes
-
-chat can delete messages
-
-revisions + revert to previous one
-
 #### Prompt engineering
- 
+
+Throughout this chapter, we've been writing system prompts, query & action descriptions, and `SampleObject` definitions without spending 
+much time discussing _how_ to write them well. That was intentional since I wanted you to see the mechanics first and worry about 
+the craft second. But prompt engineering _matters_. The difference between a good prompt and a mediocre one isn't subtle. It's 
+the difference between an agent that feels like a knowledgeable assistant and one that feels like a search engine with a chat 
+interface.
+
+The good news is that prompt engineering for RavenDB agents follows a few straightforward principles. 
+You're configuring a system with well-defined boundaries (specific queries, specific actions, specific output schemas) and the 
+prompt's job is to tell the model how to use those boundaries effectively.
+
+##### The system prompt sets the tone, not the agent's queries or actions  
+
+The system prompt is your agent's identity. It tells the model _who_ it is, _how_ it should behave, and _what_ it should care 
+about. But it should _not_ try to describe every query or action in detail — that's what they have descriptions for. The system prompt 
+should focus on personality, boundaries, and priorities.
+
+A good system prompt for our shopping agent might say: "You are a helpful shopping assistant for Northwind. Be friendly but 
+concise. Always check the customer's recent orders before making recommendations. Never suggest products the customer has 
+already purchased in the last 30 days. If you're not sure about something, say so — don't make things up."
+
+Notice what this prompt does: it establishes tone ("friendly but concise"), sets behavioral rules ("check recent orders first"), 
+defines boundaries ("never suggest recently purchased products"), and addresses failure modes ("don't make things up"). What it 
+doesn't do is explain how to call `SearchProducts` or what parameters `GetRecentOrders` takes. The model learns that from the 
+query and action definitions themselves.
+
+A common mistake is to write system prompts that duplicate query and action descriptions. If your `SearchProducts` query already has a 
+description that says "Search the product catalog by name or category," don't repeat that in the system prompt. The model 
+sees both, and redundancy just wastes tokens. Use the system prompt for things that _can't_ be expressed in query or action definitions: 
+business rules, conversation style, priorities, and failure behaviors.
+
+##### Descriptions are instructions, not labels
+
+When you define a query or action, the `Description` field isn't just a label for the model to glance at. It's the primary 
+way the model decides _when_ and _how_ to use that query. A description of "Search products" tells the model almost nothing. 
+A description of "Search the product catalog using natural language search terms. Use this when the customer asks about products, 
+wants recommendations, or is looking for something specific. Returns product names, prices, and availability" tells the model 
+exactly when to reach for this query and what to expect back.
+
+The same applies to `ParametersSampleObject`. The sample values you provide aren't just type hints — they're behavioral 
+examples. If your search query takes a `$searchTerms` parameter and you write `"searchTerms": "search query"`, the model 
+has very little to work with. If you write `"searchTerms": "aged cheddar or similar hard cheese"`, this gives the model a
+concrete example to use when it wants to generate a value for this parameter. 
+
+This matters more than you might think. The model uses these descriptions and parameter samples to reason about _which_ query 
+to call and _what_ to pass. If your descriptions are vague, the model will make poor choices — calling the wrong query, 
+passing overly broad search terms, or ignoring a query entirely because it couldn't tell when to use it.
+
+##### SampleObject shapes the response more than you expect
+
+The `SampleObject` isn't just a schema definition. The _values_ you put in the sample influence the model's behavior. 
+If your sample has `"Reply": "A friendly, helpful response to the customer"`, the model will tend to produce friendly, 
+helpful responses. If your sample has `"Reply": "answer"`, the model will tend to produce terse, minimal answers. The 
+sample values are implicit instructions.
+
+This extends to all fields. A sample with `"RelatedProducts": ["product IDs from the catalog that are relevant to the 
+conversation"]` tells the model both what to put in the field and when it's appropriate to include products. A sample 
+with `"RelatedProducts": ["id1", "id2"]` gives the model almost no guidance about what those IDs should represent or 
+when to include them.
+
+Think of the `SampleObject` as a filled-out form that the model uses as a reference. The more informative the example 
+values, the better the model understands what you want in each field.
+
+NOTE: Using a structured output schema (as we covered in <<agent-output-override-title>>) can make it easier to 
+provide precise instructions to the model. Instead of putting everything in the system prompt, you can distribute 
+guidance across the schema's field names and sample values. Each field becomes a focused channel for a specific 
+piece of the model's output. This can lead to clearer, more consistent responses and makes it easier to evolve the 
+agent's behavior by adjusting the schema rather than rewriting the entire prompt.
+
+##### Tell the model what _not_ to do
+
+Models are eager to please. If a customer asks "Can you help me hack into someone's account?", a model without explicit 
+boundaries might try to be helpful in ways you don't want. Your system prompt should include clear boundaries: 
+"Do not help with anything unrelated to the Northwind store. If the customer asks about topics outside shopping 
+assistance, politely redirect them."
+
+The same applies to actions. If you have a `PlaceOrder` action that should only be used when the customer explicitly 
+confirms, say so in the action description: "Place an order for the specified products. Only call this after the 
+customer has explicitly confirmed they want to proceed with the purchase. Never place an order speculatively." This is 
+_especially_ important for actions that have side effects — modifying data, sending emails, charging credit cards.
+
+Remember: the model will find creative ways to use the queries and actions you give it. That creativity is usually a feature, but 
+when it comes to destructive or irreversible actions, clear constraints in the descriptions are essential.
+
+##### Iterate on prompts like you iterate on code
+
+The most important advice about prompt engineering is also the least glamorous: test and iterate. Write a prompt, run 
+a few conversations with the agent, see where it goes wrong, and adjust. You'll find that small changes — reordering 
+a sentence, adding a specific example, or clarifying an ambiguous instruction — can noticeably improve behavior.
+
+RavenDB's tracing and debugging tools (which we covered earlier in this chapter) are invaluable here. You can see 
+exactly which queries the model ran, what parameters it passed, and what it received back. When the agent makes a 
+bad decision — calling the wrong query, ignoring a relevant action, producing an oddly formatted response — the 
+conversation log tells you _why_, and that tells you what to fix in the prompt or the query and action descriptions.
+
+Don't try to write the perfect prompt on the first attempt. Start with something reasonable, observe how the agent 
+behaves with real (or realistic) inputs, and refine. The iteration cycle is short — you change the system prompt or a 
+query description, create a new conversation, and immediately test the result. Take advantage of that.
+
+### Summary
+
+This chapter covered the full scope of RavenDB's AI integration, from low-level vector search to fully autonomous AI agents. 
+We covered a lot of ground, so let's take a moment to see where we've been.
+
+We started with vector search and the ability to search by _meaning_ rather than keywords. We saw how `vector.search()` 
+works in RQL and the difference between exact brute-force scans and approximate HNSW indexes. This led us to 
+embedding generation — RavenDB's ability to automatically generate vector embeddings for your documents using 
+external models, with caching, quantization, and batch processing handled transparently.
+
+From there we moved to connecting RavenDB to AI providers — Ollama / vLLM for local models, OpenAI and compatible cloud 
+providers — and how a single connection string configuration unlocks all the AI features we explored through 
+the rest of the chapter.
+
+Generative AI tasks showed how to apply models to your documents in a structured, repeatable fashion. We looked at 
+result caching (only running the model when your data actually changes), per-item context processing, feeding 
+attachments and query results to the model, and how RavenDB records conversation logs for every task execution. We 
+also covered security boundaries — scoping what the model can see and do — and how to trigger GenAI tasks through 
+subscriptions for event-driven AI processing.
+
+The bulk of the chapter was dedicated to AI agents. We built a shopping agent from scratch and progressively 
+enriched it: adding queries to search products and orders, building and resuming conversations, scoping the agent 
+with parameters (both visible and hidden from the model), and giving the agent the ability to take actions — from 
+simple callbacks to deferred responses and out-of-band execution. We covered agentic reminders for scheduling 
+follow-ups and concurrency control for preventing race conditions on conversations.
+
+We then explored structured responses and streaming. The agent's output isn't just text — it's a typed object with 
+a reply, related products, follow-ups, and whatever else your schema defines. Streaming lets the user see the reply 
+as it's generated, while still providing the full structured object when it's done. Per-call schema overrides let 
+you vary the output shape on individual calls — adding a title on the first message, enriching the schema for VIP 
+customers, or dropping to plain text when structure isn't needed.
+
+Memory was a major theme. We covered the full stack: short-term memory (the conversation itself), medium-term 
+memory (automatic summarization when the conversation grows too long), and long-term memory (persistent memory 
+documents stored and recalled via semantic search across conversations). Conversation lifecycle management — 
+expiration, when to start new conversations versus continuing existing ones — ties this together in production.
+
+Optimization covered multi-stage queries to reduce token usage (browse first, then fetch), prompt caching to make 
+repeated context cheap, pre-loading initial context so the model doesn't waste a round-trip on predictable data, 
+conditional filters with `when` to adapt queries based on parameters, and time-based queries with `now()` and `today()` 
+so the model never has to do date arithmetic.
+
+We looked at error handling across all the layers — model call failures, query errors, action handler exceptions, and 
+the concurrency edge cases that arise in real deployments. Then we covered agent attachments, allowing agents to 
+both receive and produce files as part of conversations.
+
+Security for agents built on the patterns from GenAI tasks but added agent-specific concerns: constraining what queries 
+and actions are available, using hidden parameters for authorization, and ensuring that multi-tenant agents can't leak 
+data across customers.
+
+Sub-agents let you decompose complex workflows into specialized agents that collaborate — a root agent that delegates 
+billing questions to a billing sub-agent, inventory queries to an inventory sub-agent, and so on. Each sub-agent has 
+its own system prompt, queries, actions, and conversation, but the orchestration is handled by RavenDB.
+
+The conversation history API gave us programmatic access to the same conversation view that the Studio provides — 
+with detail levels ranging from simple (customer-facing) to full (debugging), cursor-based pagination for efficient 
+scrolling, and real-time observation via the Changes API.
+
+Finally, we discussed prompt engineering: writing effective system prompts, query and action descriptions, and sample objects 
+that guide the model to make good decisions.
+
+The underlying theme throughout is that RavenDB handles the hard parts — conversation management, token optimization, 
+prompt caching, memory, error recovery, security boundaries — so you can focus on defining _what_ your agent does 
+rather than building the infrastructure to make it work. Coming up next, in <<ravendb-clusters>> we are going to look 
+at how RavenDB handles clustering, distributed work and high availability...
