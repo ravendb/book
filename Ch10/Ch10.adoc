@@ -8,3 +8,10 @@ RavenDB is designed to run in a wide variety of environments, from the smallest 
 
 In this chapter, we are going to look at how RavenDB works in these different environments, and what are the things that you need to consider when deploying
 RavenDB in these scenarios.
+
+
+### Edge
+
+#### Hub & sink replication
+
+#### Filtered replication

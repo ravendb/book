@@ -82,8 +82,20 @@ include::./Ch07/Ch07.adoc[]
 [[ai-llm]]
 include::./Ch08/Ch08.adoc[]
 
+= Distributed RavenDB
+
+[partintro]
+--
+include::./Ch09/PartII.adoc[]
+--
+
+:figure-caption: Figure 9.
+:listing-caption: Listing 9.
+:table-caption: Table 9.
+:listing-number: 0
+:figure-number: 0
 [[ravendb-clusters]]
-## RavenDB Clusters
+include::./Ch09/Ch09.adoc[]
 
 :figure-caption: Figure 10.
 :listing-caption: Listing 10.
@@ -93,8 +105,13 @@ include::./Ch08/Ch08.adoc[]
 [[cloud-n-edge]]
 include::./Ch10/Ch10.adoc[]
 
+:figure-caption: Figure 11.
+:listing-caption: Listing 11.
+:table-caption: Table 11.
+:listing-number: 0
+:figure-number: 0
 [[sharding-in-ravendb]]
-## Sharding in RavenDB
+include::./Ch11/Ch11.adoc[]
 
 [[querying-in-ravendb]]
 ## Querying in RavenDB
