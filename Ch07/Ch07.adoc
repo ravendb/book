@@ -89,7 +89,7 @@ click on `Add a Database Task` and in the `Filter by Category` select `Subscript
 .Add a new database task
 image::./Ch07/img01.png[]
 
-You'll see the subscription edit form. Now, name the task "CustomersSubscription" and enter `from Customers` in the query field. That's it. You can save the subscription.
+You'll see the subscription edit form. Now, name the task "CompaniesSubscription" and enter `from Companies` in the query field. That's it. You can save the subscription.
 The result of this is shown in <<new-sub-dlg>>.
 
 [[new-sub-dlg]]
@@ -219,55 +219,55 @@ cluster and failover. We'll discuss those issues later in this chapter.
 ### The first real subscription
 
 Subscriptions so far are useful but not really something to get excited about. But the fun part starts now.
-Let's say that we want to send a survey to all customers with whom we had a complex support call.
+Let's say that we want to send a feedback request to all companies that placed a complex order.
 The first step for that is to create a subscription using the code in <<create-subscription-complex-calls>>.
 
 [[create-subscription-complex-calls]]
-.Creating a subscription for complex calls
+.Creating a subscription for complex orders
 [source,csharp]
 ----
-var subId = store.Subscriptions.Create<SupportCall>(
-    call =>
-      call.Comments.Count > 25 &&
-      call.Votes > 10 &&
-      call.Survey == false
+var subId = store.Subscriptions.Create<Order>(
+    order =>
+      (order.Lines.Count > 15 ||
+       order.Notes.Count > 5) &&
+      order.FeedbackSent == false
     );
 ----
 
 <<fig-subscription-filters-support-calls>> shows the newly created subscription on the server side. You can see that the filter we provided on the client side was turned into a server
-side script that decided whatever a particular `SupportCall` is a match for this subscription.
+side script that decided whatever a particular `Order` is a match for this subscription.
 
 [[fig-subscription-filters-support-calls]]
-.Subscription query defined from code, filtering complex support calls
+.Subscription query defined from code, filtering complex orders
 image::./Ch07/img04.png[]
 
-We've registered for support calls that have more than 10 votes and over 25 comments, and we add a flag to record whether or not we've sent the
-survey. It's important to note that this filtering is happening on the _server side_, not on the client. Internally we'll transform the conditional into a
+We've registered for orders with more than 15 line items or more than 5 notes, and we add a flag to record whether or not we've requested
+feedback. It's important to note that this filtering is happening on the _server side_, not on the client. Internally we'll transform the conditional into a
 full query (see <<fig-subscription-filters-support-calls>>) and send it to the server to be evaluated on each document in turn.
 Any matching document will be sent to the client for processing.
 Of course, this is just part of the work. We still need to handle the subscription itself. This is done in <<take-surveys-complex-calls>>.
 
 [[take-surveys-complex-calls]]
 [source,csharp]
-.Taking surveys of complex calls
+.Processing feedback for complex orders
 ----
 await subscription.Run(batch =>
 {
     foreach (var item in batch.Items)                               <1>
     {
-        SupportCall call = item.Result;
+        Order order = item.Result;
 
-        var age = DateTime.Today - call.Started;
+        var age = DateTime.Today - order.OrderedAt;
         if (age > DateTime.FromDays(14))                            <2>
-            continue; // no need to send survey for old stuff
+            continue; // no need to send feedback for old stuff
 
         using (var session = store.OpenSession())                   <3>
         {
-            var customer = session.Load<Customer>(call.CustomerId);
+            var company = session.Load<Company>(order.Company);
 
-            call.Survey = true;                                     <4>
+            order.FeedbackSent = true;                              <4>
 
-            session.Store(call, item.ChangeVector, item.Id);        <5>
+            session.Store(order, item.ChangeVector, item.Id);       <5>
 
             try
             {
@@ -279,29 +279,29 @@ await subscription.Run(batch =>
                 continue;
             }
 
-            SendSurveyEmailTo(customer, call);                      <7>
+            SendFeedbackEmailTo(company, order);                    <7>
         }
     }
 });
 ----
 <1> Iterate over all the items in the batch.
-<2> Filter support calls that are too old to be worth sending a survey.
+<2> Filter orders that are too old to be worth requesting feedback.
 <3> Open a new session from the store (_not_ tied to the current batch, see more on this later).
-<4> Modify the current call so we won't get it again (will be filtered by the `where` clause in <<create-subscription-complex-calls>>)
-<5> Store the modified call in the session, with the change vector to ensure optimistic concurrency check.
+<4> Modify the current order so we won't get it again (will be filtered by the `where` clause in <<create-subscription-complex-calls>>)
+<5> Store the modified order in the session, with the change vector to ensure optimistic concurrency check.
 <6> Handle a concurrency exception by not doing anything (and letting the subscription send us the modified document again in the next batch).
-<7> Send the survey email to the customer (assuming this can never fail for the moment).
+<7> Send the feedback email to the company (assuming this can never fail for the moment).
 
 
 
-There's a lot going on in <<take-surveys-complex-calls>>. For each item in the batch, we'll create a new session, load the customer for
-this support call and mark the call as having sent the survey. Then we'll call `Store` and pass it not only the instance that we got from the subscription from
+There's a lot going on in <<take-surveys-complex-calls>>. For each item in the batch, we'll create a new session, load the company for
+this order and mark it as having requested feedback. Then we'll call `Store` and pass it not only the instance that we got from the subscription from
 but also the change vector and ID for this document. This ensures that when we call `SaveChanges`, if the document has changed in the meantime on the server
 side, we'll get an error.
 
-In <<take-surveys-complex-calls>> we assume that we don't have to deal with failures for `SendSurveyEmailTo` for the sake of simplicity.
-A more complete implementation would first send the email and only then set the `Survey` flag on the support call. That way, if we need to retry the batch, we'll
-resume from the current batch, instead of marking it as done. Of course, that leads to the opposite problem of getting a failure in saving the update to `Survey`
+In <<take-surveys-complex-calls>> we assume that we don't have to deal with failures for `SendFeedbackEmailTo` for the sake of simplicity.
+A more complete implementation would first send the email and only then set the `FeedbackSent` flag on the order. That way, if we need to retry the batch, we'll
+resume from the current batch, instead of marking it as done. Of course, that leads to the opposite problem of getting a failure in saving the update to `FeedbackSent`
 and then sending the email twice. Typical mail systems have options to ignore duplicate emails in a certain time period, which is probably how you would solve
 this in production.
 
@@ -311,13 +311,13 @@ There are a few things to remember if you're using the subscription to write bac
 
 * Avoid the subscription/modify loop. When you modify a document that you're subscribing to, the server will send it to
   the subscription again. If you modify it every time it's processed, you'll effectively create an infinite loop, with all the costs
-  this entails. You can see in <<take-surveys-complex-calls>> that we're careful to avoid this by setting the `Survey` flag when we
+  this entails. You can see in <<take-surveys-complex-calls>> that we're careful to avoid this by setting the `FeedbackSent` flag when we
   process a document and filter on the flag in <<create-subscription-complex-calls>>.
 
 * The document you received may have already been changed on the server. Typically, the lag time between a document being modified and the
   subscription processing the document is very short. That can lead you to think this happens instantaneously or, even worse, as part of
   the same operation as modifying the document.
-  Nothing could be further from the truth. Assuming we process two support calls in a batch, and the first `SendSurveyEmailTo` takes 30 seconds, that gives a _huge_
+  Nothing could be further from the truth. Assuming we process two orders in a batch, and the first `SendFeedbackEmailTo` takes 30 seconds, that gives a _huge_
   gap of time for the second document to be modified while we're processing the first one. In <<take-surveys-complex-calls>>, we handled that explicitly
   using optimistic concurrency to get an error if it was changed in the meantime. In other cases, you may want to use patching to avoid having to deal with the issue.
 
@@ -328,13 +328,13 @@ There are a few things to remember if you're using the subscription to write bac
 
 #### Distributed transactions and RavenDB
 
-Subscription are commonly used to bridge between RavenDB and other systems. For example, in <<take-surveys-complex-calls>>, we send an email to the customer
-after marking the support call as having sent the survey. Failure handling in such a scenario is complex, because we're forced to integrate between two systems
+Subscription are commonly used to bridge between RavenDB and other systems. For example, in <<take-surveys-complex-calls>>, we send an email to the company
+after marking the order as having requested feedback. Failure handling in such a scenario is complex, because we're forced to integrate between two systems
 that don't share a transaction boundary. In other words, theoretically speaking, if we could create a transaction covering sending the email and writing to
 RavenDB, the problem would be solved.
 
 In practice, RavenDB supported distributed transactions with multiple resources up until version 3.x, where we deprecated this feature.
-Version 4.0 removed it completely. Distributed transactions (also known as two-phase commit or 2PC) _sound_ wonderful. Here you have a complex
+It was removed completely since version 4.0. Distributed transactions (also known as two-phase commit or 2PC) _sound_ wonderful. Here you have a complex
 interaction between several different components in your system, and you can use a transaction to orchestrate it all in a nice and simple
 manner.
 
@@ -377,35 +377,35 @@ await subscription.Run(batch =>
 {
     using (var session = batch.OpenSession())                   <1>
     {
-        var customerIds = batch.Items                           <2>
-            .Select(item => item.Result.CustomerId)
+        var companyIds = batch.Items                            <2>
+            .Select(item => item.Result.Company)
             .Distinct()
             .ToList();
 
-        // force load of all the customers in the batch
+        // force load of all the companies in the batch
         // in a single request to the server
-        session.Load<Customer>(customerIds);                    <3>
+        session.Load<Company>(companyIds);                      <3>
 
         foreach (var item in batch.Items)
         {
-            SupportCall call = item.Result;
-            var age = DateTime.Today - call.Started;
+            Order order = item.Result;
+            var age = DateTime.Today - order.OrderedAt;
             if (age > DateTime.FromDays(14))
-                return; // no need to send survey for old stuff
+                return; // no need to send feedback for old stuff
 
-            // customer was already loaded into the session
+            // company was already loaded into the session
             // no remote call will be made
-            var customer = session.Load<Customer>(
-                call.CustomerId);
+            var company = session.Load<Company>(
+                order.Company);
 
             // register the change on the session
             // no remote call will be made
-            session.Advanced.Patch<SupportCall, bool>(          <4>
-                call.Id,
-                c => c.Survey,
+            session.Advanced.Patch<Order, bool>(                <4>
+                order.Id,
+                c => c.FeedbackSent,
                 true);
 
-            SendSurveyEmailTo(customer, call);                  <5>
+            SendFeedbackEmailTo(company, order);                <5>
         }
 
         // send a single request with all the
@@ -415,20 +415,20 @@ await subscription.Run(batch =>
 });
 ----
 <1> Open a single session for the entire batch (using `batch.OpenSession` rather than `store.OpenSession`).
-<2> Extract all the customer IDs from the batch.
-<3> Load all the customers in a single request to the server.
-<4> Use patching to register the change to the support call (no remote call is made at this point), and no need for optimistic concurrency check.
-<5> Send the survey email to the customer.
+<2> Extract all the company IDs from the batch.
+<3> Load all the companies in a single request to the server.
+<4> Use patching to register the change to the order (no remote call is made at this point), and no need for optimistic concurrency check.
+<5> Send the feedback email to the company.
 <6> Call `SaveChanges` once for the entire batch, sending all the changes to the server in a single request.
 
 
-<<efficiently-process-batch>> takes a different approach than <<take-surveys-complex-calls>>. Instead of opening a session per document in the batch, we open a single session for the entire batch. We also use `Patch` instead of optimistic concurrency to update the `Survey` flag, avoiding the need to deal with concurrent updates entirely.
-Note that we also changed the behavior. Previously, we would update each document `Survey` flag and then send the email. Now we send the email first, then update the `Survey` for
-all the documents in the batch in one shot. A failure on `SendSurveyEmailTo` will force us to retry the entire batch.
+<<efficiently-process-batch>> takes a different approach than <<take-surveys-complex-calls>>. Instead of opening a session per document in the batch, we open a single session for the entire batch. We also use `Patch` instead of optimistic concurrency to update the `FeedbackSent` flag, avoiding the need to deal with concurrent updates entirely.
+Note that we also changed the behavior. Previously, we would update each document `FeedbackSent` flag and then send the email. Now we send the email first, then update the `FeedbackSent` for
+all the documents in the batch in one shot. A failure on `SendFeedbackEmailTo` will force us to retry the entire batch.
 
 The `batch` object has the `Items` property, which is the list of documents in the batch. Those documents are already loaded into
-the batch (and into the `batch.OpenSession`). You can iterate them multiple time at no cost, as we do in <<efficiently-process-batch>>, once to load all the customers, and
-the second time to process all the calls.
+the batch (and into the `batch.OpenSession`). You can iterate them multiple time at no cost, as we do in <<efficiently-process-batch>>, once to load all the companies, and
+the second time to process all the orders.
 
 .Don't use the `store.OpenSession` in batch processing
 ****
@@ -455,22 +455,22 @@ Another option to deal with the number of `Load` calls is to utilize `include`. 
 .Subscription using string query with `include`
 [source,csharp]
 ----
-store.Subscriptions.Create<SupportCall>(
+store.Subscriptions.Create<Order>(
                 new SubscriptionCreationOptions {
     Query = @"
-    from SupportCalls as call
-    where call.Comments.Count > 25 and call.Votes > 10
-            and call.Survey == false
-    include call.Customer"
+    from Orders as order
+    where (order.Lines.length > 15 or order.Notes.length > 5)
+            and order.FeedbackSent == false
+    include order.Company"
 });
 ----
 
-If we'll use the subscription defined in <<subscription-with-include>>, the customer will be automatically included in the batch that we get from the server. That is
+If we'll use the subscription defined in <<subscription-with-include>>, the company will be automatically included in the batch that we get from the server. That is
 one of the reasons why `batch.OpenSession` is preferred over `store.OpenSession`. The session that we get from the batch is already preloaded with all the
 documents that were included in the subscription query.
 
-With the subscription shown in <<subscription-with-include>>, we can drop the need to call `session.Load<Customer>(customerIds);` in <<efficiently-process-batch>>.
-The customers will already be loaded into the batch's session from the `include`, and the rest of the code behaves the same (and exhibit the same low number of remote calls).
+With the subscription shown in <<subscription-with-include>>, we can drop the need to call `session.Load<Company>(companyIds);` in <<efficiently-process-batch>>.
+The companies will already be loaded into the batch's session from the `include`, and the rest of the code behaves the same (and exhibit the same low number of remote calls).
 
 #### Complex conditionals
 
@@ -480,7 +480,7 @@ was a pretty simple expression, and the code that handles the translation betwee
 In <<subscription-with-include>>, we also saw that we can use a string query to define the subscription.
 
 In <<create-subscription-javascript-filtering>> we are taking that to the next level and show how we can use a more complex filtering mechanism
-to subscribe to all the support calls that require special attention.
+to subscribe to all the orders that require special attention.
 
 [[create-subscription-javascript-filtering]]
 [source,csharp]
@@ -490,32 +490,32 @@ var options = new SubscriptionCreationOptions
 {
     Name = subscriptionName,
     Query = @"
-        declare function isAnnoyedCustomer(call) {
-            const watchwords = ['annoy', 'hard', 'silly'];
+        declare function isEscalationNeeded(order) {
+            const watchwords = ['urgent', 'delayed', 'damaged'];
 
-            const lastIndex = call['@metadata']['Last-Monitored-Index'] || 0;
+            const lastIndex = order['@metadata']['Last-Monitored-Index'] || 0;
 
-            for (let i = lastIndex; i < call.Comments.length; i++)
+            for (let i = lastIndex; i < order.Notes.length; i++)
             {
-                let comment = call.Comments[i].toLowerCase();
+                let note = order.Notes[i].toLowerCase();
                 for (let j = 0; j < watchwords.length; j++)
                 {
-                    if (comment.indexOf(watchwords[j]) !== -1)
+                    if (note.indexOf(watchwords[j]) !== -1)
                         return true;
                 }
             }
             return false;
 
-        from SupportCalls as call
-        where isAnnoyedCustomer(call)"
+        from Orders as order
+        where isEscalationNeeded(order)"
 };
 
 store.Subscriptions.Create(options);
 ----
 
-The interesting code in <<create-subscription-javascript-filtering>> is in `isAnnoyedCustomer` inside the query. We're defining a few words that we'll watch for,
-and if we see them in the comments of a support call, we want to give that call some special attention via this subscription. We do that by simply scanning through
-the array of `Comments` and checking if any comment contains any of the words we're looking for.
+The interesting code in <<create-subscription-javascript-filtering>> is in `isEscalationNeeded` inside the query. We're defining a few words that we'll watch for,
+and if we see them in the notes of an order, we want to give that order some special attention via this subscription. We do that by simply scanning through
+the array of `Notes` and checking if any note contains any of the words we're looking for.
 
 .Use the subscription test feature
 ****
@@ -537,17 +537,17 @@ in the collection. Selecting such a document is done in the `Send Documents From
 save some time if you position the subscription directly on the first of the documents you want to process.
 ****
 
-The one interesting tidbit is the use of `call['@metadata']['Last-Monitored-Index']`. What's that for? Remember that a subscription will be sent all the
+The one interesting tidbit is the use of `order['@metadata']['Last-Monitored-Index']`. What's that for? Remember that a subscription will be sent all the
 documents that match its criteria. And whenever a document is changed, it triggers a check for a match with the subscription. That means that if we didn't have
-some sort of check to stop it, our subscription would process any support call that had a comment with one of the words we watch for _every single time
-that call is processed_.
+some sort of check to stop it, our subscription would process any order that had a note with one of the words we watch for _every single time
+that order is processed_.
 
 In order to avoid that scenario, we set a metadata value named `Last-Monitored-Index` when we process the subscription. You can see how that works in
 <<escalate-problematic-calls>>.
 
 [[escalate-problematic-calls]]
 [source,csharp]
-.Escalating problematic calls
+.Escalating problematic orders
 ----
 const string script = @"                                        <1>
 var metadata = this['@metadata'];
@@ -570,7 +570,7 @@ await subscription.Run(batch =>
                         Script = script,
                         Values =
                         {
-                            ["idx"] = item.Result.Comments.Count
+                            ["idx"] = item.Result.Notes.Count
                         }
                     },
                     patchIfMissing: null,
@@ -581,12 +581,12 @@ await subscription.Run(batch =>
     }
 });
 ----
-<1> The JavaScript code that will set the `Last-Monitored-Index` metadata value to the size of the `Comments` array.
+<1> The JavaScript code that will set the `Last-Monitored-Index` metadata value to the size of the `Notes` array.
 <2> Use `Defer` to register a patch command to set the `Last-Monitored-Index` metadata value.
 <3> Call `SaveChanges` once for the entire batch, sending all the changes to the server in one remote call.
 
-We are simply setting the `Last-Monitored-Index` to the size of the `Comments` on the call and saving it back to the server.
-This will ensure that we'll only get the support call again if there are _new_ comments with the words we're watching for.
+We are simply setting the `Last-Monitored-Index` to the size of the `Notes` on the order and saving it back to the server.
+This will ensure that we'll only get the order again if there are _new_ notes with the words we're watching for.
 The code in <<escalate-problematic-calls>> is going out of its way to be a good citizen and not go to the server any more times than it needs to.
 This is also a good chance to demonstrate a real use case for `Defer` in production code. The use of `Defer` means two things:
 one, we don't need to worry about the number of calls and, two, we've handled concurrency.
@@ -595,12 +595,12 @@ one, we don't need to worry about the number of calls and, two, we've handled co
 ****
 Subscriptions often need to maintain some sort of state on a per-document basis. In the case of <<escalate-problematic-calls>>, we needed to keep track of the last
 monitored index, but other times you'll have much more complex state to track. For example, imagine that we need to kick off a workflow that will
-escalate a call once it passes a certain threshold. We might need to keep track of the state of the workflow and have that be accounted for in the
+escalate an order once it passes a certain threshold. We might need to keep track of the state of the workflow and have that be accounted for in the
 subscription itself.
 
 Using the metadata to do this works quite nicely if we're talking about small and simple state. However, as the complexity grows, it isn't viable
 to keep all that in the document metadata, and we'll typically introduce a separate document to maintain the state of the subscription. In it, we'll
-track support calls, and `SupportCalls/238-B` will have a `SupportCalls/238-B/EscalationState` document that contains the relevant
+track orders, and `orders/238-B` will have an `orders/238-B/EscalationState` document that contains the relevant
 information for the subscription.
 ****
 
@@ -613,8 +613,8 @@ We've used conditional subscriptions to filter the documents that we want to pro
 allows us to reduce the number of documents that we have to send to the subscription. This is awesome in itself, but a really interesting feature of
 subscriptions is that we don't actually _need_ to send the full documents to the client. We can select just the relevant details to send.
 
-Say we want to do some processing on highly voted support calls. We don't need to get the full document; we just need the actual issue and the number
-of votes for that call. Instead of sending the full document over the wire, we can use the code in <<get-relevant-details-subscription-filter>> to achieve our
+Say we want to do some processing on large orders. We don't need to get the full document; we just need the shipping destination and the
+number of line items for that order. Instead of sending the full document over the wire, we can use the code in <<get-relevant-details-subscription-filter>> to achieve our
 goals more efficiently.
 
 [[get-relevant-details-subscription-filter]]
@@ -625,45 +625,45 @@ var options = new SubscriptionCreationOptions
 {
     Name = subscriptionName,
     Query =  @"
-        from SupportCalls as call
-        where call.Votes >= 10
+        from Orders as order
+        where order.Lines.length > 15
         select {
-            Issue: call.Issue,
-            Votes: call.Votes
+            ShipTo: order.ShipTo,
+            LineCount: order.Lines.length
         }"
 };
 store.Subscriptions.Create(options);
 ----
 
-What we're doing in <<get-relevant-details-subscription-filter>> is filtering the support calls. If the call has less then 10 votes, we'll just filter it.
+What we're doing in <<get-relevant-details-subscription-filter>> is filtering the orders. If the order has 15 or fewer line items, we'll just filter it.
 However, we aren't limited to just filtering the full document. We can also return an object of our own. That object can be built by us and contain just what we
 want to send directly to the client, and RavenDB will send it.
 
-But there is an issue here. In <<get-relevant-details-subscription-filter>>, we're creating a subscription on `SupportCall`. However, the value that will be sent to the client for
-the subscription to process is _not_ a `SupportCall` document. It's a projection created during the subscription run. That means that, on the client side, we need to know
+But there is an issue here. In <<get-relevant-details-subscription-filter>>, we're creating a subscription on `Order`. However, the value that will be sent to the client for
+the subscription to process is _not_ an `Order` document. It's a projection created during the subscription run. That means that, on the client side, we need to know
 how to handle such a thing. This requires a bit of a change in how we open the subscription, as you can see in <<open-subscription-different-target-projection>>.
 
 [[open-subscription-different-target-projection]]
 [source,csharp]
 .Opening subscription with a different target type
 ----
-public class SupportCallSubscriptionOutput
+public class OrderSubscriptionOutput
 {
-    public string Issue;
-    public int Votes;
+    public string ShipTo;
+    public int LineCount;
 }
 
 var options = new SubscriptionWorkerOptions(subscriptionName);
 var subscription = store.Subscriptions
-    .GetSubscriptionWorker<SupportCallSubscriptionOutput>(options);
+    .GetSubscriptionWorker<OrderSubscriptionOutput>(options);
 
 await subscription.Run(batch =>
 {
     foreach (var item in batch.Items)
     {
-        SupportCallSubscriptionOutput result = item.Result;
+        OrderSubscriptionOutput result = item.Result;
         // do something with the
-        // result.Issue, result.Votes
+        // result.ShipTo, result.LineCount
     }
 });
 ----
@@ -673,8 +673,8 @@ use that when we open the subscription. Scenarios like the one outlined in <<get
 and <<open-subscription-different-target-projection>> make this flexibility very useful.
 
 If this was all we could do with the subscription script, it would have been a good way to reduce the amount of data that's sent over the wire. But
-there are actually more options available for us that we haven't gotten around to yet. Consider <<efficiently-process-batch>> where we get the support call
-and immediately have to load the associated customer. That can lead to a remote call per item in the batch. We've already gone over why this can be a bad idea in
+there are actually more options available for us that we haven't gotten around to yet. Consider <<efficiently-process-batch>> where we get the order
+and immediately have to load the associated company. That can lead to a remote call per item in the batch. We've already gone over why this can be a bad idea in
 terms of overall performance. Even with the optimization we implemented in <<subscription-with-include>>, there's still a remote call to do. We can do better.
 
 We can ask RavenDB to handle this as part of the subscription processing directly. Take a look at <<get-relevant-details-subscription-load>>, which does just that.
@@ -683,19 +683,19 @@ We can ask RavenDB to handle this as part of the subscription processing directl
 [source,csharp]
 .Getting just the relevant details in the subscription
 ----
-var options = new SubscriptionCreationOptions<SupportCall>
+var options = new SubscriptionCreationOptions<Order>
 {
     Name = subscriptionName,
     Query = @"
-        from SupportCalls as call
-        where call.Votes >= 10
-        load call.CustomerId as customer
+        from Orders as order
+        where order.Lines.Count > 15
+        load order.Company as company
         select {
-            Issue: call.Issue,
-            Votes: call.Votes,
-            Customer: {
-                Name: customer.Name,
-                Email: customer.Email
+            ShipTo: order.ShipTo,
+            LineCount: order.Lines.Count,
+            Company: {
+                Name: company.Name,
+                Email: company.Email
             }
         }"
 };
@@ -703,7 +703,7 @@ store.Subscriptions.Create(options);
 ----
 
 In <<get-relevant-details-subscription-load>>, we're using `load` as part of the processing of the subscription on the server side. This allows us to get
-the customer instance and send pieces of it back to the client. In order to consume it, we'll need to change the `SupportCallSubscriptionOutput` class that we introduced in
+the company instance and send pieces of it back to the client. In order to consume it, we'll need to change the `OrderSubscriptionOutput` class that we introduced in
 <<get-relevant-details-subscription-filter>> to add the new fields.
 
 When processing the output of this subscription, we can directly process the results without making any other remote calls, not even to load the associated document.
@@ -713,37 +713,37 @@ In <<open-subscription-different-target-load>>, you can see how we'd process suc
 [source,csharp]
 .Opening subscription with a different target
 ----
-public class SupportCallSubscriptionOutput                      <1>
+public class OrderSubscriptionOutput                    <1>
 {
-    public class Customer                                       <2>
+    public class Company                                <2>
     {
         public string Name;
         public string Email;
     }
-    public string Issue;
-    public int Votes;
-    public Customer Customer;
+    public string ShipTo;
+    public int LineCount;
+    public Company Company;
 }
 
 var options = new SubscriptionWorkerOptions(subscriptionName);
 var subscription = store.Subscriptions
-    .GetSubscriptionWorker<SupportCallSubscriptionOutput>(options);
+    .GetSubscriptionWorker<OrderSubscriptionOutput>(options);
 
 await subscription.Run(batch =>
 {
-    foreach (var item in batch.Items)                           <3>
+    foreach (var item in batch.Items)                   <3>
     {
-        SupportCallSubscriptionOutput result = item.Result;
-        SendEscalationEmail(result.Customer, item.Id);
-        // other stuff related to processing the call
+        OrderSubscriptionOutput result = item.Result;
+        SendEscalationEmail(result.Company, item.Id);
+        // other stuff related to processing the order
     }
 });
 ----
 <1> The output class for the subscription.
-<2> An inner class to represent the customer details that we get from the subscription.
+<2> An inner class to represent the company details that we get from the subscription.
 <3> Processing the subscription batch.
 
-You can see that we use an inner class to scope the meaning of the `Customer` here. This isn't required. It's merely a convention we use to bring some order
+You can see that we use an inner class to scope the meaning of the `Company` here. This isn't required. It's merely a convention we use to bring some order
 to the client-side types. Note that unlike before, we are no longer working with documents. Using `batch.OpenSession` won't have them in the session, nor do
 we benefit from the `Unit of Work` pattern. If we wanted to modify the documents in this subscription, we'll need to either use patching or to load them.
 Of course, we can combine both `load` and `include` to get the benefit of both worlds.
@@ -877,8 +877,8 @@ We've talked plenty about what happens when there are errors on the server side 
 your code) and the like. However, there's one class of errors that we didn't consider: what would happen if there's an error in the query that we use to
 evaluate each document?
 
-Consider the following snippet: `select { Rate: (10 / call.Votes) }`. It isn't meant to be meaningful, just to generate an error when the `Votes` property is
-set to zero. In this case, when evaluating the script on a support call with no votes, we'll get a error attempting to divide by zero. That error will
+Consider the following snippet: `select { Rate: (10 / order.Lines.length) }`. It isn't meant to be meaningful, just to generate an error when the `Lines` array is
+empty. In this case, when evaluating the script on an order with no line items, we'll get a error attempting to divide by zero. That error will
 be sent to the client and be part of the batch.
 
 When the client accesses the `item.Result` property on _that particular document_, the exception will be raised on the client side. In this way, you can
@@ -918,7 +918,7 @@ var options = new SubscriptionWorkerOptions(subscriptionName)
     CloseWhenNoDocsLeft = true
 }
 using (var subscription = store
-        .Subscriptions.GetSubscriptionWorker<SupportCall>(options))
+        .Subscriptions.GetSubscriptionWorker<Order>(options))
 {
     await subscription.Run(batch =>
     {
@@ -1049,16 +1049,16 @@ a better solution.
 ### The Outbox design pattern
 
 Earlier in this chapter I talked about distributed transactions and how hard they are. The Outbox pattern is a nice way to handle this scenario without a lot of
-complexity. Consider the case of <<take-surveys-complex-calls>>, where we needed to send survey emails as well as update the database. Compare that to the code in
+complexity. Consider the case of <<take-surveys-complex-calls>>, where we needed to send feedback emails as well as update the database. Compare that to the code in
 <<delete-emails-send>> which _only_ handles sending emails. The error handling aspect in <<delete-emails-send>> is much simpler than the one in <<take-surveys-complex-calls>>.
 
 Instead of trying to have a distributed transaction across two different systems, we'll use the Outbox pattern. Instead of performing the actual operation
-(`SendSurveyEmailTo`), we'll write a document to RavenDB that declare the _intent_ to do so (`EmailToSend`). That intent (the actual `EmailToSend` document) is then processed
+(`SendFeedbackEmailTo`), we'll write a document to RavenDB that declare the _intent_ to do so (`EmailToSend`). That intent (the actual `EmailToSend` document) is then processed
 behind the scenes like we saw in <<delete-emails-send>>.
 
-Take a look at <<take-surveys-outbox>> to see how this is done. We're back to processing support calls, and we update the `Survey` field on the support call as well as
+Take a look at <<take-surveys-outbox>> to see how this is done. We're back to processing orders, and we update the `FeedbackSent` field on the order as well as
 store a new `EmailToSend`. The final step of the subscription's lambda is to call `SaveChangesAsync` and save both the updates to the
-support calls as well as the new `EmailToSend` documents in a _single_ transaction.
+orders as well as the new `EmailToSend` documents in a _single_ transaction.
 
 [[take-surveys-outbox]]
 .Using the outbox pattern to send emails
@@ -1070,22 +1070,22 @@ await subscription.Run(async batch =>
 
     foreach (var item in batch.Items)
     {
-        SupportCall call = item.Result;
-        var age = DateTime.Today - call.Started;
+        Order order = item.Result;
+        var age = DateTime.Today - order.OrderedAt;
         if (age > DateTime.FromDays(14))
-            return; // no need to send survey for old stuff
+            return; // no need to send feedback for old stuff
 
-        var customer = await session.LoadAsync<Customer>(call.CustomerId);
+        var company = await session.LoadAsync<Company>(order.Company);
 
-        call.Survey = true;                             <1>
+        order.FeedbackSent = true;                      <1>
 
-        EmailToSend email = EmailToSendFactory.SupportSurvey(call, customer);
+        EmailToSend email = EmailToSendFactory.OrderFeedback(order, company);
         await session.StoreAsync(email);                <2>
     }
     await session.SaveChangesAsync();                   <3>
 });
 ----
-<1> Update the `Survey` flag on the current call.
+<1> Update the `FeedbackSent` flag on the current order.
 <2> Store the new `EmailToSend`.
 <3> Save both changes to the database in a single transaction.
 
@@ -1168,16 +1168,16 @@ in the next section.
 In the previous version, we dealt with performing the work within a batch in parallel. In this section, we'll discuss how we can run conurrent _batches_.
 Before we get to the code and how to make it work, let's talk about what this means and how this works. One of the problems we have with concurrent batches is what
 happens if we want to process the _same_ docuemnt in concurrent batches. Look at <<subscription-cycle>> again, and note that we are processing the document
-`SupportCalls/238-B` in the batch.
+`orders/238-B` in the batch.
 
-If we have two workers working concurrently on the same subscription, and we start processing a batch with `SupportCalls/238-B` in it, what happens when that
+If we have two workers working concurrently on the same subscription, and we start processing a batch with `orders/238-B` in it, what happens when that
 document is modified (while the first batch is still running)? In the normal course of things, the second worker will get the _updated_ version of the _same_
 docuemnt to process at the _same time_.
 As you can probably tell from the amount of emphasis I added to the previous statement, that is a Bad Thing. It can lead to really complex and hard to follow behavior
 in your application.
 
 For this reason, when you have concurrent subscription workers running at the same time, RavenDB takes care to ensure that each document can only be handed out
-to a batch _once_. In other words, if a batch is currently processing `SupportCalls/238-B`, even if there were later modifications to this document and there
+to a batch _once_. In other words, if a batch is currently processing `orders/238-B`, even if there were later modifications to this document and there
 subscription workers that want work, RavenDB will not hand this docuemnt to any worker until the ongoing batch either acknowledge a successful batch or errors.
 
 .Concurrent batch processing assume that the subscription does some _work_
@@ -1208,7 +1208,7 @@ After all of this explanation, actually _making use_ of concurrent subscription 
 [source,csharp]
 ----
 var subscriptionWorker1 = store.Subscriptions
-        .GetSubscriptionWorker<SupportCall>(                                <1>
+        .GetSubscriptionWorker<Order>(                                      <1>
             new SubscriptionWorkerOptions(subscriptionName)
             {
                 Strategy = SubscriptionOpeningStrategy.Concurrent,
@@ -1242,30 +1242,30 @@ subscription worker. In other words, close all the `Concurrent` subscription wor
 
 The subscriptions we've used so far are always operating on the _current_ state of the document. Consider the following case:
 
-* You create a subscription on the `Customer` collection.
-* You create a customer document and modify it three times.
+* You create a subscription on the `Company` collection.
+* You create a company document and modify it three times.
 * You open and run the subscription and observe the incoming items in the batch.
 
-What will the subscription get? It will get the _last_ version of the customer document. The same can happen when the subscription is already running. If you've
+What will the subscription get? It will get the _last_ version of the company document. The same can happen when the subscription is already running. If you've
 made multiple modifications to a document, when the next batch starts, we'll just grab the current version of the document and send it to the
 subscription. This can be a problem if your subscription code assumes that you'll always get the document every time it changes.
 
 The good news is that we can utilize another RavenDB feature, revisions (discussed in <<documents-extensions>>), to allow us to see all the changes that
 were made to a document.
 
-The first step to exploring this feature is to enable revisions on the collection you want. In this case, it's the `Customers` collection. Set the minimum retention
-time for two weeks, and again make a few modifications to a `Customer` document. When you run your subscription once more, note that you're again getting
-just the latest version of the `Customer` document.
+The first step to exploring this feature is to enable revisions on the collection you want. In this case, it's the `Companies` collection. Set the minimum retention
+time for two weeks, and again make a few modifications to a `Company` document. When you run your subscription once more, note that you're again getting
+just the latest version of the `Company` document.
 
 The reason you only get the latest version of the document is that the subscription, too, needs to let the server know that it's versioned. This is because the
 data model for versioned subscriptions is different. Let's take a look at <<subscribe-versioned-customers>> for an example of a simple versioned subscription
-that can detect when a customer changed their name.
+that can detect when a company changed their name.
 
 [[subscribe-versioned-customers]]
-.Subscribing to versioned customers
+.Subscribing to versioned companies
 [source,csharp]
 ----
-store.Subscriptions.Create<Revision<Customer>>(
+store.Subscriptions.Create<Revision<Company>>(
     new SubscriptionCreationOptions
     {
         Name = subscriptionName,
@@ -1273,7 +1273,7 @@ store.Subscriptions.Create<Revision<Customer>>(
 );
 
 using (var subscription = store.Subscriptions
-    .GetSubscriptionWorker<Revision<Customer>>(
+    .GetSubscriptionWorker<Revision<Company>>(
         subscriptionName
     ))
 {
@@ -1281,20 +1281,20 @@ using (var subscription = store.Subscriptions
     {
         foreach (var item in batch.Items)
         {
-            Revision<Customer> customer = item.Result;
+            Revision<Company> company = item.Result;
 
-            if (customer.Previous.Name !=
-                customer.Current.Name)
+            if (company.Previous.Name !=
+                company.Current.Name)
             {
-                // report customer name change
+                // report company name change
             }
         }
     });
 }
 ----
 
-The key parts to the code in <<subscribe-versioned-customers>> is the use of `Revision<Customer>` as the type that we're subscribing on.
-RavenDB recognizes that as a versioned subscription and will feed us each and every revision for the `Customer` collection.
+The key parts to the code in <<subscribe-versioned-customers>> is the use of `Revision<Company>` as the type that we're subscribing on.
+RavenDB recognizes that as a versioned subscription and will feed us each and every revision for the `Company` collection.
 
 Note that the data model as well has changed. Instead of getting the document itself, we get an object that has `Previous` and `Current` properties,
 representing the changes that happened to the document. In other words, you're able to inspect the current and previous versions and make decisions
@@ -1305,12 +1305,12 @@ way. This has uses in business analytics, fraud, outliers detection and forensic
 flow of data through your system.  The way versioned subscriptions work, we're going to get all the changes that match our criteria, in the same order they
 happened in the database.footnote:[Again, different nodes may have observed the events in a different order, but it should roughly match across the cluster.]
 
-If I wrote to `customers/8243-C`, created a new `customers/13252-B` and then wrote to `customers/8243-C` again, I'll get the changes (either in a single batch
+If I wrote to `companies/8243-C`, created a new `companies/13252-B` and then wrote to `companies/8243-C` again, I'll get the changes (either in a single batch
 or across batches) in the following order:
 
-* `customers/8243-C`: (`Previous` -> `Current`)
-* `customers/13252-B`: (`null` -> `Current`)
-* `customers/8243-C`: (`Previous` -> `Current`)
+* `companies/8243-C`: (`Previous` -> `Current`)
+* `companies/13252-B`: (`null` -> `Current`)
+* `companies/8243-C`: (`Previous` -> `Current`)
 
 This can be useful when running forensics or just when you want to inspect what's going on in your system.
 
@@ -1335,17 +1335,17 @@ store.Subscriptions.Create(
     {
         Name = subscriptionName,
         Query = @"
-            from Customers (Revisions = true)
+            from Companies (Revisions = true)
             where Prervious.Name != Current.Name"
     }
 );
 ----
 
-The code in <<set-filters-versioned-subscription>> will only send you the `Customer` documents whose names have been changed.
+The code in <<set-filters-versioned-subscription>> will only send you the `Company` documents whose names have been changed.
 The rest of the code in <<subscribe-versioned-customers>> can remain the same, but we now don't need to check if the names have changed on the client side.
 We've done that already on the server.
 
-Note that the RQL syntax for using versioned subscription directly `from Customers (Revisions = true)`, which tells RavenDB that you want to use the revisions
+Note that the RQL syntax for using versioned subscription directly `from Companies (Revisions = true)`, which tells RavenDB that you want to use the revisions
 as your source of data, rather than the docuemnts thmeselves.
 
 A natural extension of working on revisions is to skip sending the full data to the client and get just the data we need.
@@ -1356,11 +1356,11 @@ An example of this can be shown in <<get-changed-names-versioned-subscription>>.
 [source,csharp]
 ----
 store.Subscriptions.Create(
-    new SubscriptionCreationOptions<Versioned<Customer>>
+    new SubscriptionCreationOptions<Versioned<Company>>
     {
         Name = subscriptionName,
         Query = @"
-            from Customers (Revisions = true)
+            from Companies (Revisions = true)
             where Prervious.Name != Current.Name
             select {
                  OldName: this.Previous.Name,
@@ -1395,8 +1395,8 @@ Systems typically accrue additional behavior over time. As business processes ma
 subscriptions so far is mainly as a core part of the application itself. A subscription that the developer team would write, build and manage. But that doesn't have
 to be the case. In fact, it's common for subscriptions to be used as "aftermarket" entry points for modifying, extending and supporting the system.
 
-Consider the case of wanting to send all new users a welcome email after they've registered. We _could_ do that as part of the application itself, but given
-that this is a self-contained feature, we don't actually _have_ to involve the developers. We can write a subscription that would monitor new customers
+Consider the case of wanting to send all new companies a welcome email after they've been onboarded. We _could_ do that as part of the application itself, but given
+that this is a self-contained feature, we don't actually _have_ to involve the developers. We can write a subscription that would monitor new companies
 and send them the email.
 
 For flexibility, we don't want to write it in C#. We don't need an application. We just need to be able to run a script to process those documents. I'm
@@ -1404,7 +1404,7 @@ using the Python client API in <<send-welcome-emails-python>> to perform this ta
 I'm using Python as the example here because it's a great scripting language, and one I'm very fond of.)
 
 [[send-welcome-emails-python]]
-.Sending welcome emails to new customers
+.Sending welcome emails to new companies
 [source,python]
 ----
 ##!/usr/bin/env python3
@@ -1414,23 +1414,23 @@ from ravendb.documents.store.definition import DocumentStore
 
 store = DocumentStore (
     urls = ["http://localhost:8080"],
-    database = "HelpDesk"
+    database = "Northwind"
     )
 store.initialize()
 
 with store.subscriptions.get_subscription_worker_by_name(
-        "new-customers-welcome-email"
+        "new-companies-welcome-email"
     ) as subscription:
 
-    def send_welcome_email(customer):
+    def send_welcome_email(company):
         pass # redacted
 
     def handle_batch(batch):
         with batch.open_session() as session:
             for item in batch.items:
-                customer = item.result
-                send_welcome_email(customer)
-                customer.welcome_email_sent = True
+                company = item.result
+                send_welcome_email(company)
+                company.welcome_email_sent = True
             session.save_changes()
 
     subscription.run(handle_batch).join()
@@ -1529,16 +1529,16 @@ query. If it does, we can add that to the batch and send it to the worker.
 ****
 When RavenDB stores documents on disk, it assigns each document an etag, which is a strictly increasing number that represents the order in which the documents were modified.
 That etag is a _single node_ representation of when a document was modified. Note that in a cluster, does doesn't _quite_ work. Consider nodes `A` and `B` in a cluster.
-I modify `users/1-A` on node `A` and `users/2-B` on node `B`. Each node will then replicate the changes to the other node. However, the etags on each node may not reflect the
-same order of modifications. On node `A`, `users/1-A` may have etag `100` and `users/2-B` may have etag `101`, while on node `B`, `users/2-B` may have etag `150` and
-`users/1-A` may have etag `153`. At the cluster level, RavenDB uses change vectors, discussed in depth in <<ravendb-clusters>>.
+I modify `orders/1-A` on node `A` and `orders/2-B` on node `B`. Each node will then replicate the changes to the other node. However, the etags on each node may not reflect the
+same order of modifications. On node `A`, `orders/1-A` may have etag `100` and `orders/2-B` may have etag `101`, while on node `B`, `orders/2-B` may have etag `150` and
+`orders/1-A` may have etag `153`. At the cluster level, RavenDB uses change vectors, discussed in depth in <<ravendb-clusters>>.
 
-The key is that whenever a document is modified, we'll update its etag. So updating `users/1-A` will give it a new etag, say `103` and the order of documents in node A
-will be `users/2-B` (`101`), `users/1-A` (`103`).
+The key is that whenever a document is modified, we'll update its etag. So updating `orders/1-A` will give it a new etag, say `103` and the order of documents in node A
+will be `orders/2-B` (`101`), `orders/1-A` (`103`).
 
 Subscriptions operate on the internal etag queue, remembering the last etag position that was successfully acknowledged by the worker. That means that whenever a document
 is modified, the subscription will process it _again_. That is either desirable, or something that we want to avoid, so we'll add that as a filter to the subscription
-query, as we did in <<subscription-with-include>> when we checked the `call.Survey = false` at the query and marked the document with `Survey = true` when we processed them.
+query, as we did in <<subscription-with-include>> when we checked the `order.FeedbackSent = false` at the query and marked the document with `FeedbackSent = true` when we processed them.
 
 The reason RavenDB operates in this manner is that it means that it needs to keep track of a single value to keep the last processed position. That makes it very easy to
 handle the subscription state and recover from failures.
@@ -1569,25 +1569,25 @@ And being able to delay background work to less busy times is a great way to ens
 
 Subscriptions operate on documents as they are _now_. The subscription query is applied to the current state of the document, and whenever a document is modified, we re-apply
 the subscription query to see if it matches. When happens if I want to subscribe a document that was modified now, but I want to be called in 3 days? A good example is dealing
-with timeouts. We send a survey to the user, and we want to follow up if they haven't responded in 3 days. Essentially, we want to subscribe to documents in the future.
+with timeouts. We send a post-purchase survey to the company, and we want to follow up if they haven't responded in 3 days. Essentially, we want to subscribe to documents in the future.
 
 The problem is that the subscriptions don't work like that. In the previous section, we discussed how subscription operate purely on the modification order of documents.
 We cannot "schedule" a document to be processed in the future. However, we can use a small trick to achieve the same effect. RavenDB has the notion of `@refresh` metadata, you
 can see how we use that in <<set-refresh-metadata>>.
 
 [[set-refresh-metadata]]
-.Creating a survey document with `@refresh` metadata three days for now
+.Creating a post-purchase survey document with `@refresh` metadata three days for now
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    Survey survey = new Survey
+    PostPurchaseSurvey survey = new PostPurchaseSurvey
     {
-        Title = "Customer Satisfaction",
+        Title = "Order Satisfaction",
         Questions =
         [
-            "How satisfied are you with our product?",
-            "How likely are you to recommend our product to others?"
+            "How satisfied are you with your order?",
+            "How likely are you to recommend our store to others?"
         ]
     };
     session.Store(survey);
@@ -1597,7 +1597,7 @@ using (var session = store.OpenSession())
 }
 ----
 
-The code in <<set-refresh-metadata>> creates a `Survey` document and sets the `@refresh` metadata to three days in the future. You can see what this looks in in the RavenDB Studio
+The code in <<set-refresh-metadata>> creates a `PostPurchaseSurvey` document and sets the `@refresh` metadata to three days in the future. You can see what this looks in in the RavenDB Studio
 in <<refresh-metadata-studio>>. The idea of `@refresh` is really simple, at the specified time, RavenDB will simply remove the `@refresh` metadata from the document, that is all.
 That doesn't look like something particularly useful, isn't it?
 
@@ -1608,18 +1608,18 @@ will reprocess them. That includes indexes, ETL processes and most relevant for 
 .Showing the `@refresh` metadata set on a document
 image::./Ch07/img07.png[]
 
-We can take advantage of this behavior to implement "subscriptions in the future". We create a subscription that looks for `Survey` documents that don't have the
+We can take advantage of this behavior to implement "subscriptions in the future". We create a subscription that looks for `PostPurchaseSurvey` documents that don't have the
 `@refresh` metadata set, as shown in <<subscription-future-surveys>>. The key here is that the query will filter based on `where '@metadata'.'@refresh' == null`.
 
 [[subscription-future-surveys]]
-.Subscription query for `Survey` documents without `@refresh` metadata
+.Subscription query for `PostPurchaseSurvey` documents without `@refresh` metadata
 [source,sql]
 ----
-from "Surveys"
+from "PostPurchaseSurveys"
 where '@metadata'.'@refresh' == null
 ----
 
-In other words, we expect each `Survey` document to be processed _twice_ by the subscription. First, we'll check if when it is created (as shown in <<set-refresh-metadata>>),
+In other words, we expect each `PostPurchaseSurvey` document to be processed _twice_ by the subscription. First, we'll check if when it is created (as shown in <<set-refresh-metadata>>),
 and we'll filter it out since it _has_ a `@refresh` value in its metadata. Then, three days later, RavenDB will remove the `@refresh` metadata, modifying the document.
 At that point, the subscription will see the document again, and this time it will match the query, and the subscription worker will be able to process it.
 In effect, we've created a "subscription in the future" by using the `@refresh` metadata as a delay mechanism.

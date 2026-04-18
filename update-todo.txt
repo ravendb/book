@@ -1,0 +1,39 @@
+Tasks Todos:
+
+* Run the model across all the code samples, generate a set of tests
+  and verify that they are all working code.
+* check if we are introducing features in the right order, or at least do foreshadowing properly
+
+## IMAGES - Must Retake
+-----------------------
+
+### Ch02
+- [ ] img10.png - "The newly created product document in the Studio"
+      Was: Order document. Now: Product with Name/PricePerUnit/UnitsInStock/Discontinued
+- [ ] img11.png - "All the current product documents"  
+      Was: Orders collection listing. Now: Products collection with Chang, Aniseed Syrup, etc.
+- [ ] img12.png - "Querying for products in the Studio"
+      Was: `from Orders where ShippedAt = null`. Now: `from Products where PricePerUnit > 15`
+
+### Ch05 - update all of them
+
+### Ch08
+- [ ] img16.png - "An example of the supplier application form"
+      Was: HR/Candidate resume submission form. Now: Supplier Application with product catalog
+
+## IMAGES - Need Verification (check actual image content)
+-----------------------------------------------------------
+
+### Ch02
+- [ ] img16.png - "Peeking into running test instance mid-test"
+      May show domain-specific data in Studio; depends on what's visible
+
+### Ch07
+- [ ] img02.png - "The new subscription dialog, matching employees in London"
+      Caption says "employees in London" but text now says `from Companies` — may mismatch
+- [ ] img03.png - "The results of testing the employees subscription"
+      Verify image matches current Employees-based text
+- [ ] img04.png - "Subscription query defined from code, filtering complex orders"
+      Was converted from SupportCall → Order; image may still show old domain
+- [ ] img06.png - "RavenDB Studio showing a client connected to the `london-employees` subscription"
+      May show old subscription name

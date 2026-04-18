@@ -16,7 +16,7 @@ are two such common examples.
 
 RavenDB offers the attachments feature to handle this scenario. Conceptually, you can think about attachments in RavenDB in the same
 manner you do attachments in email. Let's see how this works first, and then discuss what is actually going on behind the scenes. In
-<<storing-attachments>> you can see how we create a new `Invoice` document and add a PDF file to it.
+<<storing-attachments>> you can see how we create a new `Order` document and add a PDF file to it.
 
 [[storing-attachments]]
 .Storing an attachment in RavenDB
@@ -24,19 +24,19 @@ manner you do attachments in email. Let's see how this works first, and then dis
 ----
 using (var session = store.OpenSession())
 {
-    Invoice invoice = CreateNewInvoice(out string pdfInvoice);  <1>
-    session.Store(invoice);                                     <2>
+    Order order = CreateNewOrder(out string pdfInvoice);  <1>
+    session.Store(order);                                     <2>
     using var pdfStream = File.OpenRead(pdfInvoice);            <3>
     session.Advanced.Attachments
-        .Store(invoice, "invoice.pdf", pdf,"application/pdf");  <4>
+        .Store(order, "invoice.pdf", pdf,"application/pdf");  <4>
     session.SaveChanges();                                      <5>
 }
 ----
-<1> Here we create the invoice instance and get the `pdfInvoice` filename. This piece is not related to RavenDB.
-<2> Storing the new invoice in the session (same as we did in the previous chapter).
+<1> Here we create the order instance and get the `pdfInvoice` filename. This piece is not related to RavenDB.
+<2> Storing the new order in the session (same as we did in the previous chapter).
 <3> Open a `Stream` from PDF file, to pass to the `Attachments.Store()` method.
 <4> Store the attachment stream (with a name and content type) into the session. Does _not_ call to the server.
-<5> Atomically stores both the new invoice and its attachments into the database.
+<5> Atomically stores both the new order and its attachments into the database.
 
 In <<storing-attachments>> you can see the basics of storing a new attachment in RavenDB. As the name suggests, we _attach_ the stream
 to an existing document. Attachments do not exists on their own and are always associated with a docuemnt. 
@@ -46,7 +46,7 @@ have a document just to hold an attachment, of course]
 In the Studio, you can see the attachments for a document on the right hand side, as you can see in <<attachments-in-studio>>.
 
 [[attachments-in-studio]]
-.The `invoice.pdf` attachment on the `Invoice` document in the Studio
+.The `invoice.pdf` attachment on the `Order` document in the Studio
 image::./Ch03/img01.png[]
 
 As you can see, in the RavenDB Studio we have a dedicated pane for attachments. You can click on the `invoice.pdf` in 
@@ -54,7 +54,7 @@ As you can see, in the RavenDB Studio we have a dedicated pane for attachments. 
 chance to see how RavenDB makes use of it in <<attachment-metadata>>.
 
 [[attachment-metadata]]
-.The metadata element in the `Invoice` document after we attached a file to it.
+.The metadata element in the `Order` document after we attached a file to it.
 [source,json]
 ----
 {
@@ -67,11 +67,11 @@ chance to see how RavenDB makes use of it in <<attachment-metadata>>.
                 "Size": 258642                                          <5>
             }
         ],
-        "@collection": "Invoices",
-        "Raven-Clr-Type": "Tryouts.Invoice, Tryouts",
+        "@collection": "Orders",
+        "Raven-Clr-Type": "Tryouts.Order, Tryouts",
         "@change-vector": "A:16-woIsp5F3M0m00sjsTKlJ0g",
         "@flags": "HasAttachments",                                     <6>
-        "@id": "invoices/1-A",
+        "@id": "orders/1-A",
         "@last-modified": "2025-09-30T06:18:26.2639106Z"
     }
 }
@@ -88,7 +88,7 @@ chance to see how RavenDB makes use of it in <<attachment-metadata>>.
 <<attachment-metadata>> shows a _lot_ of information about attachments. At first glance, this is just the metadata about the 
 file we attached. On closer inspection, there is a wealth of information here that shows what happens behind the scenes.
 A document has an array for `@attachments`, and natually you can have multiple attachments for the same document. 
-Attachments names are scoped to the document that you attach them to. So you can have two `Invoice` documents each with their own
+Attachments names are scoped to the document that you attach them to. So you can have two `Order` documents each with their own
 `invoice.pdf` file. In the same document, however, attachment names are unique. 
 
 .Attachments in the sample data
@@ -129,16 +129,16 @@ calling `Copy`, `Move` or `Rename` does not actually perform the work but regist
 transaction when `SaveChanges` is called.
 
 [[copying-attachments]]
-.Copying the default profile image when we create a new user
+.Copying the default profile image when we create a new employee
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    User person = new User("Oscar", "Arava");
-    session.Store(person);
+    Employee employee = new Employee("Anne", "Dodsworth");
+    session.Store(employee);
     session.Advanced.Attachments.Copy(          <1>
-        "users/default", "default-image.png",   <2>
-        person.Id, "profile-image.png");        <3>
+        "employees/default", "default-image.png",   <2>
+        employee.Id, "profile-image.png");        <3>
     session.SaveChanges();                      <4>
 }
 ----
@@ -147,9 +147,9 @@ using (var session = store.OpenSession())
 <3> The destination document and attachment name.
 <4> Actually sending the `Copy` command to the database for execution. 
 
-<<copying-attachments>> shows creation of a new user and attaching the default profile image to it. Note that we don't need to
+<<copying-attachments>> shows creation of a new employee and attaching the default profile image to it. Note that we don't need to
 download & upload the file to create it. Furthermore, we take advantage of RavenDB's attachment de-duplication to have a single
-copy of all the default profile images, across however many numbers of users we have.
+copy of all the default profile images, across however many numbers of employees we have.
 
 .Attachments vs. BLOB
 ****
@@ -244,28 +244,31 @@ between the two is that counters allow you to increment or decrement a counter i
 ----
 using (var session = store.OpenSession())
 {
-    var page = new Page("/index.html");         <1>
-    session.Store(page);
+    var product = new Product                   <1>
+    {
+        Name = "Côte de Blaye"
+    };
+    session.Store(product);
     session.SaveChanges();
 }
 
 using (var session = store.OpenSession())
 {
-    session.CountersFor("pages/1-A")
+    session.CountersFor("products/77-A")
             .Increment("Visits");               <2>
     session.SaveChanges();
 }
 
 using (var session = store.OpenSession())
 {
-    var page = session.Load<Page>("pages/1-A");
-    page.Visits++;                              <3>
+    var product = session.Load<Product>("products/77-A");
+    product.Visits++;                           <3>
     session.SaveChanges();
 }
 
 using (var session = store.OpenSession())
 {
-    session.Advanced.Defer(new PatchCommandData("pages/1-A", 
+    session.Advanced.Defer(new PatchCommandData("products/77-A", 
         null, new PatchRequest                  <4>
         {
             Script = "this.Visits++;"
@@ -273,12 +276,12 @@ using (var session = store.OpenSession())
     session.SaveChanges();
 }
 ----
-<1> Create a `Page` document.
-<2> Increment the `Visits` counter (creating it along the way) on the `pages/1-A` document.
-<3> Loading the page, incrementing the `Visits` property and saving the changes back to the database.
+<1> Create a `Product` document.
+<2> Increment the `Visits` counter (creating it along the way) on the `products/77-A` document.
+<3> Loading the product, incrementing the `Visits` property and saving the changes back to the database.
 <4> Using patching to increment the `Visits` property on the server side.
 
-<<increment-counter>> shows all the ways that we can record a visit to a page. The first is using a counter and the second is using
+<<increment-counter>> shows all the ways that we can record a visit to a product page. The first is using a counter and the second is using
 a property on the document. What is the difference between the two?
 To increment a counter, we don't need to load the document, and RavenDB will take care of merging concurrent increments to the same
 counter (even if they happen on different nodes). 
@@ -297,7 +300,7 @@ save the _entire_ document back to the database. There is also the option of usi
 we'll discuss patching documents in more dpeth in <<advanced-client-api>>. For now, just know that this allows you to do document 
 modifications completely on the server side.
 
-Consider the scenario of two concurrent visits to the same page. How would that work? If we use the option of loading the document
+Consider the scenario of two concurrent visits to the same product page. How would that work? If we use the option of loading the document
 and modifying the property, we've problem of losing one of those updates. If we use the patch approach, if we talk to multiple nodes
 at the same time, we run the risk of a conflict between them. 
 
@@ -317,9 +320,9 @@ Meaning you need a single remote call to fetch both pieces of infomration.
 .Reading a document & its counter in a single roundtrip to the database
 [source,csharp]
 ----
-var page = session.Load<Page>("pages/1-A", includes =>
+var product = session.Load<Product>("products/77-A", includes =>
     includes.IncludeCounter("Visits"));
-long visits = session.CountersFor(page).Get("Visits") ?? 0;
+long visits = session.CountersFor(product).Get("Visits") ?? 0;
 ----
 
 Similar to attachments, we store information _about_ the counters associated with a document in the document's metadata. 
@@ -331,14 +334,14 @@ The actual counters' data is kept separate from the document itself.
 ----
 {
     "@metadata": {
-        "@collection": "Pages",
+        "@collection": "Products",
         "@counters": [                                      <1>
             "Visits"
         ],
-        "Raven-Clr-Type": "Tryouts.Page, Tryouts",
+        "Raven-Clr-Type": "Tryouts.Product, Tryouts",
         "@change-vector": "A:34-woIsp5F3M0m00sjsTKlJ0g",
         "@flags": "HasCounters",                            <2>
-        "@id": "pages/1-A",
+        "@id": "products/77-A",
         "@last-modified": "2025-09-30T18:39:19.8423899Z"
     }
 }
@@ -363,7 +366,7 @@ RavenDB offers the `Delete` operation on counters, as you can see in <<delete-co
 ----
 using (var session = store.OpenSession())
 {
-    session.CountersFor("pages/1-A")
+    session.CountersFor("products/77-A")
             .Delete("Visits");
     session.SaveChanges();
 }
@@ -371,7 +374,7 @@ using (var session = store.OpenSession())
 
 Deleting counters is expected to be rare operation, and it has important interactions with concurrent `Increment` when working in a
 distributed environment. Consider the case of two concurrent requests to two separate nodes in the cluster. One to `Delete` the
-`Visits` counter on `pages/1-A` and the other to `Increment` the same counter. What will happen?
+`Visits` counter on `products/77-A` and the other to `Increment` the same counter. What will happen?
 
 In this case, the `Increment` wins and the value will be retained. Some of the previous increments (before the `Delete`) that haven't
 been pushed to the cluster may be lost, however. In general, users are expected to avoid mixing `Delete` and `Increment` operations.
@@ -442,13 +445,13 @@ document in <<time-series-append>>.
 ----
 using (var session = store.OpenSession())
 {
-    session.TimeSeriesFor("pages/1-A","DailyUsers")
+    session.TimeSeriesFor("products/77-A","DailyPageViews")
         .Append(DateTime.Today, [2351], tag: "google/analytics");
     session.SaveChanges();
 }
 ----
 
-In <<time-series-append>> you can see that we append a value for today to the `DailyUsers` time series on `pages/1-A`. Like counters, there
+In <<time-series-append>> you can see that we append a value for today to the `DailyPageViews` time series on `products/77-A`. Like counters, there
 is no time series creation step. The time series for a document is created on the first append of a value. You can also see that we can
 append mulitple values to a particular time in a time series. In <<time-series-append>> we add a single value, but you can add up to 32
 values to a time series. 
@@ -476,14 +479,14 @@ this case.
 ----
 using (var session = store.OpenSession())
 {
-    session.TimeSeriesFor("pages/1-A","DailyUsers")                     <1>
+    session.TimeSeriesFor("products/77-A","DailyPageViews")                     <1>
         .Append(DateTime.Today, [4381], tag: "google/analytics");
     session.SaveChanges();
 }
 
 using (var session = store.OpenSession())
 {
-    var series = session.TimeSeriesFor("pages/1-A", "DailyUsers")
+    var series = session.TimeSeriesFor("products/77-A", "DailyPageViews")
         .Get(DateTime.Today.AddDays(-1), DateTime.Today.AddDays(1));    <2>
     foreach (var item in series)
     {
@@ -505,11 +508,11 @@ The `include` feature of RavenDB also support time series, as you can see in <<i
 .Loading a document and a time series range in a single remote call
 [source,csharp]
 ----
-var page = session.Load<Page>("pages/1-A", include =>
-    include.IncludeTimeSeries("DailyUsers", 
+var product = session.Load<Product>("products/77-A", include =>
+    include.IncludeTimeSeries("DailyPageViews", 
         DateTime.Today.AddDays(-1), 
         DateTime.Today.AddDays(1)));
-var series = session.TimeSeriesFor(page, "DailyUsers")
+var series = session.TimeSeriesFor(product, "DailyPageViews")
         .Get(DateTime.Today.AddDays(-1), DateTime.Today.AddDays(1));
 ----
 
@@ -528,22 +531,22 @@ millisecond granularity.
 Like attachments and counters, you can see in <<time-series-metadata>> how RavenDB records the existence of a time series in a document.
 
 [[time-series-metadata]]
-.Metadata section of the `pages/1-A` document, with both counters and timeseries
+.Metadata section of the `products/77-A` document, with both counters and timeseries
 [source,json]
 ----
 {
     "@metadata": {
-        "@collection": "Pages",
+        "@collection": "Products",
         "@counters": [
             "Visits"
         ],
         "@timeseries": [                                        <1>
-            "DailyUsers"
+            "DailyPageViews"
         ],
-        "Raven-Clr-Type": "Tryouts.Page, Tryouts",
+        "Raven-Clr-Type": "Tryouts.Product, Tryouts",
         "@change-vector": "A:37-woIsp5F3M0m00sjsTKlJ0g",
         "@flags": "HasCounters, HasTimeSeries",                 <2>
-        "@id": "pages/1-A",
+        "@id": "products/77-A",
         "@last-modified": "2025-09-30T22:26:42.7164247Z"
     }
 }
@@ -684,13 +687,13 @@ from the document. You can see how this looks like in <<deleting-time-series>>.
 .Deleting data from a time series
 [source,csharp]
 ----
-session.TimeSeriesFor("pages/1-B", "DailyUsers")
+session.TimeSeriesFor("products/78-A", "DailyPageViews")
     .Delete();                                          <1>
 
-session.TimeSeriesFor("pages/1-B", "DailyUsers")
+session.TimeSeriesFor("products/78-A", "DailyPageViews")
     .Delete(DateTime.Today);                            <2>
 
-session.TimeSeriesFor("pages/1-B", "DailyUsers")
+session.TimeSeriesFor("products/78-A", "DailyPageViews")
     .Delete(                                            <3>
         DateTime.Today.AddDays(-7), 
         DateTime.Today.AddDays(-1));                     
@@ -772,25 +775,25 @@ to explore. I would recommend looking into the online documentation to see what 
 #### Working with multiple values in a time series
 
 Up to this point, we look into time series that mostly worked with a single value. RavenDB time series can hold up to 32 values for
-a single point in time. Consider the case where we have a `Vehicle` document and we want to track its location over time. The code
+a single point in time. Consider the case where we have a `Shipper` document and we want to track the location of a delivery over time. The code
 in <<time-series-gps>> shows how we can do that.
 
 [[time-series-gps]]
-.Recording the current location of a vehicle using a time series with two values (lat/lng)
+.Recording the current location of a delivery using a time series with two values (lat/lng)
 [source,csharp]
 ----
-void RecordCurrentLocation(string vehicleId, float lat, float lng)
+void RecordCurrentLocation(string shipperId, float lat, float lng)
 {
     using var session = store.OpenSession();
-    session.TimeSeriesFor(vehicleId, "Location")
+    session.TimeSeriesFor(shipperId, "Location")
         .Append(DateTime.UtcNow, [lat, lng]);
     session.SaveChanges();
 }
 ----
 
 <<time-series-gps>> shows the natural extension of what we have done so far, simply passing an array of values to the `Append`
-method. This will create a time series with the recorded locations of the car over time. You can then read the data and draw
-the vehicle location over time.
+method. This will create a time series with the recorded locations of the delivery over time. You can then read the data and draw
+the delivery route over time.
 
 One important thing to note about the code in <<time-series-gps>> is a very subtle detail. Typically, GPS coordinate are provided
 to you as `float`. However, RavenDB time series values are always `double`. That _usually_ doesn't cause a problem, but there are
@@ -799,28 +802,28 @@ worth calling out explicitly.
 
 ### Incremental Time Series
 
-We previously used a RavenDB Counter to track the total number of visits on a page. It would be nice if we could also show the visits
+We previously used a RavenDB Counter to track the total number of visits on a product page. It would be nice if we could also show the visits
 on a time line. At first glance, it looks easy enough to do so usine time series. <<tracking-page-visits-time-series>> shows one such
-attempt to use time series to track page visits over time.
+attempt to use time series to track product page visits over time.
 
 [[tracking-page-visits-time-series]]
-.Trying to track the number of page visits using time series - wrong approach
+.Trying to track the number of product page visits using time series - wrong approach
 [source,csharp]
 ----
 // Note: this is the _wrong_ way to do this, see the explanation below
-session.TimeSeriesFor("pages/1-A", "Visits")
+session.TimeSeriesFor("products/77-A", "Visits")
     .Append(DateTime.UtcNow, 1); 
 ----
 
-The code in <<tracking-page-visits-time-series>> will record a count of one on every visit to the page. We can then get the total
+The code in <<tracking-page-visits-time-series>> will record a count of one on every visit to the product page. We can then get the total
 visits per hour for the past week using the code in <<reporting-page-visits>>.
 
 [[reporting-page-visits]]
-.Reporting the hourly page visits for the past week using time series.
+.Reporting the hourly product page visits for the past week using time series.
 [source,sql]
 ----
-from 'Pages'                    
-where id() == 'pages/1-A'       
+from 'Products'                    
+where id() == 'products/77-A'       
 select timeseries(                  
     from 'Visits' between $weekAgo and $now
     group by 1h
@@ -844,10 +847,10 @@ You cannot `Append` to an incremental time series, but must always use `Incremen
 `IncrementalTimeSeriesFor` instead of `TimeSeriesFor`. <<properly-tracking-page-visits-time-series>> shows how this is done.
 
 [[properly-tracking-page-visits-time-series]]
-.Track the number of page visits using time series - properly
+.Track the number of product page visits using time series - properly
 [source,csharp]
 ----
-session.IncrementalTimeSeriesFor("pages/1-A", "Visits")
+session.IncrementalTimeSeriesFor("products/77-A", "Visits")
     .Increment(DateTime.UtcNow, 1);
 ----
 
@@ -891,8 +894,8 @@ of <<querying-product-views>> has 12 matching products, and each time series in 
 
 .Incremental Time Series at the right granularity
 ****
-In <<properly-tracking-page-visits-time-series>>, we used `DateTime.UtcNow` to record a visit to the page. That gives us
-millisecond level precision on the number of visits to the page. It is almost _never_ useful to record stuff like page visits
+In <<properly-tracking-page-visits-time-series>>, we used `DateTime.UtcNow` to record a visit to the product page. That gives us
+millisecond level precision on the number of visits to the product page. It is almost _never_ useful to record stuff like page visits
 with millisecond precision. We'll usually operate on those at maximum granularity of an hour, or maybe a minute. 
 
 That being the case, it makes sense to call `Increment` using the minimal granularity that you will ever work with the data. 
@@ -901,7 +904,7 @@ In the case of page visits, that is probably a minute. So we'll use the followin
     var now = DateTime.UtcNow;
     var nowTrimmed = new DateTime(now.Year, now.Month, now.Day, 
                                   now.Hour, now.Minute, 0);
-    session.IncrementalTimeSeriesFor("pages/1-A", "Visits")
+    session.IncrementalTimeSeriesFor("products/77-A", "Visits")
         .Increment(nowTrimmed, 1);
 
 This will record the values at the right granularity from the start, savings us more space and computation costs down
@@ -961,7 +964,7 @@ the Studio or the client API, as shown in <<creating-revision-manually>>.
 using (var session = store.OpenSession())
 {
     session.Advanced.Revisions
-        .ForceRevisionCreationFor("pages/1-A");
+        .ForceRevisionCreationFor("products/77-A");
     session.SaveChanges();
 }
 ----
@@ -978,10 +981,10 @@ same transaction, as you can see in <<creating-revision-and-modifying-doc>>.
 ----
 using (var session = store.OpenSession())
 {
-    var page = session.Load<Page>("pages/1-A");
-    page.Title = "Hello World";
+    var product = session.Load<Product>("products/77-A");
+    product.QuantityPerUnit = "12 - 75 cl bottles";
     session.Advanced.Revisions
-        .ForceRevisionCreationFor(page);
+        .ForceRevisionCreationFor(product);
     session.SaveChanges();
 }
 ----
@@ -990,7 +993,7 @@ In <<creating-revision-and-modifying-doc>>, it doesn't matter whether we first u
 in both cases, we'll first create the revision (capture the _before_ state of the document) and then modify it.
 
 Using `ForceRevisionCreationFor` to manually create revisions is viable for some use cases, where there are specific stages in which we
-want to create revisions. For example, you may have a page in draft mode and not care about tracking revisions in that stage. But once it 
+want to create revisions. For example, you may have a product in draft mode and not care about tracking revisions in that stage. But once it 
 moved to published state, you want to keep a record of all changes.
 
 It is far more common to want RavenDB to handle that for you, and you can configure RavenDB to autoamtically manage revisions for you. 
@@ -1045,20 +1048,20 @@ image::./Ch03/img16.png[]
 
 You can also work with revisions in a programatic manner, as you can see in the following snippet:
 
-    List<Page> revisions = session.Advanced.Revisions
-        .GetFor<Page>("pages/1-A", 0, 10);
+    List<Product> revisions = session.Advanced.Revisions
+        .GetFor<Product>("products/77-A", 0, 10);
 
-This snippet get the last 10 revisions on the `pages/1-A` document. You can also use this API to page through revisions and use
-`GetCountFor("pages/1-A")` to get the total count of revisions for a document. A common use case for this is to allow a user
+This snippet get the last 10 revisions on the `products/77-A` document. You can also use this API to page through revisions and use
+`GetCountFor("products/77-A")` to get the total count of revisions for a document. A common use case for this is to allow a user
 to browse through the past versions of a document in your system.
 
 A really interesting option you have with revision is to fetch the first revision before a particular point in time, as you
 can see here:
 
-    var pageBefore2020 = session.Advanced.Revisions
-        .Get<Page>("pages/1-A", new DateTime(2020,1,1));
+    var productBefore2020 = session.Advanced.Revisions
+        .Get<Product>("products/77-A", new DateTime(2020,1,1));
 
-This will get you the first revision of the page whose date is earlier than `2020-01-01`. 
+This will get you the first revision of the product whose date is earlier than `2020-01-01`. 
 
 .Revisions are compressed
 ****
@@ -1083,7 +1086,7 @@ handling historical subscriptions (discussed in <<batch-processing>>) and ETL pr
 #### Revisions allow for time travel
 
 A really nice capability that you get from having revisions is the ability to go back in time to a previous revision.
-<<api-revert-doc>> shows how you can revert a page to its status in `2020-01-01`.
+<<api-revert-doc>> shows how you can revert a product to its status in `2020-01-01`.
 
 [[api-revert-doc]]
 .Reverting a document to a past revision
@@ -1091,16 +1094,16 @@ A really nice capability that you get from having revisions is the ability to go
 ----
 using (var session = store.OpenSession())
 {
-    var pastPage = session.Advanced.Revisions
-        .Get<Page>("page/1-A", new DateTime(2020,1,1)); <1>
-    session.Advanced.Evict(pastPage);                   <2>
-    session.Store(pastPage);                            <3>
+    var pastProduct = session.Advanced.Revisions
+        .Get<Product>("products/77-A", new DateTime(2020,1,1)); <1>
+    session.Advanced.Evict(pastProduct);                   <2>
+    session.Store(pastProduct);                            <3>
     session.SaveChanges();                              <4>
 }
 ----
-<1> Fetch the page version as it was in `2020-01-01`.
+<1> Fetch the product version as it was in `2020-01-01`.
 <2> Force the session to evict (forget about) the revision instance.
-<3> Store the `pastPage` as a _document_, so it will be saved back to the database.
+<3> Store the `pastProduct` as a _document_, so it will be saved back to the database.
 <4> Actually save the old version of the revision as the new value of the document.
 
 You can also perform a mass revert of documents from the RavenDB Studio. Go to `Settings` and then to `Document Revisions` and check

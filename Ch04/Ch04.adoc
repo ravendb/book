@@ -237,73 +237,74 @@ What matters is how you _structure_ the data inside RavenDB, and that's what we'
 focus on concrete scenarios rather than generic modeling advice. Instead of trying to advise you on how to model your entire system, I'm 
 going to focus on giving you the tools to build the model as you need it to be, so it will play best with RavenDB.
 
-To make things interesting, we're going to use a kindergarten as our data model. As you can expect, we have the concepts of children, 
-parents, registrations, etc. On the face of it, this is a pretty simple model. We can model it using the code in <<simple-kindergarten-model>>.
+We're going to keep using the same online retail order system we've been working with so far. You're already familiar with the concepts of orders, 
+companies, employees, shipping details, etc. That means we can skip past the domain and focus on the interesting bits: the modeling 
+decisions themselves. 
 
-[[simple-kindergarten-model]]
-.Simple kindergarten model
+However, we're _not_ going to use the same model from <<zero-to-ravendb>>. Instead, we'll start with a deliberately 
+naive version shown in <<simple-order-model>>, and then walk through the modeling decisions that will improve it step by step.
+
+[[simple-order-model]]
+.Simple order model
 [source,csharp]
 ----
-public class Parent
+public class CustomerInfo
 {
-    public string Name { get; set; }
+    public string CompanyName { get; set; }
 }
 
-public class Registration
+public class ShippingDetails
 {
-    public DateTime EnrolledAt { get; set; }
-    public EnrollmentType Type { get; set; }
+    public DateTime RequireAt { get; set; }
+    public ShippingPriority Priority { get; set; }
 }
 
-public class Child
+public class Order
 {
-    public string Name { get; set; }
-    public DateTime Birthday { get; set; }
-    public Parent Father { get; set; }
-    public Parent Mother { get; set; }
-    public Registration Registration { get; set; }
+    public string Id { get; set; }
+    public DateTime OrderedAt { get; set; }
+    public CustomerInfo Customer { get; set; }
+    public string Employee { get; set; }
+    public ShippingDetails Shipping { get; set; }
 }
 ----
 
-The code in <<simple-kindergarten-model>> is obviously a simplified model, but it's a good place to start our discussion. A core tenet of modeling in 
+The code in <<simple-order-model>> is obviously a simplified model, but it's a good place to start our discussion. A core tenet of modeling in 
 RavenDB is that we need to identify what pieces of information belong together and what pieces are independent of one another. Recall our
 discussion on the basics of document modeling design. A good document model has documents that are independent, isolated and coherent. 
 
-With the basic model in <<simple-kindergarten-model>> and our understanding of a kindergarten, we can now proceed to explore aspects of document modeling. 
-We'll start with the most obvious one. In this model, we don't have documents, we have _a_ document: just a single one per child. That's 
-because we're embedding all information about the child in the document itself. Why would we do that?
+With the basic model in <<simple-order-model>> and our understanding of an order system, we can now proceed to explore aspects of document modeling. 
+We'll start with the most obvious one. In this model, we don't have documents, we have _a_ document: just a single one per order. That's 
+because we're embedding all information about the order in the document itself. Why would we do that?
 
 
 #### Embedded documents
 
 A document model is very different from a relational model. It would be typical in a relational model to have a separate table for 
-each class shown in <<simple-kindergarten-model>>. A concrete example might work better, and <<alice-kindergarten-record>> shows how this model works 
-for registering Alice to our kindergarten. 
+each class shown in <<simple-order-model>>. A concrete example might work better, and <<order-record>> shows how this model works 
+for an order in our system. 
 
-[[alice-kindergarten-record]]
-.Kindergarten record of Alice in Wonderland
+[[order-record]]
+.Order record for Alfreds Futterkiste
 [source,json]
 ----
-// children/alice-liddell
+// orders/10248-A
 { 
-    "Name": "Alice Liddell",
-    "Birthday": "2012-05-04T00:00:00.0000000Z",
-    "Mother": {
-        "Name": "Lorina Hanna Liddell",
+    "OrderedAt": "2024-07-04T00:00:00.0000000Z",
+    "Customer": {
+        "CompanyName": "Alfreds Futterkiste"
     },
-    "Father": {
-        "Name": "Henry Liddell"
-    },
-    "Registration":	{ 
-        "EnrolledAt": "2014-11-24T00:00:00.0000000Z",
-        "Type": "FullDay"
+    "Employee": "Anne Dodsworth",
+    "Shipping":	{ 
+        "RequireAt": "2024-08-01T00:00:00.0000000Z",
+        "Priority": "Standard"
     }
 }
 ----
 
-All of the information is in one place. For the document ID you can see that we used a semantic ID, `children/alice-liddell`, which includes the child name. This 
-works well for data that's well known and predictable. The data itself is centrally located and easy to access. Looking at the data,
-it's easy to see all relevant information about our Alice.footnote:[Except maybe which rabbit hole she wandered down...]
+All of the information is in one place. For the document ID you can see that we used a sequential ID, `orders/10248-A`. This 
+works well for order data. The data itself is centrally located and easy to access. Looking at the data,
+it's easy to see all relevant information about our order.
 
 For the most part, embedding information is our default approach because it leads us to more coherent documents, which contain all the 
 information relevant to processing them. We aren't limited by format of schema; we can represent arbitrarily complex data
@@ -313,131 +314,128 @@ So if the default approach is to embed data, when _wouldn't_ we want to do that?
 belong to the same document because it's owned by another entity. A good document model gives each document a single reason to change, and
 that's the primary force for splitting the document apart. 
 
-In the case of the kindergarten record, the obvious example here are the parents. Henry and Lorina are independent entities and are not 
-fully owned by the Alice record. We need to split them into independent documents. On the other side of things, Henry and Lorina have more
-children than just Alice: there's also Harry and Edith.footnote:[The real Harry and Lorina had a total of 
-https://en.wikipedia.org/wiki/Alice_Liddell[10 children], by the way.] So we need to consider how to model such information.
+In the case of our order record, the obvious example here is the company. "Alfreds Futterkiste" is an independent entity and is not 
+fully owned by the order record. We need to split it into its own document. On the other side of things, "Alfreds Futterkiste" has placed more
+orders than just this one. So we need to consider how to model such information.
 
 
 #### Many-to-one relationship
 
-How do we model a kindergarten where Alice, Harry and Edith are all the children of Henry and Lorina? The technical term for this 
-relationship is `many to one`. Unlike the previous example, where we embedded the parents inside the child document, now we want to model
+How do we model an order system where multiple orders are placed by the same company, "Alfreds Futterkiste"? The technical term for this 
+relationship is `many to one`. Unlike the previous example, where we embedded the customer info inside the order document, now we want to model
 the data so there's a distinct difference between the different entities. You can see the document model as JSON in <<many-to-one-model>>.
 
 [[many-to-one-model]]
-.Many to one modeling with children and parents
+.Many to one modeling with orders and companies
 [source,json]
 ----
-// children/alice-liddell
+// orders/10248-A
 {
-    "Name": "Alice Liddell",
-    "MotherId": "parents/1923-A",
-    "FatherId": "parents/1921-A",
+    "OrderedAt": "2024-07-04T00:00:00.0000000Z",
+    "Company": "companies/85-A",
+    "Employee": "employees/8-A",
 }
 
-// children/henry-liddell
+// orders/10249-A
 {
-    "Name": "Henry Liddell",
-    "MotherId": "parents/1923-A",
-    "FatherId": "parents/1921-A",
+    "OrderedAt": "2024-07-05T00:00:00.0000000Z",
+    "Company": "companies/85-A",
+    "Employee": "employees/9-A",
 }
 ----
 
-<<many-to-one-model>> shows footnote:[I removed all extra information from the documents to make it clearer.] both Alice and Henry (you 
-can figure out what Edith's document looks like on your own) with references to their parents. 
-I've intentionally not included semantic IDs for the parents to avoid confusion about what information is stored on the side holding the
-reference. Alice and Henry (and Edith) only hold the _identifier_ for their parents' documents, nothing else.
+<<many-to-one-model>> shows footnote:[I removed all extra information from the documents to make it clearer.] two orders (you 
+can figure out what other orders look like on your own) both referencing the same company. 
+The orders only hold the _identifier_ for the related company and employee documents, nothing else.
 
 How is this model reflected in our code? Let's look at <<many-to-one-code>> to see that (again, with some information redacted to make it easier
 to focus on the relevant parts).
 
 [[many-to-one-code]]
-.Child class representing the model
+.Order class representing the model
 [source,csharp]
 ----
-public class Child
+public class Order
 {
-    public string Name { get; set; }
-    public string FatherId { get; set; }
-    public string MotherId { get; set; }
+    public string Id { get; set; }
+    public string Company { get; set; }
+    public string Employee { get; set; }
 }
 ----
 
-Instead of storing the parent as an embedded document, we just hold the ID to that parent. And when we need to traverse from the child
-document to the parent document, we do that by following the ID. To make things faster, we'll commonly use the `Include` feature to make
+Instead of storing the company as an embedded document, we just hold the ID to that company. And when we need to traverse from the order
+document to the company document, we do that by following the ID. To make things faster, we'll commonly use the `Include` feature to make
 sure that we load all those documents in one remote call, but that doesn't impact the data model we use.
 
-What about the other side, when we need to find all of Lorina's children? We use a query, as shown in <<lorina-children>>.
+What about the other side, when we need to find all orders placed by a particular company? We use a query, as shown in <<company-orders>>.
 
-[[lorina-children]]
-.Loading Lorina and her children
+[[company-orders]]
+.Loading a company and its orders
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var lorina = session.Load<Parent>("parents/1923-A");
-    var lorinaChildren = (
-        from c in session.Query<Child>()
-        where c.MotherId == lorina.Id 
-        select c
+    var company = session.Load<Company>("companies/85-A");
+    var companyOrders = (
+        from o in session.Query<Order>()
+        where o.Company == company.Id 
+        select o
     ).ToList();
 }
 ----
 
 You can also run this query directly in the Studio by going to `Indexes` and then `Query` and using the following query: 
-`from Children where MotherId = 'parents/1923-A'`. 
+`from Orders where Company = 'companies/85-A'`. 
 
-As you can see in <<many-to-one-code>> and <<lorina-children>>, we're being very explicit when we move between documents. 
+As you can see in <<many-to-one-code>> and <<company-orders>>, we're being very explicit when we move between documents. 
 RavenDB doesn't allow you to transparently move between different documents. Each document is a standalone entity. This helps 
 ensure you don't create silent dependencies in your model since each document is clearly delineated. 
 
 .Using lazy operations
 ****
-In <<lorina-children>>, you can see we have to make two separate calls to the server to get all the information we want. When going from
-a child to a parent, we can use the `Include` feature to reduce the number of calls. Going the other way, `Include` wouldn't work, but we
+In <<company-orders>>, you can see we have to make two separate calls to the server to get all the information we want. When going from
+an order to a company, we can use the `Include` feature to reduce the number of calls. Going the other way, `Include` wouldn't work, but we
 don't have to give up. We have the option of making a few lazy operations and only going to the server once. We'll see exactly how this is
 possible in the next chapter.
 ****
 
 The many-to-one relation is probably the simplest one, and it's incredibly common. However, when using it, you need to carefully consider
-whether the association should cross a document boundary or remain inside the document. In the case of parents and children, it's 
+whether the association should cross a document boundary or remain inside the document. In the case of companies and orders, it's 
 obvious that each is a separate entity, but orders and order lines are the reverse. In the case of orders and order lines, it's just
 as obvious that order lines do _not_ belong in a separate document but should be part and parcel of the order document. 
 
 There are many cases where that distinction isn't quite so obvious, and you need to give it some thought. The decision can be situational
-and, frequently, it's highly dependent on the way you _use_ the data. An equally valid decision in the kindergarten case would be to embed the
-parents' information in the child document and duplicate that information if we have two or more siblings in 
-kindergarten at the same time.
+and, frequently, it's highly dependent on the way you _use_ the data. An equally valid decision in the order case would be to embed the
+company's name in the order document and duplicate that information across all orders from
+the same company.
 
-It depends what kind of work is done with the parents. If all or nearly all the work is done with the children, there's no point in 
-creating a parent document. (It isn't meaningful inside the domain of the kindergarten outside the scope of the children.) However, if we 
-wanted to keep track of parents as well (for example, maybe we want to note that Mrs. Liddell takes two sugars in her tea), then we'll likely use a separate 
+It depends what kind of work is done with the company. If all or nearly all the work is done with the orders, there's no point in 
+creating a separate company document. Consider a ticket sales system for a concert venue — each ticket purchase is a one-time event, and 
+the buyer's name and contact details are only relevant in the context of that specific ticket. There's no ongoing relationship to track, so
+embedding the buyer info directly in the ticket document is the natural choice. However, if we 
+wanted to keep track of companies as well (for example, maybe we want to note their credit terms or preferred shipping method), then we'll likely use a separate 
 document.
 
-Children and parents are all well and good, but what about when we ramp the example up a bit and explore the world of grandchildren and
-grandparents? Now we need to talk about many-to-many relationships.
+Orders and companies are all well and good, but what about when we ramp the example up a bit? An order can involve multiple employees
+(the salesperson who took it, the warehouse worker who fulfilled it, the support rep who followed up), and each employee works on 
+many orders. Now we need to talk about many-to-many relationships.
 
 #### Many-to-many relationship
 
 A many-to-many relationship is a lot more complex than a many-to-one relationship because it's usually used differently. 
-In our kindergarten example, let's consider how we can model the grandparents. Each grandchild has multiple grandparents, and each
-grandparent can have multiple grandchildren. 
+In our retail example, let's reconsider employees and orders. Up until now, we stored a single `Employee` on an order. But in practice, 
+an order can involve multiple employees and each employee works on many orders. 
 
-When we were working with parents and children, it was obvious that we needed to place the association on the children. But how should we model 
-grandparents? One way to do it would be to simply model the hierarchy. A grandparent is the parent of a parent. That seems like an elegant
-reflection of the relationship, but it will lead to a poor model. Grandparents and grandchildren have an association between them 
-that's completely separate from the one going through the parent, and that deserves to be modeled on its own, not as a side effect.
-
-The next question is where to put the relationship. We can add a `Grandparents` array to the child document, which will hold all the 
-document IDs of the grandparents. We can add a `Grandchildren` array to the grandparent document and store the children IDs there. Or
+When we were working with companies and orders, it was obvious that we needed to place the association on the orders. But how should we model 
+employee–order assignments? We can add an `Employees` array to the order document, which will hold all the 
+document IDs of the employees involved. We can add an `Orders` array to the employee document and store the order IDs there. Or
 we can do both. What should we choose?
 
-In the context of many-to-many associations, we always place the record of the association on the smaller side. In other words, since a 
-child is likely to have fewer grandparents than a grandparent has children, the association should be kept on the child 
+In the context of many-to-many associations, we always place the record of the association on the smaller side. In other words, since an 
+order is likely to involve fewer employees than an employee has orders, the association should be kept on the order 
 document. 
 
-.The users and groups model
+.The users and groups model example
 ****
 A more technical example that frequently comes up within the context of many-to-many associations is the users and groups model. A user can
 belong to many groups, and a group can have many users. How do we model this? 
@@ -446,45 +444,45 @@ A user typically belongs to a few groups, but a group can have a _lot_ of users.
 having a `Groups` property on the user document.
 ****
 
-Traversing a many-to-many association from the grandchild (smaller) side can be done by simply including and loading the grandparents,
-as shown in <<alice-grandparents>>.
+Traversing a many-to-many association from the order (smaller) side can be done by simply including and loading the employees,
+as shown in <<order-employees>>.
 
-[[alice-grandparents]]
-.Alice and her grandparents
+[[order-employees]]
+.An order and its employees
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    Child alice = session
-        .Include<Child>(c => c.Grandparents)
-        .Load("children/alice-liddell");
-    Dictionary<string, Parent> gradparents =  
-        session.Load<Parent>(alice.Grandparents);
+    Order order = session
+        .Include<Order>(o => o.Employees)
+        .Load("orders/10248-A");
+    Dictionary<string, Employee> employees =  
+        session.Load<Employee>(order.Employees);
 }
 ----
 
-Following the association from the other side requires us to query, as shown in <<grandchildren-for-grandparent>>.
+Following the association from the other side requires us to query, as shown in <<employee-orders>>.
 
-[[grandchildren-for-grandparent]]
-.Grandchildren for a grandparent
+[[employee-orders]]
+.Orders for an employee
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    Parent grandparent = session.Load<Parent>("parent/1923-A");
-    List<Child> grandchildren = (
-        from c in session.Query<Child>()
-        where c.Grandparents.Contain(grandparent.Id)
-        select c
+    Employee employee = session.Load<Employee>("employees/7-A");
+    List<Order> orders = (
+        from o in session.Query<Order>()
+        where o.Employees.Contains(employee.Id)
+        select o
     ).ToList();
 }
 ----
 
 You can also run this query directly in the Studio by going to `Indexes` and then `Query` and using the following query: 
-`from Children where Grandparents[] in ('parents/1923-A')`. 
+`from Orders where Employees[] in ('employees/7-A')`. 
 
-The code in <<grandchildren-for-grandparent>> will load Alice's mother and all of her grandchildren. In this case, we see a slightly more complex query,
-but the essence of it remains the same as the one in <<lorina-children>>. We have separate documents and clear separation between them. In other 
+The code in <<employee-orders>> will load an employee and all of their orders. In this case, we see a slightly more complex query,
+but the essence of it remains the same as the one in <<company-orders>>. We have separate documents and clear separation between them. In other 
 words, we can query for related data, but we don't just traverse the object graph from one document to another.
 
 #### One-to-one relationship
@@ -497,10 +495,10 @@ document that's conceptually the same but has very different access patterns. In
 which is frequently accessed and looked at. And then there's the full order, which might be very big (lots of line items) and which we
 don't need to access often. 
 
-In this case, it might make sense to create a document just for the order header (call it `orders/2834/header`). But using a projection
+In this case, it might make sense to create a document just for the order header (call it `orders/82-A/header`). But using a projection
 will be almost as good, and we'll discuss those in the next chapter. This saves us the need to split our data. The typical way you'll
-build one-to-one relationships in RavenDB is to utilize document ID postfixes to create a set of related documents (`orders/2834` and 
-`orders/2834/header`, for example).
+build one-to-one relationships in RavenDB is to utilize document ID postfixes to create a set of related documents (`orders/82-A` and 
+`orders/82-A/header`, for example).
 
 This tends to result in clearer intent since it's obvious what each part is doing and what it's meant to be. But even so, it's often
 not advisable. Just putting it all in a single document is easier in most cases.
@@ -808,10 +806,10 @@ the same time? That depends on what, exactly, you asked RavenDB to do. If you di
 modifications one at a time, and the last one will win. There's no way to control which would be last. Note that _both_ operations 
 will execute. 
 
-That means that in certain cases, it will leave marks. Consider two concurrent update to the `children/alice`
-For example, consider the `Child` document from our kindergarten model. Suppose two users concurrently updates to the Alice record from
-<<alice-kindergarten-record>>. One transaction is updating the `Name` property to "Alice Kingsley" as well as the `Registration.Type` to
-`HalfDay` while the other transaction is updating the `Birthday` property to "2022-06-01" and the `Name` to `Alice K. Liddell`.
+That means that in certain cases, it will leave marks. Consider two concurrent updates to `orders/10248-A`.
+For example, consider the `Order` document from our order model. Suppose two users concurrently update the order record from
+<<order-record>>. One transaction is updating the `Shipping.Priority` property to "High" as well as the `Employee` to
+`employees/5-A` while the other transaction is updating the `OrderedAt` property to "2024-06-01" and the `Shipping.Priority` to "Rush".
 
 .You won't usually see this behavior in practice, though.
 ****
@@ -820,23 +818,23 @@ partial modification of the document. If you'll use patching to update the docum
 However, typically the only visible mark of the `last write wins` strategy is when you have revisions.
 ****
 
-If the first transaction happens to be the last one to save, the resulting document will look like like <<alice-after-concurrent-updates>>.
+If the first transaction happens to be the last one to save, the resulting document will look like like <<order-after-concurrent-updates>>.
 
-[[alice-after-concurrent-updates]]
-.Alice record after concurrent updates
+[[order-after-concurrent-updates]]
+.Order record after concurrent updates
 [source,json]
 ----
 {
-    "Name": "Alice Kingsley",
-    "Birthday": "2022-06-01",
-    "Registration": {
-        "Type": "HalfDay",
-        "StartDate": "2017-09-01"
+    "OrderedAt": "2024-06-01",
+    "Employee": "employees/5-A",
+    "Shipping": {
+        "Priority": "High",
+        "RequireAt": "2024-07-04"
     }
 }
 ----
 
-In other words, the `Name` property was modified by both transactions, and the last one to save won. The `Birthday` and the `Registration.Type`
+In other words, the `Shipping.Priority` property was modified by both transactions, and the last one to save won. The `OrderedAt` and the `Employee`
 properties were modified by only one transaction, so they were preserved.
 
 .Change Vectors in RavenDB
@@ -924,10 +922,10 @@ very important feature that deserves more attention (and use). It's an incredibl
 server requests when working with complex data.
 
 The second operation is querying, or more to the point, when I want to query for a particular document based on the properties of a related
-document. Going back to the kindergarten example, searching for all the children whose mothers' names are Lorina would be a great example. 
-The child document no longer contains the name of the parent, so how are we going to search for that? RavenDB doesn't allow you to perform
-joins, but it does allow you to index related data during the indexing phase and then query on that. So querying the children by their
-mothers' names is quite easy to do, using the `LoadDocument` feature. `LoadDocument` is discussed in full in 
+document. Going back to the order example, searching for all the orders whose company names contain "Chevalier" would be a great example. 
+The order document no longer contains the name of the company, so how are we going to search for that? RavenDB doesn't allow you to perform
+joins, but it does allow you to index related data during the indexing phase and then query on that. So querying the orders by their
+company names is quite easy to do, using the `LoadDocument` feature. `LoadDocument` is discussed in full in 
 <<indexing-in-ravendb>>.
 
 I'm mentioning it here because knowing that it exists has an impact on the way we model data. Be sure to read all about what 

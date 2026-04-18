@@ -18,56 +18,56 @@ This chapter is going to contain a large number of code examples, and it will di
 divided into brief sections each dealing with a specific feature or behavior. I suggest reading this over to note the capabilities of RavenDB
 and coming back to it as needed in your application.
 
-For the rest of this chapter, we'll use the classes shown in <<simplified-help-desk-model>> as our model, using a simplified help desk as 
+For the rest of this chapter, we'll use the classes shown in <<simplified-order-model>> as our model, using a simplified online store as 
 our example.
 
-[[simplified-help-desk-model]]
-.Simplified Help Desk sample model
+[[simplified-order-model]]
+.Simplified online store sample model
 [source,csharp]
 ----
-public class Customer
+public class Company
 {
 	public string Id { get; set; }
 	public string Name { get; set; }
 	public bool IsActive { get; set; }
 }
 
-public class SupportCall
+public class Order
 {
 	public string Id { get; set; }
-	public string CustomerId { get; set; }
-	public DateTime Started { get;set; }
-	public DateTime? Ended { get;set; }
-	public string Issue { get; set; }
-	public int Votes { get; set; }
-	public List<string> Comments { get; set; }
+	public string Company { get; set; }
+	public DateTime OrderedAt { get;set; }
+	public DateTime? ShippedAt { get;set; }
+	public string ShipTo { get; set; }
+	public int ViewCount { get; set; }
+	public List<string> Notes { get; set; }
 }
 ----
 
 ### Writing documents
 
 Writing documents in RavenDB is easy, as we saw in <<zero-to-ravendb>>.
-If we want to create a new support call, we can use the code in <<create-support-call-session>> to do so.
+If we want to create a new order, we can use the code in <<create-order-session>> to do so.
 
-[[create-support-call-session]]
-.Creating a new support call using the session
+[[create-order-session]]
+.Creating a new order using the session
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	var call = new SupportCall
+	var order = new Order
 	{
-		Started = DateTime.UtcNow,
-		Issue = customerIssue,
-		CustomerId = customerId
+		OrderedAt = DateTime.UtcNow,
+		ShipTo = shipTo,
+		Company = companyId
 	};
-	session.Store(call);
+	session.Store(order);
 	session.SaveChanges();
 }
 ----
 
 This is the basic behavior of RavenDB and how you would typically work with saving data. But there are lot of additional things that we can do 
-when writing data. For example, let's say the user might have sent us some screenshots that we want to include in the support call.
+when writing data. For example, let's say the user might have sent us some photos of a defective product that we want to include in the order.
 
 .The `async` API mirrors the synchronous one
 ****
@@ -88,26 +88,26 @@ The actual deletion on the server will occur as part of the `SaveChangesAsync()`
 
 We already talked in depth about attachments in <<documents-extensions>>. I cover them here as well to look at them from the client API
 perspective, not just how they work on the server. You can add attachments to a RavenDB document to store binary data related to that document. 
-Let's assume the user sent us a screenshot of the problem along with the call. <<save-attachments-opening-support-call>> shows how we can 
+Let's assume the customer sent us photos of a defective item along with the order. <<save-attachments-opening-order>> shows how we can 
 store and retrieve the attachments.
 
-[[save-attachments-opening-support-call]]
-.Saving attachments to RavenDB as part of opening the support call
+[[save-attachments-opening-order]]
+.Saving attachments to RavenDB as part of creating the order
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	var call = new SupportCall
+	var order = new Order
 	{
-		Started = DateTime.UtcNow,
-		Issue = customerIssue,
-		CustomerId = customerId
+		OrderedAt = DateTime.UtcNow,
+		ShipTo = shipTo,
+		Company = companyId
 	};
-	session.Store(call);
+	session.Store(order);
 
 	foreach (var file in attachedFiles)
 	{
-		session.Advanced.StoreAttachment(call, file.Name, 
+		session.Advanced.StoreAttachment(order, file.Name, 
 			file.OpenStream());
 	}
 
@@ -115,7 +115,7 @@ using (var session = store.OpenSession())
 }
 ----
 
-Note that we're using the session to store both the support call document and any attachments the user might have sent. 
+Note that we're using the session to store both the order document and any attachments the user might have sent. 
 An attachment is basically a file name and a stream that will be sent to the server (with an optional content type). When the call 
 to `SaveChanges` is made, the RavenDB client API
 will send both the new document and all of its attachments to the server in a single call, which will be treated as a transaction. 
@@ -124,15 +124,15 @@ Both the document and the attachments will be saved, or both will fail.
 That was easy enough, but now how do we retrieve the attachments? The list of attachments for a particular document is accessible via the session, as shown in <<get-attachment-names>>.
 
 [[get-attachment-names]]
-.Getting the list of attachments for a support call
+.Getting the list of attachments for an order
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	var call = session.Load<SupportCall>("SupportCalls/238-B");
-	var attachments = session.Advanced.GetAttachmentNames(call);
+	var order = session.Load<Order>("orders/238-B");
+	var attachments = session.Advanced.GetAttachmentNames(order);
 
-	// render the call and the attachment names
+	// render the order and the attachment names
 }
 ----
 
@@ -146,10 +146,10 @@ attachments. To get the attachment itself and not just its name, you need to mak
 ----
 using (var session = store.OpenSession())
 {
-	var call = session.Load<SupportCall>("SupportCalls/238-B");
-	var attachments = session.Advanced.GetAttachmentNames(call);
+	var order = session.Load<Order>("orders/238-B");
+	var attachments = session.Advanced.GetAttachmentNames(order);
 
-	using (var stream = session.Advanced.GetAttachment(call, 
+	using (var stream = session.Advanced.GetAttachment(order, 
 		attachments[0].Name))
 	{
 		// process the content of the attachment 
@@ -170,26 +170,26 @@ An actual use case for direct use of the document metadata is pretty rare. If yo
 store it in the document itself, not throw it to the metadata sidelines. Typical use cases for storing data in the metadata are cross-cutting
 concerns. The preeminent one is auditing. You may want to see who edited a document, for example.
 
-In order to demonstrate working with the metadata, we'll consider creating a support call. Handling a support call can be a complex process 
-that has to go through several steps. In this case, we will save the new support call document to RavenDB with a draft status in the metadata.
+In order to demonstrate working with the metadata, we'll consider creating an order. Handling an order can be a complex process 
+that has to go through several steps. In this case, we will save the new order document to RavenDB with a draft status in the metadata.
 Typical modeling advice would be to model this explicitly in the domain (so you'll have an `IsDraft` or `Status` property on your model), 
 but for this example, we'll use the metadata. You can see the code for setting a draft status in the metadata in <<set-metadata-draft-status>>.
 
 [[set-metadata-draft-status]]
-.Setting a metadata flag as part of creating a new support call
+.Setting a metadata flag as part of creating a new order
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	var call = new SupportCall
+	var order = new Order
 	{
-		Started = DateTime.UtcNow,
-		Issue = customerIssue,
-		CustomerId = customerId
+		OrderedAt = DateTime.UtcNow,
+		ShipTo = shipTo,
+		Company = companyId
 	};
-	session.Store(call);
+	session.Store(order);
 
-	var metadata = session.Advanced.GetMetadataFor(call);
+	var metadata = session.Advanced.GetMetadataFor(order);
 	metadata["Status"] = "Draft";
 
 	session.SaveChanges();
@@ -276,41 +276,41 @@ Another example of using those events is using `OnBeforeDelete` to validate the 
 <<validating-delete-call>>.
 
 [[validating-delete-call]]
-.Using `OnBeforeDelete` event to validate we cannot delete an open support call
+.Using `OnBeforeDelete` event to validate we cannot delete order that already been shipped
 [source,csharp]
 ----
 store.OnBeforeDelete += (sender, e) =>
 {
     switch (e.Entity)
     {
-  		case SupportCall { Ended: null }:
+  		case Order { ShippedAt: not null }:
             throw new InvalidOperationException(
-                "Cannot delete a support call that is still open"
+                "Cannot delete an order that has already been shipped"
             );
     }
 };
 ----
 
-<<validating-delete-call>> checks if we are trying to delete a support call that is still open, 
-throwing an exception (and canceling) the `SaveChanges()` if that is the case.
+<<validating-delete-call>> checks if we are trying to delete an order that has already been shipped, 
+throwing an exception (and thus canceling) the `SaveChanges()` if that is the case.
 
 Another example of using events is to ensure that we always include a particular clause in our queries, as you can see in 
 <<query-filter-using-event>>.
 
 [[query-filter-using-event]]
-.Never read inactive customer
+.Never read inactive companies
 [source,csharp]
 ----
 store.OnBeforeQueryExecuted += (sender, args) =>
 {
-    if (args.QueryCustomization is IDocumentQuery<Customer> query)
+    if (args.QueryCustomization is IDocumentQuery<Company> query)
     {
         query.WhereEquals("IsActive", true);
     }
 }
 ----
 
-The code in <<query-filter-using-event>> will apply to all queries operating on `Customer` and will ensure that all the results 
+The code in <<query-filter-using-event>> will apply to all queries operating on `Company` and will ensure that all the results 
 returned have the `IsActive` property set to true. This can also be used in multi-tenancy situations, where you want to add the 
 current tenant ID to all queries. 
 
@@ -335,9 +335,9 @@ The document session implements change tracking on your documents, as you can se
 ----
 using (var session = store.OpenSession())
 {
-	var call = session.Load<SupportCall>("SupportCalls/238-B");
+	var order = session.Load<Order>("orders/238-B");
   
-	call.Ended = DateTime.UtcNow;
+	order.ShippedAt = DateTime.UtcNow;
 
 	session.SaveChanges();
 }
@@ -361,20 +361,20 @@ These operations tend to be useful only in specific cases, but they are very pow
 
 We covered optimistic concurrency in <<document-modeling>>, but only in the most general terms. Now, let's 
 take a look and see how we can use optimistic concurrency in practice. <<concurrent-modifications-last-write-wins>> 
-shows two simultaneous sessions modifying the same support call.
+shows two simultaneous sessions modifying the same order.
 
 [[concurrent-modifications-last-write-wins]]
-.Concurrent modifications of a support call
+.Concurrent modifications of an order
 [source,csharp]
 ----
-using (var sessionOne = store.OpenSession())                            <1>
+using (var sessionOne = store.OpenSession())                           	<1>
 using (var sessionTwo = store.OpenSession())
 {
-	var callOne = sessionOne.Load<SupportCall>("SupportCalls/238-B");   <2>
-	var callTwo = sessionTwo.Load<SupportCall>("SupportCalls/238-B");
+	var orderOne = sessionOne.Load<Order>("orders/238-B");   			<2>
+	var orderTwo = sessionTwo.Load<Order>("orders/238-B");
   
-	callOne.Ended = DateTime.Today;                                     <3>
-	callTwo.Ended = DateTime.Today.AddDays(1);
+	orderOne.ShippedAt = DateTime.Today;                                <3>
+	orderTwo.ShippedAt = DateTime.Today.AddDays(1);
   
 	sessionOne.SaveChanges();                                           <4>
 	sessionTwo.SaveChanges();
@@ -382,10 +382,10 @@ using (var sessionTwo = store.OpenSession())
 ----
 <1> Opening two _distinct_ sessions.
 <2> Loading the _same_ document on both sessions at once.
-<3> Modify the two entities that represent the same in different sessions.
+<3> Modify the two entities that represent the same document in different sessions.
 <4> Save the changes in both sessions, simulating concurrent work by two threads.
 
-In the case of the code in <<concurrent-modifications-last-write-wins>>, we're always going to end up with the support call end date 
+In the case of the code in <<concurrent-modifications-last-write-wins>>, we're always going to end up with the order's shipped date 
 set to tomorrow. This is because, by default, RavenDB uses the `Last Write Wins` model. You can change that by setting 
 `store.Conventions.UseOptimisticConcurrency` to `true`, which will affect all sessions, or you can change it 
 on a case-by-case basis by setting `session.Advanced.UseOptimisticConcurrency` to `true` on the session directly.
@@ -573,31 +573,31 @@ All you need to do is send the change vector of the document to the user and acc
 the document. <<offline-optimistic-concurrency>> shows an example using two separate sessions with concurrency handling between them.
 
 [[offline-optimistic-concurrency]]
-.Concurrent modifications of a support call (offline optimistic concurrency)
+.Concurrent modifications of an order (offline optimistic concurrency)
 [source,csharp]
 ----
 string changeVector;
-Supportcall callOne;
+Order orderOne;
 
 using (var sessionOne = store.OpenSession())                        <1>
 {
-	callOne = sessionOne.Load<SupportCall>("SupportCalls/238-B");
-	changeVector = sessionOne.Advanced.GetChangeVectorFor(callOne);
+	orderOne = sessionOne.Load<Order>("orders/238-B");
+	changeVector = sessionOne.Advanced.GetChangeVectorFor(orderOne);
 }
 
 using (var sessionTwo = store.OpenSession())                        <2>
 {
-	var callTwo = sessionTwo.Load<SupportCall>("SupportCalls/238-B");
-	callTwo.Ended = DateTime.Today.AddDays(1);
+	var orderTwo = sessionTwo.Load<Order>("orders/238-B");
+	orderTwo.ShippedAt = DateTime.Today.AddDays(1);
 	sessionTwo.SaveChanges();
 }
 
-callOne.Ended = DateTime.Today;                                     <3>
+orderOne.ShippedAt = DateTime.Today;                                <3>
 
 using (var sessionThree = store.OpenSession())                      
 {
 	sessionThree.Advanced.UseOptimisticConcurrency = true;          
-	sessionThree.Store(callOne, changeVector, callOne.Id);          <4>
+	sessionThree.Store(orderOne, changeVector, orderOne.Id);        <4>
 	sessionThree.SaveChanges(); // will raise ConcurrencyException  <5>
 }
 ----
@@ -612,7 +612,7 @@ in a separate session when we get the reply from the client. Interleaved with th
 We provide the _original_ change vector to the final session, ensuring that we can detect any changes behind our back.
 
 Calling `Store()` with the original change vector gives the RavenDB client API enough information for us to do an optimistic concurrency
-check from the time we loaded `callOne` in the first session. In a web scenario, you'll typically send the change vector alongside the actual 
+check from the time we loaded `orderOne` in the first session. In a web scenario, you'll typically send the change vector alongside the actual 
 data and get it back from the client to do the check. You might also want to check out the `Changes API`, which is covered a little later in 
 this chapter. This might help you get early change notifications when you need to implement offline optimistic concurrency.
 
@@ -626,28 +626,29 @@ However, there are a few scenarios in which we don't want to send the entire doc
 document is very large and we want to make a small change, we can avoid that cost. Another reason to avoid the full document 
 save is a scenario that calls for concurrent work on a document.
 
-Let's consider the `SupportCall.Votes` property. Two users may very well want to vote on the same support call at the same time. 
-One way to handle that is to load the support call, increment the `Votes` property and call `SaveChanges`. In order to handle 
+Let's consider the `Order.ViewCount` property, which tracks how many times an order has been looked up by customer service reps.
+Multiple reps may very well pull up the same order at the same time. 
+One way to handle that is to load the order, increment the `ViewCount` property and call `SaveChanges`. In order to handle 
 concurrent modifications, we can utilize optimistic concurrency and retries. But that's quite a lot of work to write, and if the 
-document is large, there's also a lot of data going back and forth over the network for little reason. <<patch-increment-votes>> 
+document is large, there's also a lot of data going back and forth over the network for little reason. <<patch-increment-view-count>> 
 shows how we can do much better.
 
-[[patch-increment-votes]]
+[[patch-increment-view-count]]
 .Incrementing a property using the Patch API
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	session.Advanced.Increment<SupportCall, int>(
-            "SupportCalls/238-B", 
-            c => c.Votes, 
+	session.Advanced.Increment<Order, int>(
+            "orders/238-B", 
+            c => c.ViewCount, 
             1);
 
 	session.SaveChanges();
 }
 ----
 
-What the code in <<patch-increment-votes>> does is generate a patch request, rather than load and save the full document. 
+What the code in <<patch-increment-view-count>> does is generate a patch request, rather than load and save the full document. 
 That request is stored in the session, and when `SaveChanges` is called, it will be sent to the server (alongside any other 
 changes/operations made on the session, as usual). On the server side, we'll apply this operation to the document. This patch 
 request is safe to call concurrently, since there's no loss of data when executing patches.
@@ -666,11 +667,11 @@ using patching because of perceived performance benefits. That resulted in an ex
 to change. The general recommendation is to utilize patching only when you need to support concurrent modifications.
 
 Note that in most cases concurrent modifications of the same document is _not_ the default. A properly modeled document should have 
-a single reason to change,  but it's common that documents have additional data on them (like the `Votes` property or `Comments`) that are 
+a single reason to change, but it's common that documents have additional data on them (like the `ViewCount` property or `Notes`) that are 
 important to save but don't have any real business logic attached to them.
 
 That kind of change is fine to do using patching. If you find yourself trying to run serious business logic in patch scripts (we'll 
-see exactly how to do this in a bit), you should move that into your own business logic. For a numerical value like `Votes`, the _proper_
+see exactly how to do this in a bit), you should move that into your own business logic. For a numerical value like `ViewCount`, the _proper_
 answer in RavenDB is to use counters, not a document property and patching.
 
 An important consideration to take into account is that there is no guarantee as to the order in which the patches will run. But, 
@@ -678,34 +679,34 @@ you don't need to worry about concurrency between patches on the same document a
 the scripts on the same document.  
 ****
 
-A slightly more complex example of the use of patching is adding a comment to a `SupportCall`. Just like before, we want to support adding a 
-comment concurrently. But to make things a bit more interesting, we'll add a business rule: a call that has been ended cannot have additional 
-comments added to it. <<add-comment-using-patch>> shows the obvious way to accomplish this.
+A slightly more complex example of the use of patching is adding a note to an `Order`. Just like before, we want to support adding a 
+note concurrently. But to make things a bit more interesting, we'll add a business rule: an order that has been shipped cannot have additional 
+notes added to it. <<add-note-using-patch>> shows the obvious way to accomplish this.
 
-[[add-comment-using-patch]]
-.Adding a comment to a support call using patch
+[[add-note-using-patch]]
+.Adding a note to an order using patch
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	var call = session.Load<SupportCall>("SupportCalls/238-B");
-	if (call.Ended != null)
-		throw new InvalidOperationException("Cannot comment on closed call");
+	var order = session.Load<Order>("orders/238-B");
+	if (order.ShippedAt != null)
+		throw new InvalidOperationException("Cannot add notes to a shipped order");
 
-	session.Advanced.Patch(call, c => c.Comments, 
-		comments => comments.Add("This is important stuff!"));
+	session.Advanced.Patch(order, c => c.Notes, 
+		notes => notes.Add("This is important stuff!"));
 
 	session.SaveChanges();
 }
 ----
 
-In <<add-comment-using-patch>>, you can see how we moved from using the simple `Increment` call to the `Patch`, which allows us to 
-either replace a property value completely or add an item to a collection. If you look closely at the code in <<add-comment-using-patch>>,
-you'll find that there's a hidden race condition there. The business rule is that we can't add comments to a closed call; we're able to 
-load the call, check that its `Ended` property is null and then send the patch request to the server. However, in the meantime, 
-another client could have closed the call, and yet we'd still add the comment.
+In <<add-note-using-patch>>, you can see how we moved from using the simple `Increment` call to the `Patch`, which allows us to 
+either replace a property value completely or add an item to a collection. If you look closely at the code in <<add-note-using-patch>>,
+you'll find that there's a hidden race condition there. The business rule is that we can't add notes to a shipped order; we're able to 
+load the order, check that its `ShippedAt` property is null and then send the patch request to the server. However, in the meantime, 
+another client could have shipped the order, and yet we'd still add the note.
 
-The seriousness of this issue depends entirely on the domain and the model. It's possible that you _do_ want to add comments during 
+The seriousness of this issue depends entirely on the domain and the model. It's possible that you _do_ want to add notes during 
 that period, or it's possible that allowing it could break important business invariants. 
 
 .Patch requests are sent as part of `SaveChanges`
@@ -727,24 +728,24 @@ In <<patch-script-maintain-invariants>>, we're dropping down to using `Defer` di
 with no wrappers. As you can see, this is a bit involved, but overall it's pretty straightforward.
 
 [[patch-script-maintain-invariants]]
-.Using a patch script to maintain call invariants
+.Using a patch script to maintain order invariants
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
 	session.Advanced.Defer(new PatchCommandData(
-		id: "SupportCalls/238-B",
+		id: "orders/238-B",
 		changeVector: null, 
 		patch: new PatchRequest
 		{
 			Script = @"
-				if (this.Ended != null)
-					throw 'Cannot add a comment to a closed call';
-				this.Comments.push($comment);
+				if (this.ShippedAt != null)
+					throw 'Cannot add a note to a shipped order';
+				this.Notes.push($note);
 				",
 			Values =
 			{
-				["comment"] = "This is important stuff!!"
+				["note"] = "This is important stuff!!"
 			} 
 		},
 	patchIfMissing: null));
@@ -754,12 +755,12 @@ using (var session = store.OpenSession())
 ----
 
 The code in <<patch-script-maintain-invariants>> passes a `PatchCommandData`, containing the relevant document ID, 
-to `Defer`. The key part is in the `PatchRequest.Script`. We do the check on the document and fail if the call has already 
-been closed. If it hasn't, we add the comment to the call. You can also see that we don't have to deal with string
+to `Defer`. The key part is in the `PatchRequest.Script`. We do the check on the document and fail if the order has already 
+been shipped. If it hasn't, we add the note to the order. You can also see that we don't have to deal with string
 concatenation here since we can pass arguments to the scripts directly. There's also the option to run a script 
 if the document does not exist (using `patchIfMissing`). This gives you the option to do a "modify or create" style of operation.
 
-Using this method, we can be sure that we'll never violate the rule about adding comments to a closed call. A cautionary word, 
+Using this method, we can be sure that we'll never violate the rule about adding notes to a shipped order. A cautionary word, 
 though: this is more complex than anything we've dealt with before, and I would only recommend doing it if you really must. 
 
 ### Deferring commands
@@ -823,9 +824,9 @@ for (int i = 0; i < 10_000; i++)
 {
 	using (var session = store.OpenSession())
 	{
-		session.Store(new Customer
+		session.Store(new Company
 		{
-			Name = "Customer #" + i
+			Name = "Company #" + i
 		});
 		session.SaveChanges();
 	}
@@ -861,9 +862,9 @@ Parallel.For(0, 10_000, i =>                    <1>
 {
 	using (var session = store.OpenSession())
 	{
-		session.Store(new Customer
+		session.Store(new Company
 		{
-			Name = "Customer #" + i
+			Name = "Company #" + i
 		});
 		session.SaveChanges();
 	}
@@ -899,9 +900,9 @@ async Task WriteDocument(int i)                     <2>
 {
 	using (var session = store.OpenAsyncSession())
 	{
-		await session.StoreAsync(new Customer
+		await session.StoreAsync(new Company
 		{
-			Name = "Customer #" + i
+			Name = "Company #" + i
 		});
 		await session.SaveChangesAsync();
 	}
@@ -952,9 +953,9 @@ using (var bulkInsert = store.BulkInsert())
 {
 	for (int i = 0; i < 100_000; i++)
 	{
-		bulkInsert.Store(new Customer
+		bulkInsert.Store(new Company
 		{
-			Name = "Customer #" + i
+			Name = "Company #" + i
 		});
 	}
 }
@@ -1029,25 +1030,25 @@ server. In production, your database will typically run on a dedicated machine, 
 helps in several ways. A session has a budget on the number of remote calls it can make (`session.Advanced.MaxNumberOfRequestsPerSession`). If 
 it goes over that limit, an exception is thrown. That motivated designing techniques to reduce the number of remote calls.
 
-`Include` is one such technique: tell the server to include additional documents in the response so you don't have to issue another request. But `Include` can't solve every pattern. Consider the pair of queries in <<loading-customer-and-count>> that cannot be 
+`Include` is one such technique: tell the server to include additional documents in the response so you don't have to issue another request. But `Include` can't solve every pattern. Consider the pair of queries in <<loading-company-and-count>> that cannot be 
 optimized with `Include`.
 
-[[loading-customer-and-count]]
-.Loading a customer and the count of support calls for that customer
+[[loading-company-and-count]]
+.Loading a company and the count of orders for that company
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	var customer = session.Load<Customer>("customers/8243-C");
-	var countOfCalls = session.Query<SupportCall>()
-		.Where(c => c.CustomerId == "customers/8243-C")
+	var company = session.Load<Company>("companies/8243-C");
+	var countOfOrders = session.Query<Order>()
+		.Where(c => c.Company == "companies/8243-C")
 		.Count();
 
-	// show the customer and the number of calls to the user
+	// show the company and the number of orders to the user
 }
 ----
 
-A scenario like the one outlined in <<loading-customer-and-count>> is incredibly common. We have many cases where we need to 
+A scenario like the one outlined in <<loading-company-and-count>> is incredibly common. We have many cases where we need to 
 show the user information from multiple sources, and that's a concern. Each of those calls turns out to be a _remote_ call, 
 requiring us to go over the network. There are ways to optimize this specific scenario. We can define a MapReduce index and run 
 a query and `Include` on it. We haven't yet gone over exactly what this means (we'll cover that in <<indexing-in-ravendb>>), but 
@@ -1060,19 +1061,19 @@ another, and no network activity will occur. However, as soon as you access the 
 all the lazy requests held up by the session will be sent to the server as a single unit.
 
 All those requests will be processed by the server, and all the replies will be sent as a single unit. So no matter how many lazy requests you 
-have, there will only ever be a single network round trip to the server. You can see the code sample in <<lazy-loading-customer-and-count>>.
+have, there will only ever be a single network round trip to the server. You can see the code sample in <<lazy-loading-company-and-count>>.
 
-[[lazy-loading-customer-and-count]]
-.Lazily loading a customer and their count of support calls
+[[lazy-loading-company-and-count]]
+.Lazily loading a company and their count of orders
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-	Lazy<Customer> lazyCustomer = session.Advanced.Lazily
-		.Load<Customer>("customers/8243-C");                    <1>
+	Lazy<Company> lazyCompany = session.Advanced.Lazily
+		.Load<Company>("companies/8243-C");                    <1>
 
-	Lazy<int> lazyCountOfCalls = session.Query<SupportCall>()
-		.Where(c => c.CustomerId == "customers/8243-C")
+	Lazy<int> lazyCountOfOrders = session.Query<Order>()
+		.Where(c => c.Company == "companies/8243-C")
 		.CountLazily();                                         <2>
 
 	// force execution of pending lazy operations explicitly
@@ -1080,18 +1081,18 @@ using (var session = store.OpenSession())
 
 	// if ExecuteAllPendingLazyOperations wasn't called, it
 	// will be implicitly called when accessing Value.
-	int countOfCalls = lazyCountOfCalls.Value;                  <4>
-	Customer customer = lazyCustomer.Value;
+	int countOfOrders = lazyCountOfOrders.Value;                  <4>
+	Company company = lazyCompany.Value;
 
-	// show the customer and the number of calls to the user
+	// show the company and the number of orders to the user
 }
 ----
-<1> _Lazily_ load the `Customer` - no network access is required here.
+<1> _Lazily_ load the `Company` - no network access is required here.
 <2> _Lazily_ execute a `count` query - no network access is required here.
 <3> Execute both previous pending operations in a _single_ remote call to the server.
 <4> Access the _value_ of the `Lazy<T>` instance. Implicitly call to `ExecuteAllPendingLazyOperations()` if it wasn't called previously. 
 
-As the code in <<lazy-loading-customer-and-count>> shows, we can define multiple lazy operations. At that stage, they're pending. They're 
+As the code in <<lazy-loading-company-and-count>> shows, we can define multiple lazy operations. At that stage, they're pending. They're 
 stored in the session but haven't been sent to the server yet. We can either call `ExecuteAllPendingLazyOperations` to force all pending 
 operations to execute, or we can have that happen implicitly by accessing the `Value` property on any of the lazy instances we received.
 
@@ -1121,24 +1122,24 @@ When dealing with large amounts of data, the typical API we use to talk to Raven
 the case of the code in <<query-customer-calls>>.
 
 [[query-customer-calls]]
-.Query all support calls for a customer
+.Query all orders for a company
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    List<SupportCall> calls = session.Query<SupportCall>()
-        .Where(c => c.CustomerId == "customers/8243-C"))
+    List<Order> orders = session.Query<Order>()
+        .Where(c => c.Company == "companies/8243-C"))
         .ToList();
 }
 ----
 
-What will happen if this is a particularly troublesome customer that opened a _lot_ of calls? If this customer had just 30 calls, 
-it's easy to see that we'll get them all in the list. But what happens if this customer has 30,000 calls? <<request-buffering>> shows how 
+What will happen if this is a particularly active company that placed a _lot_ of orders? If this company had just 30 orders, 
+it's easy to see that we'll get them all in the list. But what happens if this company has 30,000 orders? <<request-buffering>> shows how 
 a query is processed on the server in this case. 
 
 [[request-buffering]]
 .A query using request buffering
-image::./Ch04/img01.png[]
+image::./Ch05/img01.png[]
 
 The server will accept the query, find all matches, prepare the results to send and then send them all over the network. On the client side, 
 we'll read the results from the network and batch them all into the list that we'll return to the application.
@@ -1180,34 +1181,34 @@ queries. You can see what that would look like in <<query-using-streaming>>.
 
 [[query-using-streaming]]
 .A query using request streaming
-image::./Ch04/img02.png[]
+image::./Ch05/img02.png[]
 
 Unlike the previous example, with streaming, neither client nor server need to hold the full response in memory. Instead, 
 as soon as the server has a single result, it sends that result to the client. The client will read the result from the 
 network, materialize the instance and hand it off to the application immediately. In this manner, the application can start processing the results of the query before the server is done sending it, and it doesn't have to wait. You can see the code for that 
-in <<stream-all-support-calls>>.
+in <<stream-all-orders>>.
 
-[[stream-all-support-calls]]
-.Stream all support calls for a customer
+[[stream-all-orders]]
+.Stream all orders for a company
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var callsQuery = session.Query<SupportCall>()
-        .Where(c => c.CustomerId == "customers/8243-C"));
+    var ordersQuery = session.Query<Order>()
+        .Where(c => c.Company == "companies/8243-C"));
 
-    using (var stream = session.Advanced.Stream(callsQuery))
+    using (var stream = session.Advanced.Stream(ordersQuery))
     {
         while (stream.MoveNext())
         {
-            SupportCall current = stream.Current;
+            Order current = stream.Current;
             // do something with this instance
         }
     }
 }
 ----
 
-Instead of getting all the results in one go, the code in <<stream-all-support-calls>> will pull them from the stream one at a time. 
+Instead of getting all the results in one go, the code in <<stream-all-orders>> will pull them from the stream one at a time. 
 This way, the server, the client API and the application can all work in parallel with one another to process the results of the query.
 This technique is suitable for processing a large number of results (in the millions).
 
@@ -1271,8 +1272,8 @@ Externally, from the API consumer point of view, there's no way to tell that cac
 ----
 using (var session = store.OpenSession())
 {
-	var calls = session.Query<SupportCall>()
-		.Where(c => c.CustomerId == "customers/8243-C"))
+	var orders = session.Query<Order>()
+		.Where(c => c.Company == "companies/8243-C"))
 		.ToList();
 }
 
@@ -1280,8 +1281,8 @@ using (var session = store.OpenSession())
 {
 	// this query will result in the server
 	// returning a "this is cached" notification
-	var calls = session.Query<SupportCall>()
-		.Where(c => c.CustomerId == "customers/8243-C"))
+	var orders = session.Query<Order>()
+		.Where(c => c.Company == "companies/8243-C"))
 		.ToList();
 }
 ----
@@ -1302,13 +1303,13 @@ Consider the case of the following query:
 
 [source,chsarp]
 ----
-session.Query<SupportCall>()
+session.Query<Order>()
     .Where(c => 
-        c.StartedAt >= DateTime.Now.AddDays(-7) 
-        && c.Ended == null);
+        c.OrderedAt >= DateTime.Now.AddDays(-7) 
+        && c.ShippedAt == null);
 ----
 
-This query is asking for all opened support calls that are over a week old.
+This query is asking for all unshipped orders that are over a week old.
 
 This kind of query is quite innocent looking, but together with the cache, it can have surprising results. 
 Because the query uses `DateTime.Now`, on every call, it will generate a different query. That query will never match 
@@ -1319,7 +1320,7 @@ A much better alternative would be to use the following:
 
 [source]
 ----
-c.StartedAt >= DateTime.Today.AddDays(-7)
+c.OrderedAt >= DateTime.Today.AddDays(-7)
 ----
 
  By using `Today`, we ensure that we can reuse the cached entry for multiple calls. Even if you need more granularity than 
@@ -1352,8 +1353,8 @@ of aggressive caching. You can see an example of that in <<aggressive-caching-in
 using (var session = store.OpenSession())
 using (session.Advanced.DocumentStore.AggressivelyCache())
 {
-	var customer = session.Load<SupportCall>(
-		"customers/8243-C");
+	var company = session.Load<Company>(
+		"companies/8243-C");
 }
 ----
 
@@ -1416,7 +1417,7 @@ us to connect to the server and ask it to let us know when a particular event ha
 [source,csharp]
 ----
 var subscription = store.Changes()
-	.ForDocument("customers/8243-C")
+	.ForDocument("companies/8243-C")
 	.Subscribe(change => {
 		// let user know the document changed
 		});
@@ -1461,32 +1462,32 @@ and acknowledged.
 In the previous chapter, we talked a lot about modeling and how we should structure our documents to be independent, isolated 
 and coherent. That makes for an excellent system for transaction processing (OLTP) scenarios. But there are quite a few cases where,
 even in a business application, we have to look at the data differently.
-Let's take a look at our support case example. If I'm a help desk engineer and I'm looking at the list of open support calls, I want 
-to see all the recent support calls and the customer that opened them. 
+Let's take a look at our online store example. If I'm a sales representative and I'm looking at the list of open orders, I want 
+to see all the recent orders and the company that placed them. 
 
 Based on what we know so far, it would be trivial to write the code in <<recent-orders-and-customers>>.
 
 [[recent-orders-and-customers]]
-.Recent orders and their customers
+.Recent orders and their companies
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    List<SupportCall> recentOrders = session.Query<SupportCall>()
-        .Include(c => c.CustomerId) // include customers
-        .Where(c => c.Ended == null) // open order
-        .OrderByDescending(c => c.Started) // get recent
+    List<Order> recentOrders = session.Query<Order>()
+        .Include(c => c.Company) // include companies
+        .Where(c => c.ShippedAt == null) // open order
+        .OrderByDescending(c => c.OrderedAt) // get recent
         .Take(25) // limit the results
         .ToList();
 }
 ----
 
-The code in <<recent-orders-and-customers>> is doing a _lot_. It gets us the 25 most recently opened support calls, and it also 
-includes the corresponding customers. We can now show this to the user quite easily, and we were able to do that in a single 
+The code in <<recent-orders-and-customers>> is doing a _lot_. It gets us the 25 most recently placed orders, and it also 
+includes the corresponding companies. We can now show this to the user quite easily, and we were able to do that in a single 
 request to the server. Under most circumstances, this is exactly what you'll want to do. 
 
-However, in order to pull the few fields we need to show to the user in the application, we had to pull the full support calls 
-and customers documents. If those documents are large, that can be expensive. Another way to handle this is by letting the server 
+However, in order to pull the few fields we need to show to the user in the application, we had to pull the full orders 
+and company documents. If those documents are large, that can be expensive. Another way to handle this is by letting the server 
 know exactly what we need returned and then letting it do the work on the server side. 
 
 This can be done by specifying a projection during the query. Projections allow us to control exactly what is being returned from 
@@ -1497,38 +1498,38 @@ Let's see how we can use a query to project just the data that we are interested
 in <<recent-orders-using-projection>>.
 
 [[recent-orders-using-projection]]
-.Recent orders and their customers, using projection
+.Recent orders and their companies, using projection
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
     var recentOrders = (
-        from call in session.Query<SupportCall>()                   
-        where call.Ended == null                                    
-        orderby call.Started descending                             
-        let customer = RavenQuery.Load<Customer>(call.CustomerId)      <1>
-        select new                                                  <2>
+        from order in session.Query<Order>()                   
+        where order.ShippedAt == null                                    
+        orderby order.OrderedAt descending                             
+        let company = RavenQuery.Load<Company>(order.Company)      <1>
+        select new                                                 <2>
         {
-          CustomerName = customer.Name,                             <3>
-          call.CustomerId,
-          call.Started,
-          call.Issue,
-          call.Votes
+          CompanyName = company.Name,                              <3>
+          order.Company,
+          order.OrderedAt,
+          order.ShipTo,
+          order.ViewCount
         }
     )
     .Take(25)                                                       
     .ToList();
 }
 ----
-<1> Load (at the server side) the related customer.
+<1> Load (at the server side) the related company.
 <2> Return a projection of the results, not the full documents.
-<3> Return a property from the related `Customer` document, not just the `SupportCall` document.
+<3> Return a property from the related `Company` document, not just the `Order` document.
 
-There are a few things to note in <<recent-orders-using-projection>>. First, we no longer include the `Customer` in the query. 
-We don't need that because the result of this query isn't a list of `SupportCall` documents but a list of projections that 
-already include the `CustomerName` that we want. The key part, as far as we're concerned, is the call to the 
-`RavenQuery.Load<Customer>()` method. This is translated into a server side load operation that fetches the related 
-`Customer` document and extracts just the `Name` field from it.
+There are a few things to note in <<recent-orders-using-projection>>. First, we no longer include the `Company` in the query. 
+We don't need that because the result of this query isn't a list of `Order` documents but a list of projections that 
+already include the `CompanyName` that we want. The key part, as far as we're concerned, is the call to the 
+`RavenQuery.Load<Company>()` method. This is translated into a server side load operation that fetches the related 
+`Company` document and extracts just the `Name` field from it.
 
 The output of a query like the one in <<recent-orders-using-projection>> is not a document, it is a projection and as a result 
 of that, it isn't tracked by the session. This means that changes to a projection won't be saved back to the server when 
@@ -1540,14 +1541,14 @@ generates in <<projection-with-load-rql>>.
 .The Raven Query Language query generated from <<recent-orders-using-projection>>.
 [source,sql]
 ----
-from 'SupportCalls' as call
-load call.Customer as customer 
+from 'Orders' as order
+load order.Company as company 
 select { 
-    CustomerName = customer.Name,
-    CustomerId: call.CustomerId,
-    Started: call.Started,
-    Issue: call.Issue,
-    Votes: call.Votes
+    CompanyName = company.Name,
+    Company: order.Company,
+    OrderedAt: order.OrderedAt,
+    ShipTo: order.ShipTo,
+    ViewCount: order.ViewCount
 }
 ----
 
@@ -1571,14 +1572,14 @@ what collection an object will find itself in.
 [source,csharp]
 ----
 store.Conventions.FindCollectionName = type =>
-    typeof(Customer).IsAssignableFrom(type)
-        ? "Customers"
+    typeof(Company).IsAssignableFrom(type)
+        ? "Companies"
         : DocumentConventions.DefaultGetCollectionName(type);
 ----
 
-In <<customize-collection-polymorphism>>, we're letting RavenDB know that `Customer` or any derived type should be in the 
-`Customers` collection. That means that we can create a class called `VIPCustomer` that will have additional properties, but it 
-will still be treated as a `Customer` by anything else (indexing, queries, etc.). Such options allow you to have absolute control over 
+In <<customize-collection-polymorphism>>, we're letting RavenDB know that `Company` or any derived type should be in the 
+`Companies` collection. That means that we can create a class called `VIPCompany` that will have additional properties, but it 
+will still be treated as a `Company` by anything else (indexing, queries, etc.). Such options allow you to have absolute control over 
 how RavenDB will work within your environment.
 
 
@@ -1661,7 +1662,7 @@ We looked at cross-cutting concerns on the client and how we can apply behavior 
 client behavior by controlling how RavenDB decides what class belongs in what collection, as well as serialization and deserialization. 
 Listeners allow you to attach behavior to certain actions in the client API, giving you the option to customize certain behaviors. 
 We looked at adding auditing to our application in about three lines of code and even saw how we can limit all the queries on the 
-client to only include active users as a cross-cutting behavior.
+client to only include active companies as a cross-cutting behavior.
 
 Our final endeavor was to cover at a high level the native serialization format that RavenDB uses, the blittable format. This format 
 is meant to be extremely efficient in representing JSON. It's typically stored in native memory to reduce managed memory consumption and 

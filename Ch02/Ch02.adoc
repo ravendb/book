@@ -355,6 +355,11 @@ And now we're ready to start working with the client API. The first thing we nee
 to the RavenDB cluster that we're talking to. This is done by creating an instance of `DocumentStore` and 
 configuring it as shown in <<setting-up-document-store>>.
 
+We explored the `Northwind` sample data earlier, but for our code exercises, we want a clean slate. Go back to
+the Studio, click `Databases` on the left, then `New Database`, name it `Southsand` and click `Quick Create`. 
+Starting with an empty database means we control every document in it — the IDs will be predictable, 
+and we won't have to worry about confusing our own data with the sample dataset.
+
 [[setting-up-document-store]]
 .Creating a document store pointed to a local instance
 [source,csharp]
@@ -362,19 +367,17 @@ configuring it as shown in <<setting-up-document-store>>.
 using var store = new DocumentStore
 {
     Urls = ["http://127.0.0.1:8080"],
-    Database = "Tasks"
+    Database = "Southsand"
 }.Initialize();
 ----
 
 This code sets up a new `DocumentStore` instance and lets it know about a single node — the one running on the local
-machine — and that we are going to be using the `Tasks` database. The document store is the starting location for 
+machine — and that we are going to be using the `Southsand` database we just created. The document store is the starting location for 
 all communication with the RavenDB cluster. It holds the configuration, topology, cache and any customizations that you might
 have applied.
 
 Typically, you'll have a single instance of a document store per application (singleton pattern) and use that same
-instance for the lifetime of the application. However, before we can continue, we need to go ahead and create the 
-`Tasks` database in the Studio so we'll have a real database to work with. You can create a new database using the same process 
-we went through for the `Northwind` database earlier in this chapter.
+instance for the lifetime of the application.
 
 The document store is the starting location for all RavenDB work, but the real workhorse is
 the session. The session is what will hold our entities, talk with the server and, in general, act as the 
@@ -384,70 +387,71 @@ front man to the RavenDB cluster.
 
 Before we can actually start using the session, we need _something_ to actually store. It's possible to work with
 completely dynamic data in RavenDB, but that's a specific scenario covered in the documentation. Most of
-the time, you're working with your entities. For the purpose of this chapter, we'll use the notion of tasks to 
-build a simple list of things to do. 
+the time, you're working with your entities. For the purpose of this chapter, we'll work with products 
+for our online store. 
 
-<<todo-task-class>> shows what a class that will be saved as a RavenDB document looks like. 
+<<product-class>> shows what a class that will be saved as a RavenDB document looks like. 
 
-[[todo-task-class]]
-.Entity class representing a ToDo task
+[[product-class]]
+.Entity class representing a Product
 [source,csharp]
 ----
-public class ToDoTask
+public class Product
 {
     public string Id { get; set; }
-    public string Task { get; set; }
-    public bool Completed { get; set; }
-    public DateTime DueDate { get; set; }
+    public string Name { get; set; }
+    public decimal PricePerUnit { get; set; }
+    public int UnitsInStock { get; set; }
+    public string Category { get; set; }
 }
 ----
 
-This is about as simple as you can get, but we're only starting, so that's good. Let's create a new task inside
-RavenDB, reminding us that we need to pick up a bottle of milk from the store tomorrow. The code to perform this
-task (pun intended) is shown in <<creating-new-task>>.
+This is about as simple as you can get, but we're only starting, so that's good. Let's create a new product in
+RavenDB. The code to do this is shown in <<creating-new-product>>.
 
-[[creating-new-task]]
-.Saving a new task to RavenDB
+[[creating-new-product]]
+.Saving a new product to RavenDB
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var task = new ToDoTask
+    var product = new Product
     {
-        DueDate = DateTime.Today.AddDays(1),
-        Task = "Buy milk"
+        Name = "Chai",
+        PricePerUnit = 18.00m,
+        UnitsInStock = 39,
+        Category = "Beverages"
     };
-    session.Store(task);
+    session.Store(product);
     session.SaveChanges();
 }
 ----
 
-We opened a new session and created a new `ToDoTask`. We then stored the task in the session and called 
-`SaveChanges` to save all the changes in the session to the server. You can see the results of this in <<creating-new-task-result>>.
+We opened a new session and created a new `Product`. We then stored the product in the session and called 
+`SaveChanges` to save all the changes in the session to the server. You can see the results of this in <<creating-new-product-result>>.
 
-[[creating-new-task-result]]
-.The newly created task document in the Studio
+[[creating-new-product-result]]
+.The newly created product document in the Studio
 image::./Ch02/img10.png[]
 
-As it so happened, I was able to go to the store today and get some milk, so I need to mark this task as
-completed. <<updating-milk-task>> shows the code required to handle updates in RavenDB.
+The price of Chai has gone up, so we need to update it. <<updating-product-price>> shows the code required to handle updates in RavenDB.
 
-[[updating-milk-task]]
+[[updating-product-price]]
 .Loading, modifying and saving a document
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    ToDoTask task = session.Load<ToDoTask>("ToDoTasks/1-A");
-    task.Completed = true;
+    Product product = session.Load<Product>("Products/1-A");
+    product.PricePerUnit = 20.00m;
     session.SaveChanges();
 }
 ----
 
-Several interesting things can be noticed even in this very small sample. We loaded the document and modified it, and then
-we called `SaveChanges`. We didn't need to call `Store` again. Because the `task` instance was loaded via the session,
+Several interesting things can be noticed even in <<updating-product-price>>. We loaded the document and modified it, and then
+we called `SaveChanges`. We didn't need to call `Store` again. Because the `product` instance was loaded via the session,
 it was also tracked by the session, and any changes made to it would be sent back to the server when `SaveChanges`
-was called. Conversely, if the `Completed` property was already set to `true`, the RavenDB client would detect that
+was called. Conversely, if the `PricePerUnit` property already had the same value, the RavenDB client would detect that
 and do nothing since the state of the server and the client match.
 
 [NOTE]
@@ -466,20 +470,30 @@ server is when you call `SaveChanges`. That, in turn, means you'll experience a 
 calls. All of the changes will be sent as a single batch to the server. And because RavenDB is transactional, all those changes will 
 happen as a single transaction, either completing fully or not at all.
 
-Let's expand on that and create a few more tasks. You can see how this works in <<creating-multiple-tasks>>.
+Let's expand on that and create a few more products. You can see how this works in <<creating-multiple-products>>.
 
-[[creating-multiple-tasks]]
+[[creating-multiple-products]]
 .Creating multiple documents in a single transaction
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    for (int i = 0; i < 5; i++)
+    var products = new[] 
     {
-        session.Store(new ToDoTask
+        ("Chang", 19.00m, 17, "Beverages"),
+        ("Aniseed Syrup", 10.00m, 13, "Condiments"),
+        ("Pavlova", 17.45m, 29, "Confections"),
+        ("Tofu", 23.25m, 35, "Produce"),
+        ("Manjimup Dried Apples", 53.00m, 20, "Produce")
+    };
+    foreach (var (name, price, stock, category) in products)
+    {
+        session.Store(new Product
         {
-            DueDate = DateTime.Today.AddDays(i),
-            Task = "Take the dog for a walk"
+            Name = name,
+            PricePerUnit = price,
+            UnitsInStock = stock,
+            Category = category
         });
     }
 
@@ -487,95 +501,94 @@ using (var session = store.OpenSession())
 }
 ----
 
-<<creating-multiple-tasks-result>> shows the end result of all this playing around we've done. We're creating five new tasks and saving them in 
+<<creating-multiple-products-result>> shows the end result of all this playing around we've done. We're creating five new products and saving them in 
 the same `SaveChanges` call, so they will be saved as a single transactional unit.
 
-[[creating-multiple-tasks-result]]
-.All the current task documents
+[[creating-multiple-products-result]]
+.All the current product documents
 image::./Ch02/img11.png[]
 
 #### Querying RavenDB
 
-Now that we have all these tasks, we want to start querying the data. Before we get to querying these tasks from code, 
+Now that we have all these products, we want to start querying the data. Before we get to querying these products from code, 
 I want to show you how to query the data from the Studio. Go to `Indexes` and then `Query` in the Studio and you'll see the query page. 
-Let us find all the tasks we still have to do, we can do that using the following query: `from ToDoTasks where Completed = false`.
-You can see the results of this in <<querying-incomplete-tasks-studio>>.
+Let us find all the products that cost more than 15, we can do that using the following query: `from Products where PricePerUnit > 15`.
+You can see the results of this in <<querying-products-studio>>.
 
-[[querying-incomplete-tasks-studio]]
-.Querying for incomplete tasks in the Studio
+[[querying-products-studio]]
+.Querying for products in the Studio
 image::./Ch02/img12.png[]
 
 We'll learn all about querying RavenDB in <<querying-in-ravendb>>. For now, let's concentrate on getting results, which means looking
-at how we can query RavenDB from code. Let's say I want to know what kind of tasks I have for
-the next couple of days. In order to get that information, I can use the query in <<querying-incomplete-tasks-code>>. (Remember to add `using System.Linq;`
-to the top of the `Program.cs` file.)
+at how we can query RavenDB from code. Let's say I want to find the most affordable products. 
+I can use the query in <<querying-products-code>>.
 
-[[querying-incomplete-tasks-code]]
-.Querying upcoming tasks using LINQ
+[[querying-products-code]]
+.Querying products using LINQ
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var tasksToDo =
-        from t in session.Query<ToDoTask>()
-        where t.DueDate >= DateTime.Today &&
-              t.DueDate <= DateTime.Today.AddDays(2) &&
-              t.Completed == false
-        orderby t.DueDate
-        select t;
-    Console.WriteLine(tasksToDo.ToString());
+    var affordableProducts =
+        from p in session.Query<Product>()
+        where p.PricePerUnit <= 25
+        orderby p.PricePerUnit
+        select p;
+    Console.WriteLine(affordableProducts.ToString()) ;
 
-    foreach (var task in tasksToDo)
+    foreach (var product in affordableProducts)
     {
-        Console.WriteLine($"{task.Id} - {task.Task} - {task.DueDate}");
+        Console.WriteLine($"{product.Id} - {product.Name} - {product.PricePerUnit:C}");
     }
 }
 ----
 
-Running the code in <<querying-incomplete-tasks-code>> will result in the output shown in <<querying-incomplete-tasks-output>>.
+Running the code in <<querying-products-code>> will result in the output shown in <<querying-products-output>>.
   
-[[querying-incomplete-tasks-output]]
-.Querying upcoming tasks output
+[[querying-products-output]]
+.Querying products output
 [source,plaintext]
 ----
-from ToDoTasks where DueDate between $p0 and $p1 
-    and Completed = $p2 order by DueDate
+from Products where PricePerUnit <= $p0 
+    order by PricePerUnit
 
-ToDoTasks/2-A - Take the dog for a walk - 5/14/2017 12:00:00 AM
-ToDoTasks/3-A - Take the dog for a walk - 5/15/2017 12:00:00 AM
-ToDoTasks/4-A - Take the dog for a walk - 5/16/2017 12:00:00 AM
+Products/3-A - Aniseed Syrup - $10.00
+Products/4-A - Pavlova - $17.45
+Products/1-A - Chai - $18.00
+Products/2-A - Chang - $19.00
+Products/5-A - Tofu - $23.25
 ----
 
-The query in <<querying-incomplete-tasks-code>> shows us using LINQ to perform queries against RavenDB with very little 
+The query in <<querying-products-code>> shows us using LINQ to perform queries against RavenDB with very little 
 hassle and no ceremony whatsoever. There is actually a _lot_ going on behind the scenes, but we'll leave all of that to 
 <<querying-in-ravendb>>. You can also see that we can call `.ToString()` on the query to get the query text from 
 the RavenDB client API.
 
-Let's look at an aggregation query. The code in <<aggregation-query>> gives us the results of all the tasks per day.
+Let's look at an aggregation query. The code in <<aggregation-query>> gives us the count of products per category.
 
 [[aggregation-query]]
-.Aggregation query on tasks
+.Aggregation query on products
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var tasksPerDay =
-        from t in session.Query<ToDoTask>()
-        group t by t.DueDate into g
+    var productsByCategory =
+        from p in session.Query<Product>()
+        group p by p.Category into g
         select new
         {
-            DueDate = g.Key,
-            TasksPerDate = g.Count()
+            Category = g.Key,
+            Count = g.Count()
         };
 
-    // from ToDoTasks 
-    // group by DueDate 
-    // select key() as DueDate, count() as TasksPerDate
-    Console.WriteLine(tasksPerDay.ToString());
+    // from Products 
+    // group by Category 
+    // select key() as Category, count() as Count
+    Console.WriteLine(productsByCategory.ToString());
 
-    foreach (var tpd in tasksPerDay)
+    foreach (var pbc in productsByCategory)
     {
-        Console.WriteLine($"{tpd.DueDate} - {tpd.TasksPerDate}");
+        Console.WriteLine($"{pbc.Category} - {pbc.Count}");
     }
 }
 ----
@@ -585,7 +598,7 @@ easy to understand. If you _aren't_ familiar with LINQ and working with the .NET
 From the consumer side, Linq is quite beautiful. Now, if you were to implement querying using LINQ, it's utterly atrocious — take 
 it from someone who's done it a few times. But lucky for you, that isn't _your_ problem. It's ours.
 
-So far, we've explored the RavenDB API a bit, saved documents, edited a task and queried the tasks in various
+So far, we've explored the RavenDB API a bit, saved documents, updated a product and queried the products in various
 ways. This was intended to familiarize you with the API and how to work with RavenDB. The client API was designed
 to be very simple, focusing on the common CRUD scenarios. Deleting a document is as easy as calling `session.Delete`, 
 and all the complex options that you would need are packed inside the `session.Advanced` property. 
@@ -627,8 +640,8 @@ public class DocumentStoreHolder
                 "https://ravendb-02:8080",
                 "https://ravendb-03:8080",
             ],
-            Certificate = new X509Certificate2("tasks.pfx"),
-            Database = "Tasks",
+            Certificate = new X509Certificate2("southsand.pfx"),
+            Database = "Southsand",
         };
 
         documentStore.Initialize();
@@ -769,14 +782,14 @@ you call `SaveChanges`. A document can only be loaded once in a session. Let's l
 .Loading the same document twice
 [source,csharp]
 ----
-var t1 = session.Load<ToDoTask>("ToDoTasks/1-A");
-var t2 = session.Load<ToDoTask>("ToDoTasks/1-A");
+var t1 = session.Load<Product>("Products/1-A");
+var t2 = session.Load<Product>("Products/1-A");
  
 Assert.True(Object.ReferenceEquals(t1, t2));
 ----
 
-Even though we called `Load<ToDoTask>("ToDoTasks/1-A")` twice, there's only a single remote call to the server and only a single
-instance of the `ToDoTask` class. Whenever you load a document, it's added to an internal dictionary that the session
+Even though we called `Load<Product>("Products/1-A")` twice, there's only a single remote call to the server and only a single
+instance of the `Product` class. Whenever you load a document, it's added to an internal dictionary that the session
 manages, and the session checks the dictionary to see if the document is already there. If
 so, it will return the existing instance immediately. This helps avoid aliasing issues and also generally helps performance.
 
@@ -790,10 +803,10 @@ loads three documents at once.
 .Loading multiple documents in a single call
 [source,csharp]
 ----
-Dictionary<string, ToDoTask> tasks = session.Load<ToDoTask>(
-    "ToDoTasks/1-A",
-    "ToDoTasks/2-A",
-    "ToDoTasks/3-A"
+Dictionary<string, Product> products = session.Load<Product>(
+    "Products/1-A",
+    "Products/2-A",
+    "Products/3-A"
 );
 ----
 
@@ -829,33 +842,34 @@ couldn't load that document and will immediately return null rather than attempt
 ##### Working with multiple documents
 
 We've seen how to work with a single document, and we even saved a batch of several documents into RavenDB in a single
-transaction. But we haven't actually worked with anything more complex than a `ToDoTask`. That's pretty limiting, in terms
-of the amount of complexity we can express. <<todo-people-model>> lets us add the notion of people who can be assigned tasks to the model.
+transaction. But we haven't actually worked with anything more complex than a `Product`. That's pretty limiting, in terms
+of the amount of complexity we can express. <<employee-order-model>> lets us add the notion of employees who handle orders to the model.
 
-[[todo-people-model]]
-.People and Tasks model in RavenDB
+[[employee-order-model]]
+.Employees and Orders model in RavenDB
 [source,csharp]
 ----
-public class Person
+public class Employee
 {
     public string Id { get; set; }
-    public string Name { get; set; }
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
 }
 
-public class ToDoTask
+public class Order
 {
     public string Id { get; set; }
-    public string Task { get; set; }
-    public bool Completed { get; set; }
-    public DateTime DueDate { get; set; }
+    public string Company { get; set; }
+    public DateTime OrderedAt { get; set; }
+    public DateTime RequireAt { get; set; }
+    public DateTime? ShippedAt { get; set; }
 
-    public string AssignedTo { get; set; } 
-    public string CreatedBy { get; set; } 
+    public string Employee { get; set; } 
 }
 ----
 
-From looking at the model in <<todo-people-model>>, we can learn a few interesting tidbits. First, we can see that each class stands on
-its own. We don't have a `Person` property on `ToDoTask` or a `Tasks` collection on `Person`. We'll learn about modeling more 
+From looking at the model in <<employee-order-model>>, we can learn a few interesting tidbits. First, we can see that each class stands on
+its own. We don't have an `Employee` object on `Order` or an `Orders` collection on `Employee`. We'll learn about modeling more 
 extensively in <<document-modeling>>, but the gist of modeling in RavenDB is that each document is independent, isolated and coherent. 
 
 What does this mean? It means we should be able to take a single document and work with it successfully without having to look at or 
@@ -863,8 +877,8 @@ load additional documents. The easiest way to conceptualize this is to think abo
 able to pick it up and read it, and it should make sense. References to other locations may be frequent, but there will 
 usually be enough information in the document itself that I don't _have_ to go and read those references.
 
-In the case of the `ToDoTask`, I can look at my tasks, create new tasks or mark them as completed without having to look at the 
-`Person` document. This is quite a shift from working with relational databases, where traversing between rows and tables is 
+In the case of an `Order`, I can look at my orders, create new ones or mark them as shipped without having to look at the 
+`Employee` document. This is quite a shift from working with relational databases, where traversing between rows and tables is 
 very common and frequently required. 
 
 
@@ -877,54 +891,56 @@ Because the documents are self-contained, an AI can process them as they are, wi
 sources to make sense of them. This simplifies the data for the model and makes it easier for the AI to work with.
 ====
 
-Let's see how we can create a new task and assign it to a person. <<creating-new-person>> shows an interesting feature of 
+Let's see how we can create a new order and assign it to an employee. <<creating-new-employee>> shows an interesting feature of 
 RavenDB. Take a look and see if you can find the oddity.
 
-[[creating-new-person]]
-.Creating a new person document
+[[creating-new-employee]]
+.Creating a new employee document
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var person = new Person
+    var employee = new Employee
     {
-        Name = "Oscar Arava"
+        FirstName = "Anne",
+        LastName = "Dodsworth"
     };
-    session.Store(person);          <1>
-    Console.WriteLine(person.Id);   <2>
-    session.SaveChanges();          <3>
+    session.Store(employee);            <1>
+    Console.WriteLine(employee.Id);     <2>
+    session.SaveChanges();              <3>
 }
 ----
-<1> Storing the `Person` entity in the session (and generating an ID for it)
-<2> Printing the (newly generated) ID of the `Person` entity - _before_ we save that to the database
+<1> Storing the `Employee` entity in the session (and generating an ID for it)
+<2> Printing the (newly generated) ID of the `Employee` entity - _before_ we save that to the database
 <3> Actually going to the database server and saving the new entity
 
 RavenDB is transactional, and we only send the request to the server on `SaveChanges`. So how could we print
-the `person.Id` property before we called `SaveChanges`? Later in this chapter, we'll cover document identifiers and how they're 
+the `employee.Id` property before we called `SaveChanges`? Later in this chapter, we'll cover document identifiers and how they're 
 generated, but the basic idea is that the moment we returned from `Store`, the RavenDB client 
-ensured that we had a valid ID to use with this document. As you can see with <<create-person-and-task>>, this can be quite
+ensured that we had a valid ID to use with this document. As you can see with <<create-employee-and-order>>, this can be quite
 important when you're creating two documents at the same time, with references between them.
 
-[[create-person-and-task]]
-.Creating a new person and assigning him a task at the same time
+[[create-employee-and-order]]
+.Creating a new employee and an order assigned to them at the same time
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var person = new Person
+    var employee = new Employee
     {
-        Name = "Oscar Arava"
+        FirstName = "Anne",
+        LastName = "Dodsworth"
     };
-    session.Store(person);
+    session.Store(employee);
 
-    var task = new ToDoTask
+    var order = new Order
     {
-        DueDate = DateTime.Today.AddDays(1),
-        Task = "Buy milk",
-        AssignedTo = person.Id,
-        CreatedBy = person.Id
+        Company = "companies/1-A",
+        OrderedAt = DateTime.Today,
+        RequireAt = DateTime.Today.AddDays(1),
+        Employee = employee.Id
     };
-    session.Store(task);
+    session.Store(order);
     session.SaveChanges();
 }
 ----
@@ -936,80 +952,80 @@ There's a catch, though. We want to do it efficiently.
 
 RavenDB doesn't actually _have_ references in the usual sense. There's no such thing as foreign keys, like you might be used to. 
 A reference to another document is just a string property that happens to contains the ID of another document. What does this
-mean for working with the data? Let's say that we want to print the details of a particular task, including the name of the 
-person assigned to it. <<loading-two-documents>> shows the obvious way to do this.
+mean for working with the data? Let's say that we want to print the details of a particular order, including the name of the 
+company that placed it. <<loading-two-documents>> shows the obvious way to do this.
 
 [[loading-two-documents]]
-.Displaying the details of a task (and its assigned person)
+.Displaying the details of an order (and the company that placed it)
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    string taskId = Console.ReadLine();
+    string orderId = Console.ReadLine();
 
-    ToDoTask task = session.Load<ToDoTask>(taskId);
-    Person assignedTo = session.Load<Person>(task.AssignedTo);
+    Order order = session.Load<Order>(orderId);
+    Company company = session.Load<Company>(order.Company);
 
     Console.WriteLine(
-        $"{task.Id} - {task.Task} by {assignedTo.Name}");
+        $"{order.Id} - due {order.RequireAt:d} for {company.Name}");
 
     // will print 2
     Console.WriteLine(session.Advanced.NumberOfRequests); <1>
 }
 ----
-<1> The code prints how many requests we made to the server (one to load the task, and one to load the assigned person)
+<1> The code prints how many requests we made to the server (one to load the order, and one to load the company)
 
-This code works, but it's inefficient. We're making _two_ calls to the server here, one to fetch the task and another to
-fetch the assigned user. This is part of the budgeting and awareness program RavenDB has, aimed at reducing the number 
+This code works, but it's inefficient. We're making _two_ calls to the server here, one to fetch the order and another to
+fetch the company. This is part of the budgeting and awareness program RavenDB has, aimed at reducing the number 
 of remote calls and speeding up your applications.
 
 .Error handling
 ****
 <<loading-two-documents>> really bugged me when I wrote it, mostly because there's a lot of error handling that isn't being done: 
-the task ID being empty, the task document not existing, the task not being assigned to anyone...you get the drift. I just
+the order ID being empty, the order document not existing, the company reference being null... you get the drift. I just
 wanted to mention that most code samples in this book will contain as little error handling as possible so as not to distract
 from the code that actually _does_ things.
 ****
 
-Having to go to the database twice is a pity because the server already knows the value of the `AssignedTo` property, 
-and it could send the document that matches the value of that property at the same time it's sending us the task. RavenDB's 
+Having to go to the database twice is a pity because the server already knows the value of the `Company` property, 
+and it could send the document that matches the value of that property at the same time it's sending us the order. RavenDB's 
 `Includes` functionality, which handles this in one step, is a favorite feature of mine because I still remember how excited
 I was when we finally figured out how to do this in a clean fashion. Look at <<loading-two-documents-with-include>> to see how it
 works, and compare it to <<loading-two-documents>>.
 
 [[loading-two-documents-with-include]]
-.Task and assigned person - single roundtrip
+.Order and company - single roundtrip
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    string taskId = Console.ReadLine();
+    string orderId = Console.ReadLine();
 
-    ToDoTask task = session
-              .Include<ToDoTask>(x => x.AssignedTo)             <1>
-              .Load(taskId);
+    Order order = session
+              .Include<Order>(x => x.Company)                       <1>
+              .Load(orderId);
     
-    Person assignedTo = session.Load<Person>(task.AssignedTo);  <2>
+    Company company = session.Load<Company>(order.Company);         <2>
 
     Console.WriteLine(
-      $"{task.Id} - {task.Task} by {assignedTo.Name}");
+      $"{order.Id} - due {order.RequireAt:d} for {company.Name}");
 
     // will print 1
-    Console.WriteLine(session.Advanced.NumberOfRequests);       <3>
+    Console.WriteLine(session.Advanced.NumberOfRequests);           <3>
 }
 ----
-<1> Including the document referred to by the `AssignedTo` property
+<1> Including the document referred to by the `Company` property
 <2> Loading the related document (no remote call required)
 <3> Printing the number of remote calls (only one, since we included the referenced value)
 
 The only difference between the two code listings is that in <<loading-two-documents-with-include>> we're calling to `Include` 
 before the `Load`. The `Include` method gives instructions to RavenDB: when it loads the document, it should look at the 
-`AssignedTo` property. If there's a document with the document ID that's stored in the `AssignedTo` property, it should send 
+`Company` property. If there's a document with the document ID that's stored in the `Company` property, it should send 
 it to the client immediately.
 
-However, we didn't change the type of the `task` variable. It remains a `ToDoTask`. So what exactly did this `Include` method 
+However, we didn't change the type of the `order` variable. It remains an `Order`. So what exactly did this `Include` method 
 do here? What happened is that the session got a reply from the server, saw that there are included documents, and put them
-in its `Identity Map`. When we request the `Person` instance that was assigned to this task, we already have that information
+in its `Identity Map`. When we request the `Company` instance referenced by this order, we already have that information
 in the session and can avoid going back to the server to fetch the same document we already have.
 
 The API is almost the same — and except for that call, everything else remains the same — but we managed to significantly cut
@@ -1040,14 +1056,14 @@ not recursive. This is quite intentional because allowing includes on included d
 both for the user to write and understand and for the server to execute. You _can_ actually do recursive includes in RavenDB, 
 but that feature is exposed differently (via the `declare function` mode, which we'll cover in Chapter 9).
 
-Using multiple `Include`s on the same operation, however, is just fine. Let's load a task, and with it we'll include both the
-assigned to person and the one who created the task. This can be done using the following snippet:
+Using multiple `Include`s on the same operation, however, is just fine. Let's load an order, and with it we'll include both the
+company that placed the order and the employee who handled it. This can be done using the following snippet:
 
-    ToDoTask task = session.Include<ToDoTask>(x => x.AssignedTo)
-                           .Include(x => x.CreatedBy)
-                           .Load(taskId);
+    Order order = session.Include<Order>(x => x.Company)
+                         .Include(x => x.Employee)
+                         .Load(orderId);
 
-Now I can load both the `AssignedTo` person and the `CreatedBy` one, and there's still only a single round trip to the server. 
+Now I can load both the `Company` and the `Employee`, and there's still only a single round trip to the server. 
 What about when both of them are pointing at the same document? RavenDB will return just a single copy of the document, even if
 it was included multiple times. On the session side of things, you'll get the same instance of the entity when you load it
 multiple times. 
@@ -1067,12 +1083,12 @@ about the kind of environment that RavenDB offers to make sense of the choices w
 Deleting a document is done through the appropriately named `Delete` method. This method can accept an entity instance or a
 document ID. The following are various ways to delete a document:
 
-    var task = session.Load<ToDoTask>("ToDoTasks/1-A");
-    session.Delete(task); // delete by instance
+    var order = session.Load<Order>("Orders/1-A");
+    session.Delete(order); // delete by instance
 
 And:
 
-    session.Delete("ToDoTasks/1-A"); // delete by ID
+    session.Delete("Orders/1-A"); // delete by ID
 
 It's important to note that calling `Delete` doesn't actually delete the document. It merely marks that document as deleted
 in the session. It's only when `SaveChanges` is called that the document will be deleted.
@@ -1099,11 +1115,11 @@ Part III, but for now you can see that most queries will _just work_ for you.
 The `Store` command is how you associate an entity with the session. Usually, this is done because you want to create a new
 document. We've already seen this method used several times in this chapter, but here's the relevant part:
 
-    var person = new Person
+    var company = new Company
     {
-        Name = "Oscar Arava"    
+        Name = "Alfreds Futterkiste"
     };
-    session.Store(person);
+    session.Store(company);
 
 Like the `Delete` command, `Store` will only save the document to the database when `SaveChanges` is called. However, 
 it will give the new entity an ID immediately, so you can refer to it in other documents that you'll save in the same batch. 
@@ -1211,29 +1227,30 @@ sync version.
 ----
 using (var session = documentStore.OpenAsyncSession())
 {
-    var person = new Person
+    var employee = new Employee
     {
-        Name = "Oscar Arava"
+        FirstName = "Anne",
+        LastName = "Dodsworth"
     };
-    await session.StoreAsync(person);
+    await session.StoreAsync(employee);
     await session.SaveChangesAsync();
 }
 
 using (var session = documentStore.OpenAsyncSession())
 {
-    var tasksPerDayQuery =
-        from t in session.Query<ToDoTask>()
-        group t by t.DueDate into g
+    var ordersByEmployee =
+        from o in session.Query<Order>()
+        group o by o.Employee into g
         select new
         {
-            DueDate = g.Key,
-            TasksPerDate = g.Count()
+            Employee = g.Key,
+            Count = g.Count()
         };
-    List<ToDoTask> tasksToDo = await tasksPerDayQuery.ToListAsync();
+    var results = await ordersByEmployee.ToListAsync();
 
-    foreach (var task in tasksToDo)
+    foreach (var item in results)
     {
-        Console.WriteLine($"{task.Id} - {task.Task} - {task.DueDate}");
+        Console.WriteLine($"{item.Employee} - {item.Count}");
     }
 
 }
@@ -1291,7 +1308,7 @@ In other cases, you can use an `Operation` to run something that doesn't make se
 let's say I wanted to delete all of the tasks in the database. I could do it with the following code:
 
     store.Operations.Send(new DeleteByQueryOperation(
-      new IndexQuery { Query = "from ToDoTasks" }
+      new IndexQuery { Query = "from Orders" }
     ));
 
 The reason that the tasks are exposed to the user is that the RavenDB API, at all levels, is built with the notion of layers. The
@@ -1303,7 +1320,7 @@ to.
 
 The document ID is a unique string that globally identifies a document inside a RavenDB database. A document ID can be any 
 UTF8 string up to 2025 bytes, although getting to those sizes is extremely rare. You've already seen document IDs used in
-this chapter — `people/1-A`, `ToDoTasks/4-A` and the like. Using a `Guid` like `92260D13-A032-4BCC-9D18-10749898AE1C`
+this chapter — `employees/1-A`, `Orders/4-A` and the like. Using a `Guid` like `92260D13-A032-4BCC-9D18-10749898AE1C`
 is possible but not recommended because it's opaque and hard to read/work with.
 
 By convention, we typically use the collection name as the prefix, a slash and then the actual unique portion of the key. But
@@ -1334,8 +1351,8 @@ few interesting scenarios that open up because of this feature, discussed later 
 
 .Human-readable document IDs
 ****
-Usually, we strongly recommend to have document IDs that are human-readable (`ToDoTasks/123-A`, 
-`people/oscar@arava.example`). We often use identifiers for many purposes. Debugging and troubleshooting are not the least
+Usually, we strongly recommend to have document IDs that are human-readable (`Orders/123-A`, 
+`companies/alfreds-futterkiste@example.com`). We often use identifiers for many purposes. Debugging and troubleshooting are not the least
 of those. 
 
 A simple way to generate IDs is to just generate a new `Guid`, such as `92260D13-A032-4BBC-9D18-10749898AE1C`. 
@@ -1353,49 +1370,49 @@ RavenDB uses to allow that.
 #### Semantic (external) document identifiers
 
 The most obvious way to get an identifier is to ask the user to generate it. This is typically done when you want an  
-identifier that's of some meaningful value. For example, `people/oscar@arava.example` or `accounts/591-192` are two document IDs 
-that the developer can choose. <<saving-new-person-with-external-id>> shows how you can provide an external identifier 
+identifier that's of some meaningful value. For example, `companies/alfreds-futterkiste@example.com` or `products/EXT-591-192` are two document IDs 
+that the developer can choose. <<saving-new-company-with-external-id>> shows how you can provide an external identifier 
 when creating documents.
 
-[[saving-new-person-with-external-id]]
-.Saving a new person with an externally defined document ID
+[[saving-new-company-with-external-id]]
+.Saving a new company with an externally defined document ID
 [source,csharp]
 ----
 using (var session = store.OpenSession())
 {
-    var person = new Person
+    var company = new Company
     {
-        Name = "Oscar Arava"
+        Name = "Alfreds Futterkiste"
     };
-    session.Store(person, "people/oscar@arava.example");
+    session.Store(company, "companies/alfreds-futterkiste@example.com");
     session.SaveChanges();
 }
 ----
 
-The `people/oscar@arava.example` example, which uses an email address in the document identifier, is a common technique to generate a 
+The `companies/alfreds-futterkiste@example.com` example, which uses an email address in the document identifier, is a common technique to generate a 
 human-readable document identifier that makes it easy to locate a document based on a user provided value (the email). While 
-the `accounts/591-192` example uses a unique key that's defined in another system. This is common if you're integrating with 
+the `products/EXT-591-192` example uses a unique key that's defined in another system. This is common if you're integrating with 
 existing systems or have an external feed of data into your database.
 
 #### Nested document identifiers
 
-A special case of external document naming is when we want to handle nested documents. Let's consider a financial system that
-needs to track accounts and transactions on those accounts. We have our account document `accounts/591-192`, but we 
-also have all the financial transactions concerning this account that we need to track. 
+A special case of external document naming is when we want to handle nested documents. Let's consider an e-commerce system that
+needs to track companies and their orders over time. We have our company document `companies/91-A`, but we 
+also have all the orders placed by this company that we need to track. 
 
 We'll discuss this exact scenario in the next chapter, where we'll talk about modeling, but for now I'll just say that it isn't
-practical to hold all the transactions directly inside the account document. So we need to put the transactions in separate documents. 
-We _could_ identify those documents using `transactions/1234-A`, `transactions/1235-A`, etc. It would work, but there are better ways. 
+practical to hold all the orders directly inside the company document. So we need to put the orders in separate documents. 
+We _could_ identify those documents using `orders/1234-A`, `orders/1235-A`, etc. It would work, but there are better ways. 
 
-We're going to store the transaction information on a per-day basis, using identifiers that embed both the owner account and the 
-time of the transactions: `accounts/591-192/txs/2017-05-27`. This document holds all the transactions for the `591-192` 
-account for May 27th, 2017. 
+We're going to store the order information on a per-month basis, using identifiers that embed both the company and the 
+time period: `companies/91-A/orders/2017-05`. This document holds all the orders for 
+company `91-A` for May 2017. 
 
 .RavenDB doesn't care about your document IDs
 ****
 RavenDB treats the document IDs as opaque values and doesn't attach any meaning to a document whose key is the prefix
-of other documents. In other words, as far as RavenDB is concerned, the only thing that `accounts/591-192` and 
-`accounts/591-192/txs/2017-05-17` have in common is that they're both documents.
+of other documents. In other words, as far as RavenDB is concerned, the only thing that `companies/91-A` and 
+`companies/91-A/orders/2017-05` have in common is that they're both documents.
 
 In practice, the document IDs are stored in a sorted fashion inside RavenDB, and it allows for efficient scanning of all
 documents with a particular prefix quite cheaply. But this is a secondary concern. What we're really trying to achieve here
@@ -1604,7 +1621,7 @@ far as the underlying storage is concerned. This method is well suited for large
 optimizations in its codepath. (We can be sure this is a new value, so we can skip a B+Tree lookup, which matters if you are
 doing that a _lot_.) 
 
-Semantic IDs (`people/oscar@arava.example` or `accounts/591-192/txs/2017-05-17`) tend to be unsorted, and sometimes that can 
+Semantic IDs (`companies/vinset-alcools@chevalier.example` or `companies/91-A/orders/2017-05`) tend to be unsorted, and sometimes that can 
 cause people to want to avoid them. But this is rarely a good reason to do so. RavenDB can easily handle a large 
 number of documents with semantic identifiers without any issue. 
 
@@ -1655,9 +1672,9 @@ code in <<modifying-metadata>>.
 ----
 using (var session = store.OpenSession())
 {
-    var task = session.Load<ToDoTask>("ToDoTasks/1-A");
-    var metadata = session.Advanced.GetMetadataFor(task);
-    metadata["Last-Modified-By"] = person.Name;
+    var order = session.Load<Order>("Orders/1-A");
+    var metadata = session.Advanced.GetMetadataFor(order);
+    metadata["Last-Modified-By"] = employee.LastName;
     session.SaveChanges();
 }
 ----
@@ -1851,13 +1868,6 @@ state setup before you start and they will be isolated from one another.
 ----
 public class BasicCrud : RavenTestDriver            <1>
 {
-    public class Play
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Author { get; set; }
-    }
-
     [Fact]
     public void CanSaveAndLoad()
     {
@@ -1866,21 +1876,22 @@ public class BasicCrud : RavenTestDriver            <1>
             string id;
             using (var session = store.OpenSession())
             {
-                var play = new Play
+                var product = new Product
                 {
-                    Author = "Shakespeare",
-                    Name = "As You Like It"
+                    Name = "Côte de Blaye",
+                    Category = "categories/1-A",
+                    Supplier = "suppliers/18-A"
                 };
-                session.Store(play);
-                id = play.Id;
+                session.Store(product);
+                id = product.Id;
                 session.SaveChanges();
             }
 
             using (var session = store.OpenSession())
             {
-                var play = session.Load<Play>(id);
-                Assert.Equal("Shakespeare", play.Author);
-                Assert.Equal("As You Like It", play.Name);
+                var product = session.Load<Product>(id);
+                Assert.Equal("Côte de Blaye", product.Name);
+                Assert.Equal("categories/1-A", product.Category);
             }
         }
     }

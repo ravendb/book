@@ -960,7 +960,7 @@ structure of the sample object you provideded, with the values being used as the
 obvious cases, but when you need to have better control over what is going on, you should switch to the JSON Schema. The RavenDB Studio has a button
 that you can use to go from the sample object to the JSON Schema, so you have a good starting place.
 
-You can also see an example of using JSON Schema directly in <<generative-ai-cv-schema>>.
+You can also see an example of using JSON Schema directly in <<generative-ai-supplier-schema>>.
 ====
 
 Under the covers, RavenDB uses a feature called Structured Outputs when talking to the AI model, sending a JSON Schema that constrains the model 
@@ -1773,14 +1773,14 @@ of synergy between Subscriptions and Generative AI tasks. Both of those are mean
 details of invoking an AI model on documents, while a Subscription give you a chance to process documents and run your code when they change. 
 Let's talk about a concrete example, so we can properly understand how it all play together. 
 
-.EPIC: Candidate submission handling with AI-driven routing
+.EPIC: Supplier application handling with AI-driven evaluation
 ****
-We want to automating the transition from unstructured CV uploads to intelligent candidate routing. The system will ingest applicant resumes and utilize 
-an LLM to map the data into a standardized schema. We'll then use semantic similarity search against opened job listings, the platform identifies 
+We want to automate the transition from unstructured product catalog uploads to intelligent supplier evaluation. The system will ingest supplier applications and utilize 
+an LLM to map the data into a standardized schema. We'll then use semantic similarity search against open product needs, the platform identifies 
 high-potential matches based on meaningful context rather than simple keywords.
 
-When a candidate’s profile matches a listing the system should forwards their details and CV to the HR team for immediate review. Conversely, if no suitable 
-match is found, the system triggers an automated, polite refusal email to the applicant. The idea is significantly reducing manual screening overhead.
+When a supplier’s profile matches a product need, the system should forward their details and catalog to the Procurement team for immediate review. Conversely, if no suitable 
+match is found, the system triggers an automated, polite decline email to the applicant. The idea is significantly reducing manual screening overhead.
 ****
 
 Looking at this Epic, that looks like a _big_ task, right? It turns out that we solve this sort of problem quite easily using Generative AI tasks
@@ -1788,50 +1788,50 @@ and Subscriptions.
 
 ____
 For this section, I'm going to mostly hand wave much of the techincal details. I'm assuming that showing off another `GenAiConfiguration` isn't 
-going to add much value. The key aspect that I want to focus on is how we compose multiple tasks and subscription to build this candidate submission 
+going to add much value. The key aspect that I want to focus on is how we compose multiple tasks and subscription to build this supplier application 
 handling pipeline.
 
 I _would_ recommend that you would try to implement the whole thing on your own, since it is a great excersize in making sure that you know how 
 everything fits together.
 ____
 
-I'm assuming that are data model is composed of the following:
+I'm assuming that our data model is composed of the following:
 
-* `CandidateSubmission` - holds the applicant's contact information, work history, and education extracted from the PDF and form fields. The document
-  also holds the actual PDF of the candidate's CV.
-* `JobListing` - holds the role's title, department, status (open / closed), and specific technical requirements used for matching.
+* `SupplierApplication` - holds the applicant's contact information, product capabilities, and certifications extracted from the PDF and form fields. The document
+  also holds the actual PDF of the supplier's product catalog.
+* `ProductNeed` - holds the product category, status (open / closed), and specific requirements used for matching.
 
-There is a form that allows the user to upload their CV (as a PDF) and fill out some basic information (name, email, phone, etc). 
-When the user submits the form, we create a `CandidateSubmission` document with the provided information and the PDF attachment.
-Similar to what you can see in <<candidate-profile-form>>.
+There is a form that allows the supplier to upload their product catalog (as a PDF) and fill out some basic information (company name, contact email, phone, etc). 
+When the supplier submits the form, we create a `SupplierApplication` document with the provided information and the PDF attachment.
+Similar to what you can see in <<supplier-application-form>>.
 
-[[candidate-profile-form]]
-.An example of the candidate sumbission form
+[[supplier-application-form]]
+.An example of the supplier application form
 image::./Ch08/img16.png[]
 
 Our first task is to create a Generative AI task that would process the submission and extract the relevant information from the PDF.
-We create a Generate AI task for that in <<generative-ai-cv-extraction>> in a way that should be familiar to you by now.
+We create a Generate AI task for that in <<generative-ai-catalog-extraction>> in a way that should be familiar to you by now.
 
-[[generative-ai-cv-extraction]]
-.Generative AI task to extract CV data from the candidate submission PDF
+[[generative-ai-catalog-extraction]]
+.Generative AI task to extract catalog data from the supplier application PDF
 [source,csharp]
 ----
-var cvExtractionTask = new GenAiConfiguration
+var catalogExtractionTask = new GenAiConfiguration
 {
-    Name = "Extract CV Data",
-    Identifier = "extract-cv-data",
+    Name = "Extract Supplier Data",
+    Identifier = "extract-supplier-data",
     ConnectionStringName = "OpenAI Generative",
-    Collection = "CandidateSubmissions",
+    Collection = "SupplierApplications",
     GenAiTransformation = new GenAiTransformation
     {
         Script = 
             """
-            const pdf = loadAttachment('cv.pdf');
-            if(!pdf) return; // not PDF, nothinhg to do
+            const pdf = loadAttachment('catalog.pdf');
+            if(!pdf) return; // no PDF, nothing to do
 
             const ctx = ai.genContext({
-                ProvidedName: this.Name,
-                ProvidedEmail: this.Email
+                ProvidedName: this.CompanyName,
+                ProvidedEmail: this.ContactEmail
             });
             
             ctx.withPdf(pdf);
@@ -1839,71 +1839,72 @@ var cvExtractionTask = new GenAiConfiguration
     },
     Prompt = 
         """
-        You are a specialized HR data extraction assistant. 
-        Your task is to analyze the attached PDF CV and extract the 
-        candidate's professional history into a structured format.
+        You are a specialized supplier data extraction assistant. 
+        Your task is to analyze the attached PDF product catalog and extract the 
+        supplier's capabilities into a structured format.
         Focus on accuracy and professional terminology.
         """,
-    JsonSchema = CandidateJsonSchema, // defined elsewhere
+    JsonSchema = SupplierJsonSchema, // defined elsewhere
     UpdateScript = "this.Extracted = $output;"
 };
 ----
 
-The code in <<generative-ai-cv-extraction>> is very similar to the stuff that we already saw. Note that instead of the usual `SampleObject` 
+The code in <<generative-ai-catalog-extraction>> is very similar to the stuff that we already saw. Note that instead of the usual `SampleObject` 
 that we always used previously, we are now using `JsonSchema` directly. This is because we want to have better control over what we ask
-from the model. You can see the actual schema that we are using in <<generative-ai-cv-schema>>.
+from the model. You can see the actual schema that we are using in <<generative-ai-supplier-schema>>.
 
-[[generative-ai-cv-schema]]
+[[generative-ai-supplier-schema]]
 .JSON Schema outlining the expected output from the model
 [source,json]
 ----
 {
-  "name": "candidate-response-schema",
+  "name": "supplier-response-schema",
   "strict": true,
   "schema": {
   "type": "object",
   "properties": {
-    "Personal": {
+    "CompanyInfo": {
     "type": "object",
-    "description": "Candidate contact info.",
+    "description": "Supplier contact info.",
     "properties": {
-      "Name": {"type": ["string", "null"], "description": "Full name"},
+      "CompanyName": {"type": ["string", "null"], "description": "Company name"},
+      "ContactName": {"type": ["string", "null"], "description": "Primary contact name"},
       "Email": {"type": ["string", "null"], "description": "Email"},
       "Phone": {"type": ["string", "null"], "description": "Phone"}
     },
-    "required": ["Name", "Email", "Phone"],
+    "required": ["CompanyName", "ContactName", "Email", "Phone"],
     "additionalProperties": false
     },
-    "WorkHistory": {
+    "ProductHistory": {
     "type": "array",
-    "description": "Work roles and experience.",
+    "description": "Products supplied and experience.",
     "items": {
       "type": "object",
       "properties": {
-      "Title": {"type": ["string", "null"], "description": "Job title"},
-      "Company": {"type": ["string", "null"], "description": "Company"},
-      "Dates": {"type": ["string", "null"], "description": "Start/End:YYYY-MM"}
+      "ProductType": {"type": ["string", "null"], "description": "Type of product supplied"},
+      "Volume": {"type": ["string", "null"], "description": "Typical annual volume"},
+      "Years": {"type": ["string", "null"], "description": "Years of experience"}
       },
-      "required": ["Title", "Company", "Dates"],
+      "required": ["ProductType", "Volume", "Years"],
       "additionalProperties": false
     }
     },
-    "Education": {
+    "Certifications": {
     "type": "array",
-    "description": "Degrees and certs.",
+    "description": "Quality and industry certifications.",
     "items": {
       "type": "object",
       "properties": {
-      "Degree": {"type": ["string", "null"], "description": "Degree/cert & school"},
-      "Year": {"type": ["string", "null"], "description": "Completion year"}
+      "Certification": {"type": ["string", "null"], "description": "Certification name & issuer"},
+      "Year": {"type": ["string", "null"], "description": "Year obtained"}
       },
-      "required": ["Degree", "Year"],
+      "required": ["Certification", "Year"],
       "additionalProperties": false
     }
     },
-    "Skills": {
+    "Capabilities": {
     "type": "array",
-    "description": "Skills",
+    "description": "Capabilities",
     "items": {"type": "string"}
     },
     "Summary": {
@@ -1911,13 +1912,13 @@ from the model. You can see the actual schema that we are using in <<generative-
     "description": "Summary"
     }
   },
-  "required": ["Personal", "WorkHistory", "Education", "Skills", "Summary"],
+  "required": ["CompanyInfo", "ProductHistory", "Certifications", "Capabilities", "Summary"],
   "additionalProperties": false
   }
 }
 ----
 
-The JSON Schema in <<generative-ai-cv-schema>> gives us a lot of control over what we expect from the model. We can define the types for each field,
+The JSON Schema in <<generative-ai-supplier-schema>> gives us a lot of control over what we expect from the model. We can define the types for each field,
 and more importantly, we provide a description for each field. That tells the model what it should expect in any of those, so it can fill those 
 details from the data it extracted from the PDF.
 
@@ -1925,49 +1926,49 @@ The JSON Schema format is meant to be consumed by an AI model, which means that 
 `additionalProperties` as `false`. Given how long this JSON schema is, you can probably guess why I generally prefer to use the `SampleObject` method
 instead of using the full blown schema.
 
-Once we have the `Extract CV Data` Generative AI task in place, we can let the task process any newly upload submission. The next step is to match the
-extracted CV data against the opened job listings. We can do that using another Generative AI task, as shown in <<generative-ai-cv-matching>>.
+Once we have the `Extract Supplier Data` Generative AI task in place, we can let the task process any newly upload submission. The next step is to match the
+extracted supplier data against the open product needs. We can do that using another Generative AI task, as shown in <<generative-ai-supplier-matching>>.
 
-[[generative-ai-cv-matching]] 
-.Generative AI task to match extracted CV data against opened job listings
+[[generative-ai-supplier-matching]] 
+.Generative AI task to match extracted supplier data against open product needs
 [source,csharp]
 ----
-var candidateEvaluationTask = new GenAiConfiguration
+var supplierEvaluationTask = new GenAiConfiguration
 {
-  Name = "Evaluate Candidate Match",
-  Identifier = "evaluate-candidate-match",
+  Name = "Evaluate Supplier Match",
+  Identifier = "evaluate-supplier-match",
   ConnectionStringName = "OpenAI Generative",
-  Collection = "CandidateSubmissions",
+  Collection = "SupplierApplications",
   GenAiTransformation = new GenAiTransformation
   {
     Script = 
       """
       const extracted = this.Extracted;
       if(!extracted) return;  // PDF not processed yet
-      extracted.Name = this.Name; // from form field
+      extracted.CompanyName = this.CompanyName; // from form field
       ai.genContext(extracted);
       """
   },
   Prompt = 
     """
-    Search for job listings using the candidate's extracted 
-    skills and summary. Compare the candidate against the results. 
+    Search for product needs using the supplier's extracted 
+    capabilities and summary. Compare the supplier against the results. 
     Provide a MatchFound status. If no matches exist, provide a 
     GlobalRejectionReason explaining the gaps.
 
-    Be strict in how you evaluate the candidate skills vs. the technical
-    requirements of the role.        
+    Be strict in how you evaluate the supplier capabilities vs. the
+    requirements of the product need.        
     """,
   SampleObject = 
     """
     {
       "MatchFound": true,
       "Evaluations": [{
-        "JobId": "Listing ID",
-        "Title": "Job Title",
+        "ProductNeedId": "ProductNeed ID",
+        "Category": "Product Category",
         "FitScore": "A | B | C | D | E | F",
-        "Reasoning": "Matches all required tech stacks.",
-        "Gaps": "No specific experience with legacy migrations."
+        "Reasoning": "Matches all required product specifications.",
+        "Gaps": "No specific experience with organic certification."
       }],
       "GlobalRejectionReason": "Detailed explanation if MatchFound is false."
     }
@@ -1976,11 +1977,11 @@ var candidateEvaluationTask = new GenAiConfiguration
   Queries = [
     new AiAgentToolQuery
     {
-      Name = "SearchJobListings",
-      Description = "Semantic search for open roles based on the role description.",
+      Name = "SearchProductNeeds",
+      Description = "Semantic search for open product needs based on the supplier's capabilities.",
       Query = 
         """
-        from "JobListings"
+        from "ProductNeeds"
         where Status == 'Open'
           and vector.search(embedding.text(Description), $q)
         order by OpenedAt desc
@@ -1988,63 +1989,63 @@ var candidateEvaluationTask = new GenAiConfiguration
         """,
       ParametersSampleObject = 
         """
-        { "q": "search terms for candidate profile" }
+        { "q": "search terms for supplier capabilities" }
         """
     }
   ]
 };
 ----
 
-The `Evaluate Candidate Match` Generative AI task in <<generative-ai-cv-matching>> uses the extracted CV data to search for opened job listings.
-It uses a query (`SearchJobListings`) to perform a vector search against the `JobListings` collection to find relevant roles. The model
-then evaluates the candidate against those listings and provides a match status along with detailed evaluations.
+The `Evaluate Supplier Match` Generative AI task in <<generative-ai-supplier-matching>> uses the extracted supplier data to search for open product needs.
+It uses a query (`SearchProductNeeds`) to perform a vector search against the `ProductNeeds` collection to find relevant needs. The model
+then evaluates the supplier against those needs and provides a match status along with detailed evaluations.
 
-That is actually a really interesting process, because we have _layers_ of AI interactions happening here. The `evaluate-candidate-match` 
-accepts the output of `extract-cv-data` to 
+That is actually a really interesting process, because we have _layers_ of AI interactions happening here. The `evaluate-supplier-match` 
+accepts the output of `extract-supplier-data` to 
 
-Note that both <<generative-ai-cv-matching>> and <<generative-ai-cv-extraction>> are defined to run on the `CandidateSubmissions` collection.
-The key is that <<generative-ai-cv-matching>> has a guard clause in its context extraction script, if the `Extracted` property doesn't exists,
-nothing will happen. That property is being generated by <<generative-ai-cv-extraction>>. In essence, we create a pipeline of Generative AI tasks, 
+Note that both <<generative-ai-supplier-matching>> and <<generative-ai-catalog-extraction>> are defined to run on the `SupplierApplications` collection.
+The key is that <<generative-ai-supplier-matching>> has a guard clause in its context extraction script, if the `Extracted` property doesn't exists,
+nothing will happen. That property is being generated by <<generative-ai-catalog-extraction>>. In essence, we create a pipeline of Generative AI tasks, 
 which will rely on the previous one to push things forward.
 
-The next stage is now to pull this data out of the database and into our Subscription. You can see the Subscription code in <<subscription-candidate-routing>>.
+The next stage is now to pull this data out of the database and into our Subscription. You can see the Subscription code in <<subscription-supplier-routing>>.
 
-[[subscription-candidate-routing]]
-.Subscription to route candidates based on evaluation results
+[[subscription-supplier-routing]]
+.Subscription to route suppliers based on evaluation results
 [source,csharp]
 ----
-const string SubscriptionName = "CandidateSubmissionsWithMatchResults";
+const string SubscriptionName = "SupplierApplicationsWithMatchResults";
 await store.Subscriptions.CreateAsync(new SubscriptionCreationOptions
 {
     Name = SubscriptionName
     Query = """
-            from CandidateSubmissions 
+            from SupplierApplications 
             where exists(MatchResults) and MatchResults != null
             """
 });
-var worker = store.Subscriptions.GetSubscriptionWorker<CandidateSubmission>(
+var worker = store.Subscriptions.GetSubscriptionWorker<SupplierApplication>(
                                     SubscriptionName);    
 await worker.Run(async batch =>
 {
     foreach (var item in batch.Items)
     {
-        var submission = item.Result;
-        var candidateName = submission.Extracted.Personal.Name;
-        if (submission.MatchResults.MatchFound is false)
+        var application = item.Result;
+        var companyName = application.Extracted.CompanyInfo.CompanyName;
+        if (application.MatchResults.MatchFound is false)
         {
-            SendEmail(submission.Extracted.Personal.Email,
-                $"Update on Your Application",
+            SendEmail(application.Extracted.CompanyInfo.Email,
+                $"Update on Your Supplier Application",
                 $"""
-                Dear {candidateName}, ...
+                Dear {companyName}, ...
                 """);
         }
         else
         {
-            SendEmail("hr@example.com", 
-                $"Action Required: Review Candidate {candidateName} for Open Positions",
+            SendEmail("procurement@northwind.com", 
+                $"Action Required: Review Supplier {companyName} for Open Product Needs",
                 $"""
-                Dear HR Team,
-                A new candidate has been evaluated for the following positions:
+                Dear Procurement Team,
+                A new supplier has been evaluated for the following product needs:
                 ...
                 """);
         }
@@ -2052,38 +2053,38 @@ await worker.Run(async batch =>
 });
 ----
 
-<<subscription-candidate-routing>> isn't doing much, it is reacting to the updates from the `evaluate-candidate-match`, which itself
-is reacting to the parsed data from the PDF's CV that we processed using `extract-cv-data`.
+<<subscription-supplier-routing>> isn't doing much, it is reacting to the updates from the `evaluate-supplier-match`, which itself
+is reacting to the parsed data from the PDF's catalog that we processed using `extract-supplier-data`.
 
 The actual full code for this entire process is under 600 lines of code (including the code to import data, define relevant classes, 
 etc). You can find it in the https://gist.github.com/ayende/ab74c527c6db21a76bbe9be850bd9a39[the following GitHub gist]. You need to 
-define a database named `Resumes`, create an AI Connection string for Chat named `Resume AI` and download the 
-https://www.kaggle.com/datasets/shivani12sharma/resume-dataset-new[resume dataset] for the PDF files.
+define a database named `SupplierOnboarding`, create an AI Connection string for Chat named `Supplier AI` and download the 
+sample supplier catalog dataset for the PDF files.
 
-The output of <<subscription-candidate-routing>> is something like the following:
+The output of <<subscription-supplier-routing>> is something like the following:
 
 ____
-Subject: Review Candidate Anmisha M. for Open Positions
+Subject: Review Supplier Acme Foods Ltd. for Open Product Needs
 
-Dear HR Team,
+Dear Procurement Team,
 
-A new candidate has been evaluated and shows potential matches for open positions.
+A new supplier has been evaluated and shows potential matches for open product needs.
 Please review the following details and take appropriate action:
 
-Candidate Name: Anmisha M.
+Supplier Name: Acme Foods Ltd.
 
-Candidate Email: `a....@gmail.com`
+Contact Email: `c....@acmefoods.com`
 
-Submission ID: `CandidateSubmissions/12-A`
+Application ID: `SupplierApplications/12-A`
 
 Evaluation Reasons: 
 
-* Data Scientist: Candidate has skills in Python, Machine Learning, and Statistics which match all required technical requirements for this role.
+* Organic Dairy: Supplier has capabilities in organic dairy production, cold chain logistics, and FDA compliance which match all required specifications for this product need.
 * ... redacted ... - Rest of the email with more details
 ____
 
-The entire process is fully automated. A candidate uploads their CV, the system extracts the relevant information, evaluates it against opened
-job listings, and routes the candidate details to the HR team or sends a polite refusal email to the candidate. All of that is done using a combination 
+The entire process is fully automated. A supplier uploads their product catalog, the system extracts the relevant information, evaluates it against open
+product needs, and routes the supplier details to the Procurement team or sends a polite decline email to the supplier. All of that is done using a combination 
 of Generative AI tasks and a Subscription to handle the final routing logic.
 
 That last part is a very important consideration. We aren't trying to do the whole thing as a single AI driven process. Instead, we broke it apart
@@ -2092,7 +2093,7 @@ AI tasks, we can now use _different_ models for each aspect.
 
 The full sample in the GitHub gist mentioned earlier, for example, was tested using `gpt-4.1-mini` for both 
 tasks, but I may specialize as my needs grow. For example, as of early 2026, I may decide that for PDF extraction the best option is self hosted `Qwen2.5-VL-72B`, 
-but evaluating the candidates is something better done by `Claude 3.7 Sonnet`. With RavenDB, I can make those decisions easily enough, without any impact on the 
+but evaluating the suppliers is something better done by `Claude 3.7 Sonnet`. With RavenDB, I can make those decisions easily enough, without any impact on the 
 overall architecture.
 
 We aren't done talking about AI. Up until now, we covered stuff that happens in the background, going to the model _once_. In the next section, we are going
@@ -2202,7 +2203,7 @@ model, and asking it a question such as "Who won the World Cup?" would result in
 this text, there should be a different answer.footnote:[Hopefully, the right answer would be: "Argentina, 2026".]
 
 The problem from our perpective is that using such an agent for generic knwoledge isn't really a good use of our time. We want the
-agent to be _relevant_ for our scenario. In <<generative-ai-cv-matching>>, we matched candidates CV to job listing, we did that by
+agent to be _relevant_ for our scenario. In <<generative-ai-supplier-matching>>, we matched supplier capabilities to product needs, we did that by
 wiring the Generative AI task directly into our database. In order to create useful AI Agents, we need to be able the same. 
 
 Let's start from adding product search capability to this AI Agent. We did something similar in <<generative-ai-products-rec-queries>> 

@@ -86,13 +86,13 @@ and then we'll discuss _why_ this is useful. Let's see how to set the `@refresh`
 ----
 using (var session = store.OpenSession())
 {
-    Survey survey = new Survey
+    PostPurchaseSurvey survey = new PostPurchaseSurvey
     {
-        Title = "Customer Satisfaction",
+        Title = "Order Satisfaction",
         Questions =
         [
-            "How satisfied are you with our product?",
-            "How likely are you to recommend our product to others?"
+            "How satisfied are you with your order?",
+            "How likely are you to recommend our store to others?"
         ]
     };
     session.Store(survey);
@@ -102,21 +102,21 @@ using (var session = store.OpenSession())
     session.SaveChanges();
 }
 ----
-<1> Get the metadata for the newly stored survey document.
+<1> Get the metadata for the newly stored post-purchase survey document.
 <2> Refresh uses UTC date in ISO 8601 format (`yyyy-MM-ddTHH:mm:ss.fffffffZ`).
 <3> Set the `@refresh` metadata field to the desired refresh date.
 
-Running the code in <<set-document-refresh>> will create a `Survey` document that will be refreshed in 3 days. You can see how that document will look in the Studio 
+Running the code in <<set-document-refresh>> will create a `PostPurchaseSurvey` document that will be refreshed in 3 days. You can see how that document will look in the Studio 
 in <<refresh-doc-studio>>.
 
 [[refresh-doc-studio]]
-.A survey document with the @refresh metadata field set
+.A post-purchase survey document with the @refresh metadata field set
 image::./Ch06/img03.png[]
 
 After 3 days pass, RavenDB will automatically update the document to remove the `@refresh` metadata field, as shown in <<refreshed-doc-studio>>.
 
 [[refreshed-doc-studio]]
-.The survey document after being refreshed
+.The post-purchase survey document after being refreshed
 image::./Ch06/img04.png[]
 
 Note that in <<refreshed-doc-studio>>, the document is otherwise unchanged. Only the `@refresh` metadata field was removed.
