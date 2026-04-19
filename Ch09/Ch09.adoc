@@ -76,18 +76,18 @@ truly need it can pay the extra cost of a cluster-wide consensus round trip. You
 business value of each operation, not as a one-size-fits-all architectural decision.
 ****
 
-However, if a majority of the nodes aren't available, we can't proceed. This is pretty much par for the course for consensus
-algorithms. Another issue with consensus algorithms is that they incur additional network round trips for each operation.
+The cluster layer uses consensus, so if a majority of the nodes aren't available, cluster-wide operations can't proceed.
+Another issue with consensus algorithms is that they incur additional network round trips for each operation.
 For cluster maintenance and the configuration of databases, RavenDB uses the Raft consensus protocol. The RavenDB
 implementation of Raft is codenamed Rachis.footnote:[Rachis is the central shaft of pennaceous feathers.]
 
-Databases, on the other hand, are treated quite differently. Each node in the cluster has a full copy of the topology,
-which specifies which nodes host which databases. That information is managed by Rachis, but each node is able to act
-upon it independently.
+Databases operations, on the other hand, are treated quite differently by RavenDB. Each node in the cluster has a full 
+copy of the topology, which specifies which nodes host which databases. That information is managed by Rachis, but each 
+node is able to act upon it independently.
 
 The connections between the databases in different nodes do not go through Rachis or any other consensus protocol. Instead,
 they're direct connections among the various nodes that hold a particular database, and they form a multi-master mesh.
-A write to any of those nodes will be automatically replicated to all the other nodes.
+A write to any of those nodes will be automatically (and asynchronously) replicated to all the other nodes.
 
 This design results in a robust system. First, you define your cluster, distribute your databases among the nodes,
 assign work, etc. Once the cluster is set up, each database instance on the various nodes is independent. That means it can
@@ -298,6 +298,11 @@ However, a closer look at those operations will show you that they're typically 
 
 Normal read/write/query operations from each database instance will proceed normally, and your applications should failover automatically and immediately. On the other hand, background operations, such as subscriptions or ETL, won't be able
 to proceed until the cluster is back up, which requires a majority of the nodes to be able to talk to one another.
+
+Cluster-wide transactions are also unavailable when the cluster is down. 
+The entire _point_ of a cluster-wide transaction is to prefer consistency over availability, and that guarantee is only meaningful when a majority of the nodes can participate in the consensus.
+If you need writes to go through regardless of the cluster state, use normal (database-level) transactions,
+they'll keep working as long as at least one node is up & running.
 ****
 
 Remember when I mentioned that running with two nodes in a cluster is strange? That's because any single node going down will

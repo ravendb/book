@@ -21,6 +21,8 @@ Tasks Todos:
 - [ ] img16.png - "An example of the supplier application form"
       Was: HR/Candidate resume submission form. Now: Supplier Application with product catalog
 
+#### Ch09 - all images
+
 ## IMAGES - Need Verification (check actual image content)
 -----------------------------------------------------------
 
