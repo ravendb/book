@@ -61,8 +61,19 @@ to take different design directions to handle this issue.
 
 RavenDB has opted to be CP and AP. That isn't quite as impossible as it sounds. It's just that it isn't trying to be
 CP and AP on the same layer. With RavenDB, the cluster layer is CP (it's always consistent but may not be available
-in the presence of a partition), but the database layer is AP (it's always available, even if there's a partition, but
-it's eventually consistent).
+in the presence of a partition), but the database layer is AP by default (it's always available, even if there's a partition, but
+it's eventually consistent). However, you can opt into CP behavior at the database layer on a per-transaction basis using
+cluster-wide transactions.
+
+What makes this particularly powerful is that RavenDB lets you choose, on a _per-transaction_ basis, which tradeoff you
+want. Normal writes go through the AP database layer -- they're fast, always available and eventually consistent. But when
+you have a high-value operation that demands consistency (such as ensuring a unique constraint or coordinating critical state),
+you can use a cluster-wide transaction and get the CP guarantees of the cluster layer for that specific operation.
+
+This means you don't have to make a single, global decision about consistency vs. availability for your entire application.
+The vast majority of your operations can enjoy the speed and availability of the AP layer, while the few operations that
+truly need it can pay the extra cost of a cluster-wide consensus round trip. You get to make that choice based on the
+business value of each operation, not as a one-size-fits-all architectural decision.
 ****
 
 However, if a majority of the nodes aren't available, we can't proceed. This is pretty much par for the course for consensus
@@ -723,6 +734,13 @@ isolated, independent and coherent tenets, which usually means you don't _need_ 
 
 A lot of RavenDB features use the "pay to play" model, meaning if you aren't using a specific feature, you don't need to pay the performance
 cost of supporting it.
+
+A third option, which we already explored in <<document-crud>>, is to use cluster-wide transactions. By opening a session with
+`TransactionMode.ClusterWide`, the entire transaction goes through the Raft consensus protocol, ensuring that either all changes are
+accepted by the cluster or none are. This gives you the strongest guarantee -- full ACID across the cluster -- but at the cost of
+requiring a majority of nodes to be available and additional latency for the consensus round trips. Cluster-wide transactions are
+best reserved for cases where you absolutely must have consistency across the cluster, such as ensuring unique constraints or
+coordinating state that cannot tolerate conflicts.
 
 #### Change vectors
 
