@@ -34,7 +34,7 @@ if ($Force -or -not (Test-Path -LiteralPath $fopubRoot)) {
 }
 
 # Fix remote imports in DocBook XSL customizations (source repo)
-$srcXslDir = Join-Path $fopubRoot "src\dist\docbook-xsl"
+$srcXslDir = Join-Path $fopubRoot "src/dist/docbook-xsl"
 Replace-InFile (Join-Path $srcXslDir "highlight.xsl") (@{
     "http://docbook.sourceforge.net/release/xsl/current/highlighting/common.xsl" = "../docbook/highlighting/common.xsl"
 })
@@ -46,13 +46,14 @@ Replace-InFile (Join-Path $srcXslDir "xhtml.xsl") (@{
 })
 
 # Build fopub if not already built
-$fopubBuildDir = Join-Path $fopubRoot "build\fopub"
+$fopubBuildDir = Join-Path $fopubRoot "build/fopub"
 if ($Force -or -not (Test-Path -LiteralPath $fopubBuildDir)) {
     Write-Host "Building asciidoctor-fopub (requires JDK)..." -ForegroundColor Yellow
-    $gradlewBat = Join-Path $fopubRoot "gradlew.bat"
-    if (-not (Test-Path -LiteralPath $gradlewBat)) {
-        throw "gradlew.bat not found in $fopubRoot."
+    $gradleScript = if ($IsWindows) { Join-Path $fopubRoot "gradlew.bat" } else { Join-Path $fopubRoot "gradlew" }
+    if (-not (Test-Path -LiteralPath $gradleScript)) {
+        throw "gradlew script not found in $fopubRoot."
     }
+    if (-not $IsWindows) { & chmod +x $gradleScript }
     
     # Check if javac is available
     $javacAvailable = $null -ne (Get-Command javac -ErrorAction SilentlyContinue)
@@ -62,7 +63,7 @@ if ($Force -or -not (Test-Path -LiteralPath $fopubBuildDir)) {
         # Run gradle extraction tasks (doesn't require javac, only JRE)
         Push-Location $fopubRoot
         try {
-            & .\gradlew.bat extractDocbookXml extractDocbookXsl --no-daemon 2>&1 | Write-Output
+            & $gradleScript extractDocbookXml extractDocbookXsl --no-daemon 2>&1 | Write-Output
         } finally {
             Pop-Location
         }
@@ -85,10 +86,10 @@ if ($Force -or -not (Test-Path -LiteralPath $fopubBuildDir)) {
         Ensure-Directory $minimalFopubLib
         
         # Copy FOP jars to expected location
-        Get-ChildItem -Path (Join-Path $fopDir "lib\*.jar") | ForEach-Object {
+        Get-ChildItem -Path (Join-Path $fopDir "lib/*.jar") | ForEach-Object {
             Copy-Item $_.FullName -Destination $minimalFopubLib -Force
         }
-        Get-ChildItem -Path (Join-Path $fopDir "build\*.jar") | ForEach-Object {
+        Get-ChildItem -Path (Join-Path $fopDir "build/*.jar") | ForEach-Object {
             Copy-Item $_.FullName -Destination $minimalFopubLib -Force
         }
         
@@ -112,14 +113,14 @@ if ($Force -or -not (Test-Path -LiteralPath $fopubBuildDir)) {
         }
         
         # Copy docbook resources from source
-        $docbookXslSrc = Join-Path $fopubRoot "src\dist\docbook-xsl"
+        $docbookXslSrc = Join-Path $fopubRoot "src/dist/docbook-xsl"
         $docbookXslDest = Join-Path $fopubBuildDir "docbook-xsl"
         if (-not (Test-Path -LiteralPath $docbookXslDest)) {
             Copy-Item $docbookXslSrc -Destination $docbookXslDest -Recurse -Force
         }
         
         # Extract and copy docbook resources
-        $buildUnpackedDir = Join-Path $fopubRoot "build\unpacked"
+        $buildUnpackedDir = Join-Path $fopubRoot "build/unpacked"
         if (Test-Path -LiteralPath $buildUnpackedDir) {
             # Copy entire unpacked docbook directory
             $unpackedDocbook = Join-Path $buildUnpackedDir "docbook"
@@ -135,7 +136,7 @@ if ($Force -or -not (Test-Path -LiteralPath $fopubBuildDir)) {
     } else {
         Push-Location $fopubRoot
         try {
-            & .\gradlew.bat installDist --no-daemon 2>&1 | Write-Output
+            & $gradleScript installDist --no-daemon 2>&1 | Write-Output
             if ($LASTEXITCODE -ne 0) {
                 throw "Gradle build failed."
             }
@@ -173,19 +174,11 @@ if ($Force -or -not (Test-Path -LiteralPath $libMono)) {
     try {
         tar -xzf $tarGz
         # Copy all Liberation font variants (regular, bold, italic, bold-italic)
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Regular.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Bold.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-Italic.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationMono-BoldItalic.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Regular.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Bold.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-Italic.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSerif-BoldItalic.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Regular.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Bold.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-Italic.ttf") -Destination $fontsDir -Force
-        Copy-Item (Join-Path $root "liberation-fonts-ttf-2.1.5\LiberationSans-BoldItalic.ttf") -Destination $fontsDir -Force
-        Remove-Item (Join-Path $root "liberation-fonts-ttf-2.1.5") -Recurse -Force
+        $fontRoot = Join-Path $root "liberation-fonts-ttf-2.1.5"
+        Get-ChildItem -Path $fontRoot -Filter "*.ttf" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $fontsDir -Force
+        }
+        Remove-Item $fontRoot -Recurse -Force
     } catch {
         Write-Warning "Extraction of tar.gz failed. Ensure 'tar' is available, or place Liberation fonts into $fontsDir manually."
     } finally {
@@ -215,7 +208,12 @@ if ($Force -or -not (Test-Path -LiteralPath $fopConf)) {
         throw "fop.xconf.template not found at $fopConfTemplate"
     }
     
-    $fontsDirUri = "file:///" + ((Resolve-Path $fontsDir).Path -replace "\\","/")
+    $resolvedFontsDir = (Resolve-Path $fontsDir).Path -replace "\\","/"
+    if ($IsWindows) {
+        $fontsDirUri = "file:///" + $resolvedFontsDir
+    } else {
+        $fontsDirUri = "file://" + $resolvedFontsDir
+    }
     $fopConfContent = (Get-Content -LiteralPath $fopConfTemplate -Raw) -replace "{{FONTS_DIR_URI}}", $fontsDirUri
     Set-Content -LiteralPath $fopConf -Value $fopConfContent -Encoding UTF8
     Write-Host "Generated fop.xconf from template" -ForegroundColor Yellow
